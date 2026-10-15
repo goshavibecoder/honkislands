@@ -1,4 +1,3 @@
-import {mountMapBridges} from './map-bridges.js?v=15';
 const $=id=>document.getElementById(id),map=$('map'),world=$('world'),transition=$('transition');
 let viewer,activeWorld=null,busy=false,lastButton=null,epoch=0;
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -22,4 +21,5 @@ window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!world.hidden&&!busy)
 document.addEventListener('visibilitychange',()=>viewer?.setActive(!document.hidden&&!world.hidden&&!busy));
 window.addEventListener('pagehide',()=>viewer?.setActive(false));
 
-mountMapBridges(document.querySelector('.islands'));
+
+
