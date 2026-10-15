@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+ <meta name="theme-color" content="#a7dafa"><meta name="description" content="Шесть парящих островов Clownworld. Выберите остров и отправляйтесь гулять по его 3D-миру.">
+ <title>Clownworld</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='54' font-size='54'%3E🌈%3C/text%3E%3C/svg%3E">
+ <link rel="preload" as="image" href="./assets/rainbow-3.webp"><link rel="stylesheet" href="./style.css?v=5">
+ <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/"}}</script>
+</head>
+<body>
+ <div id="sky" aria-hidden="true"></div>
+ <main id="map" aria-label="Карта островов Clownworld">
+  <div class="sky-haze" aria-hidden="true"></div>
+  <div class="islands">
+   <button class="island" data-world="citadel" style="--x:27%;--y:10%;--delay:-1s;--size:43%" aria-label="Цитадель — войти в замок"><img src="./assets/citadel.webp" alt="" fetchpriority="high" draggable="false"></button>
+   <button class="island" data-world="carnival" style="--x:73%;--y:26%;--delay:-3s;--size:56%" aria-label="Карнавал — войти в галерею мемов"><img src="./assets/carnival.webp" alt="" fetchpriority="high" draggable="false"></button>
+   <button class="island" data-world="arena" style="--x:27%;--y:42%;--delay:-5s;--size:55%" aria-label="Арена — войти в колизей"><img src="./assets/arena.webp" alt="" draggable="false"></button>
+   <button class="island" data-world="arcade-district" style="--x:73%;--y:58%;--delay:-2s;--size:55%" aria-label="Аркада — войти в игровой зал"><img src="./assets/arcade-district.webp" alt="" draggable="false"></button>
+   <button class="island" data-world="goat-mountain" style="--x:27%;--y:74%;--delay:-4s;--size:55%" aria-label="Гора козла — подняться на вершину"><img src="./assets/goat-mountain.webp" alt="" draggable="false"></button>
+   <button class="island" data-world="honkhub" style="--x:73%;--y:90%;--delay:-6s;--size:54%" aria-label="HonkHub — войти в мастерскую"><img src="./assets/honkhub.webp" alt="" draggable="false"></button>
+  </div>
+ </main>
+ <section id="world" hidden aria-label="3D-пространство">
+  <div id="viewport" aria-label="Перетаскивайте, чтобы оглядеться" tabindex="0"></div>
+  <button id="back" class="glass back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6M8 12h12"/></svg>Назад к карте</button>
+  <div class="view-switch glass" role="group" aria-label="Режим просмотра"><button id="walk" aria-pressed="true">Гулять</button><button id="orbit" aria-pressed="false">Обзор</button></div>
+  <button id="reset" class="glass reset" aria-label="Вернуться ко входу" title="Вернуться ко входу"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></svg></button>
+  <div id="walk-controls"><div id="joystick" role="group" aria-label="Джойстик движения"><span class="joy-arrows" aria-hidden="true">⌃</span><span id="knob"></span></div><div id="move-buttons" aria-label="Движение"><button data-move="forward" aria-label="Вперёд">↑</button><div><button data-move="left" aria-label="Влево">←</button><button data-move="back" aria-label="Назад">↓</button><button data-move="right" aria-label="Вправо">→</button></div></div></div>
+  <p id="hint" class="glass">Слева — движение · Проведите по экрану, чтобы оглядеться</p>
+  <div class="reticle" aria-hidden="true"></div>
+ </section>
+ <div id="transition" aria-hidden="true"><div class="cloud-slab" style="--row:0"></div><div class="cloud-slab" style="--row:1"></div><div class="cloud-slab" style="--row:2"></div><div class="cloud-slab" style="--row:3"></div><div class="cloud-slab" style="--row:4"></div><div class="cloud-slab" style="--row:5"></div><div id="loading" role="status"><span class="spinner"></span><p id="load-label">Летим на остров…</p><div class="progress-track"><div id="progress"></div></div></div></div>
+ <div id="error" class="error-card glass" hidden><p id="error-message"></p><button id="retry" class="glass">Попробовать ещё</button><button id="error-back">Назад к карте</button></div>
+ <script type="module" src="./app.js?v=5"></script>
+</body></html>
