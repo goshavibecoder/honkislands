@@ -4,6 +4,7 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
+import {createWorldTargets} from './world-links.js?v=10';
 import {prepareTrophy} from './trophy.js?v=8';
 import {attachTapGesture} from './tap-gesture.js?v=7';
 import { createTouchStick } from './touch-stick.js?v=6';
@@ -31,7 +32,7 @@ export class IslandViewer {
   const bytes=new Uint8Array(payloads.reduce((n,a)=>n+a.length,0));let offset=0;for(const a of payloads){bytes.set(a,offset);offset+=a.length}
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Открываем 3D-мир…');
-  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?prepareTrophy(this.root,this.environment):null;
+  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?prepareTrophy(this.root,this.environment):createWorldTargets(this.root,slug);
   // Bake static geometry into material batches. Animated nodes remain attached
   // to their original hierarchy, so original animation tracks still work.
   const animated=new Set();for(const clip of gltf.animations)for(const track of clip.tracks){try{const name=THREE.PropertyBinding.parseTrackName(track.name).nodeName;const node=this.root.getObjectByName(name);node?.traverse(o=>animated.add(o.uuid))}catch{}}
@@ -78,7 +79,7 @@ export class IslandViewer {
  gameAt(clientX,clientY){
   if(!this.active||!this.arcadeTargets)return null;
   const r=this.renderer.domElement.getBoundingClientRect();const point=new THREE.Vector2((clientX-r.left)/r.width*2-1,-(clientY-r.top)/r.height*2+1);
-  return this.arcadeTargets.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean),this.mode==='walk'?12:Infinity);
+  return this.arcadeTargets.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean),this.mode==='walk'&&this.slug!=='goat-mountain'?12:Infinity);
  }
  launchGame(clientX,clientY){
   if(Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size)return;
@@ -88,7 +89,7 @@ export class IslandViewer {
  }
  bindInput(){
   const canvas=this.renderer.domElement;canvas.style.touchAction='none';
-  let lastHover=0;this.gameTaps=attachTapGesture(canvas,(x,y)=>this.launchGame(x,y),{enabled:()=>this.active&&!!this.arcadeTargets,onHover:(x,y)=>{const now=performance.now();if(now-lastHover<100)return;lastHover=now;const game=this.gameAt(x,y);canvas.style.cursor=game?'pointer':'';canvas.title=game?'Открыть '+game.title+' в Telegram':''}});
+  let lastHover=0;this.gameTaps=attachTapGesture(canvas,(x,y)=>this.launchGame(x,y),{enabled:()=>this.active&&!!this.arcadeTargets,onHover:(x,y)=>{const now=performance.now();if(now-lastHover<100)return;lastHover=now;const game=this.gameAt(x,y);canvas.style.cursor=game?'pointer':'';canvas.title=game?'Открыть '+game.title:''}});
   this.host.addEventListener('keydown',e=>{if(e.key==='Enter'&&this.active&&this.arcadeTargets){const r=canvas.getBoundingClientRect();e.preventDefault();this.launchGame(r.left+r.width/2,r.top+r.height/2)}});
   canvas.addEventListener('pointerdown',e=>{if(!this.active||this.mode!=='walk')return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
   canvas.addEventListener('pointermove',e=>{if(!this.drag||e.pointerId!==this.drag.id||this.mode!=='walk')return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=clamp(this.pitch-(e.clientY-this.drag.y)*.003,-1.35,1.35);this.drag.x=e.clientX;this.drag.y=e.clientY});
