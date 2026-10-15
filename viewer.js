@@ -4,7 +4,9 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
-import {WalkPhysics,createGalleryCollision,createStairNavigation,createFloorIndex} from './walk-physics.js?v=12';
+import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=12';
+import {clearStairCorridors} from './stair-corridors.js?v=16';
+import {rebuildMountainStairs} from './mountain-stairs.js?v=16';
 import {createWorldTargets} from './world-links.js?v=10';
 import {prepareTrophy} from './trophy.js?v=8';
 import {attachTapGesture} from './tap-gesture.js?v=7';
@@ -34,7 +36,7 @@ export class IslandViewer {
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Открываем 3D-мир…');
   const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?prepareTrophy(this.root,this.environment):createWorldTargets(this.root,slug);
-  this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):null;this.stairNav=slug==='goat-mountain'?createStairNavigation(this.root):null;
+  this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):null;this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root):null;
   // Bake static geometry into material batches. Animated nodes remain attached
   // to their original hierarchy, so original animation tracks still work.
   const animated=new Set();for(const clip of gltf.animations)for(const track of clip.tracks){try{const name=THREE.PropertyBinding.parseTrackName(track.name).nodeName;const node=this.root.getObjectByName(name);node?.traverse(o=>animated.add(o.uuid))}catch{}}
@@ -53,7 +55,7 @@ export class IslandViewer {
   }
   const originalGeometries=new Set();for(const o of remove){if(o.geometry)originalGeometries.add(o.geometry);o.removeFromParent()}const retainedGeometries=new Set();this.root.traverse(o=>{if(o.geometry)retainedGeometries.add(o.geometry)});for(const g of originalGeometries)if(!retainedGeometries.has(g))g.dispose();this.scene.add(this.root,this.staticGroup);
   this.mixers=[];if(gltf.animations.length){const mixer=new THREE.AnimationMixer(this.root);for(const clip of gltf.animations)mixer.clipAction(clip).play();this.mixers.push(mixer)}
-  const navBytes=await this.fetchBinary(`./models/${slug}.nav.bin?v=9`);const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.BufferAttribute(new Float32Array(navBytes.buffer,navBytes.byteOffset,navBytes.byteLength/4),3));ng.computeBoundingSphere();this.nav=new THREE.Mesh(ng,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));this.nav.updateMatrixWorld();
+  const navBytes=await this.fetchBinary(`./models/${slug}.nav.bin?v=9`);const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.BufferAttribute(new Float32Array(navBytes.buffer,navBytes.byteOffset,navBytes.byteLength/4),3));ng.computeBoundingSphere();this.nav=new THREE.Mesh(ng,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));this.nav.updateMatrixWorld();if(this.stairNav)clearStairCorridors(this.nav,this.stairNav.userData.corridors,true);
   this.boxes=this.manifest.collisionBoxes.map(([lo,hi])=>new THREE.Box3(new THREE.Vector3(...lo),new THREE.Vector3(...hi)));this.bounds=new THREE.Box3(new THREE.Vector3(...this.manifest.bounds[0]),new THREE.Vector3(...this.manifest.bounds[1]));
   this.floorIndex=['carnival','goat-mountain'].includes(slug)?createFloorIndex(this.nav):null;
   this.physics=['carnival','goat-mountain'].includes(slug)?new WalkPhysics({floorAt:(...args)=>this.floorAt(...args),canStand:(...args)=>this.canStand(...args),eye:this.config.eye,collision:this.walkCollision}):null;
@@ -72,7 +74,7 @@ export class IslandViewer {
  floorAt(x,z,top,far=2){
   this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;
   let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObject(this.nav,false)[0]?.point.y??null;
-  if(this.stairNav){const stair=this.navRay.intersectObject(this.stairNav,false)[0];if(stair&&(floor===null||stair.point.y>=floor-.25))floor=stair.point.y}
+  if(this.stairNav){const stair=this.navRay.intersectObject(this.stairNav,false)[0];if(stair)floor=stair.point.y}
   return floor;
  }
  canStand(x,z,floor){const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
