@@ -3,6 +3,8 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
+import {createArcadeTargets} from './arcade-links.js?v=7';
+import {attachTapGesture} from './tap-gesture.js?v=7';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
@@ -28,7 +30,7 @@ export class IslandViewer {
   const bytes=new Uint8Array(payloads.reduce((n,a)=>n+a.length,0));let offset=0;for(const a of payloads){bytes.set(a,offset);offset+=a.length}
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Открываем 3D-мир…');
-  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);
+  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):null;
   // Bake static geometry into material batches. Animated nodes remain attached
   // to their original hierarchy, so original animation tracks still work.
   const animated=new Set();for(const clip of gltf.animations)for(const track of clip.tracks){try{const name=THREE.PropertyBinding.parseTrackName(track.name).nodeName;const node=this.root.getObjectByName(name);node?.traverse(o=>animated.add(o.uuid))}catch{}}
@@ -52,14 +54,14 @@ export class IslandViewer {
  }
  reset(){
   if(!this.config||!this.nav)return;this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
-  this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();
+  this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();
  }
- setMode(mode){if(!this.bounds)return;this.mode=mode;this.controls.enabled=mode==='orbit';this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();document.getElementById('knob').style.transform='';
+ setMode(mode){if(!this.bounds)return;this.mode=mode;this.controls.enabled=mode==='orbit';this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();document.getElementById('knob').style.transform='';
   if(mode==='orbit'){
    this.walkPosition=this.camera.position.clone();this.walkRotation=this.camera.rotation.clone();const size=this.bounds.getSize(new THREE.Vector3());const center=this.bounds.getCenter(new THREE.Vector3());center.y=Math.max(.8,this.bounds.min.y+size.y*.55);this.controls.target.copy(center);const extent=Math.max(size.x,size.z,size.y*.8);this.camera.position.set(center.x+extent*.92,center.y+extent*.58,center.z+extent*1.25);this.controls.maxDistance=extent*3.8;this.controls.minDistance=extent*.08;this.camera.lookAt(center);this.controls.update();
   }else if(this.walkPosition){this.camera.position.copy(this.walkPosition);this.camera.rotation.copy(this.walkRotation);this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.walkPosition=null}
  }
- setActive(value){this.active=value;this.previous=0;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
+ setActive(value){this.active=value;this.previous=0;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
  floorAt(x,z,top,far=2){this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;const hit=this.navRay.intersectObject(this.nav,false)[0];return hit?.point.y??null}
  canStand(x,z,floor){const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
  stepTo(x,z){const floor=this.floorAt(x,z,this.foot+.49,1.2);if(floor===null||floor-this.foot>.48||this.foot-floor>.65||!this.canStand(x,z,floor))return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}
@@ -72,15 +74,30 @@ export class IslandViewer {
    this.camera.position.y=THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
   }else this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
  }
+ gameAt(clientX,clientY){
+  if(!this.active||!this.arcadeTargets)return null;
+  const r=this.renderer.domElement.getBoundingClientRect();const point=new THREE.Vector2((clientX-r.left)/r.width*2-1,-(clientY-r.top)/r.height*2+1);
+  return this.arcadeTargets.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean),this.mode==='walk'?12:Infinity);
+ }
+ launchGame(clientX,clientY){
+  if(Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size)return;
+  const game=this.gameAt(clientX,clientY);if(!game)return;
+  this.touchStick?.reset();this.keys.clear();this.drag=null;
+  const link=document.createElement('a');link.href=game.url;link.target='_blank';link.rel='noopener noreferrer';link.style.display='none';document.body.append(link);link.click();link.remove();
+ }
  bindInput(){
-  const canvas=this.renderer.domElement;canvas.style.touchAction='none';canvas.addEventListener('pointerdown',e=>{if(!this.active||this.mode!=='walk')return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
+  const canvas=this.renderer.domElement;canvas.style.touchAction='none';
+  let lastHover=0;this.gameTaps=attachTapGesture(canvas,(x,y)=>this.launchGame(x,y),{enabled:()=>this.active&&!!this.arcadeTargets,onHover:(x,y)=>{const now=performance.now();if(now-lastHover<100)return;lastHover=now;const game=this.gameAt(x,y);canvas.style.cursor=game?'pointer':'';canvas.title=game?'Открыть '+game.title+' в Telegram':''}});
+  this.host.addEventListener('keydown',e=>{if(e.key==='Enter'&&this.active&&this.arcadeTargets){const r=canvas.getBoundingClientRect();e.preventDefault();this.launchGame(r.left+r.width/2,r.top+r.height/2)}});
+  canvas.addEventListener('pointerdown',e=>{if(!this.active||this.mode!=='walk')return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
   canvas.addEventListener('pointermove',e=>{if(!this.drag||e.pointerId!==this.drag.id||this.mode!=='walk')return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=clamp(this.pitch-(e.clientY-this.drag.y)*.003,-1.35,1.35);this.drag.x=e.clientX;this.drag.y=e.clientY});
   const end=e=>{if(this.drag?.id===e.pointerId)this.drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);canvas.addEventListener('lostpointercapture',end);
-  window.addEventListener('keydown',e=>{if(!this.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>{this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.drag=null});
+  window.addEventListener('keydown',e=>{if(!this.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>{this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();this.drag=null});
   this.touchStick=createTouchStick(document.getElementById('joystick'),document.getElementById('knob'),(x,y)=>{this.stick.x=x;this.stick.y=y});
   const codes={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'};document.querySelectorAll('[data-move]').forEach(b=>{b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);this.keys.add(codes[b.dataset.move])});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>this.keys.delete(codes[b.dataset.move]))});
  }
  clear(){
+  this.arcadeTargets?.dispose();this.arcadeTargets=null;this.gameTaps?.reset();this.renderer.domElement.title='';this.renderer.domElement.style.cursor='';
   for(const mixer of this.mixers||[])mixer.stopAllAction();const geometries=new Set(),materials=new Set(),textures=new Set();for(const root of [this.root,this.staticGroup,this.clouds,this.nav]){if(!root)continue;root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(m);for(const v of Object.values(m))if(v?.isTexture&&v!==this.environment)textures.add(v)}});root.removeFromParent()}
   textures.forEach(t=>{t.dispose();if(t.source?.data?.close)t.source.data.close()});materials.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());this.root=this.staticGroup=this.clouds=this.nav=null;this.mixers=[];this.boxes=[];this.walkPosition=null;this.renderer.renderLists.dispose();
  }
