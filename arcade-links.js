@@ -34,6 +34,11 @@ export function createArcadeTargets(root){
   if(!geometry)throw Error('Game cabinet geometry unavailable');geometry.computeBoundingSphere();
   const mesh=new THREE.Mesh(geometry,material);mesh.userData={title:entry.title,url:entry.url,cabinet:entry.cabinet};mesh.updateMatrixWorld();targets.push(mesh);
  }
+ return createPickSet(targets,material);
+}
+
+// Shared exact-mesh picking keeps clickable objects behind walls inaccessible.
+export function createPickSet(targets,material){
  const ray=new THREE.Raycaster();
  return {targets,
   pick(camera,point,blockers,maxDistance=Infinity){
