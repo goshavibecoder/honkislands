@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {clearStairCorridors} from './stair-corridors.js?v=16';
+import {clearStairCorridors} from './stair-corridors.js?v=17';
 
 const UP=new THREE.Vector3(0,1,0);
 const normalizedName=object=>object.name.replace(/\s+/g,'_');
@@ -18,9 +18,9 @@ export function rebuildMountainStairs(root){
    flights.get(Number(match[1])).push({order:Number(match[2]),center});stone??=object.material;
   }
   if(name.startsWith('Unified_supported_landing_'))landingMaterial??=object.material;
-  if(name==='Neon_stair_nosing')nosing??=object.material;
-  if(name==='Continuous_stair_side_light')edge??=object.material;
-  if(/^(Solid_stair_riser_\d+_\d+|Stair_solid_supporting_stringer_\d+|Neon_stair_nosing|Continuous_stair_side_light)$/.test(name))obsolete.push(object);
+  if(/^Neon_stair_nosing(?:_\d+)?$/.test(name))nosing??=object.material;
+  if(/^Continuous_stair_side_light(?:_\d+)?$/.test(name))edge??=object.material;
+  if(/^(Solid_stair_riser_\d+_\d+|Stair_solid_supporting_stringer_\d+|Neon_stair_nosing(?:_\d+)?|Continuous_stair_side_light(?:_\d+)?)$/.test(name))obsolete.push(object);
  });
  if(flights.size!==5||!stone||!nosing||!edge)throw Error('Mountain staircase source is incomplete');
  const inverse=root.matrixWorld.clone().invert(),group=new THREE.Group();group.name='Rebuilt_mountain_staircases';
