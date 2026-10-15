@@ -1,46 +1,44 @@
 const WIDE='(min-width:700px) and (min-height:600px), (min-width:700px) and (pointer:fine)';
-export const MOBILE_LINKS=[[0,1],[1,2],[2,3],[3,4],[4,5]];
-export const WIDE_LINKS=[[0,1],[1,2],[1,3],[2,4],[3,4],[4,5]];
-const f=n=>Number(n.toFixed(2));
-export function shore(a,b){
- const dx=b.x-a.x,dy=b.y-a.y;
- if(a.mask){
-  const length=Math.hypot(dx,dy),ux=dx/length,uy=dy/length,step=Math.max(1,Math.min(a.width,a.height)/120);const solid=[];
-  for(let d=0;d<Math.hypot(a.width,a.height);d+=step){const x=a.x+ux*d,y=a.y+uy*d,px=Math.floor((x-a.imageX)/a.width*a.mask.width),py=Math.floor((y-a.imageY)/a.height*a.mask.height);if(px<0||py<0||px>=a.mask.width||py>=a.mask.height)break;if(a.mask.alpha[py*a.mask.width+px]>100)solid.push(d)}
-  const last=solid.at(-1)||0,inset=solid.filter(d=>d<=last-4).at(-1)??last;return {x:a.x+ux*inset,y:a.y+uy*inset};
- }
- const k=1/Math.hypot(dx/(a.width*.43),dy/(a.height*.17));return {x:a.x+dx*k,y:a.y+dy*k};
+// Explicit ground coordinates in each island illustration, measured from the
+// image itself. Cloud silhouettes and transparent bounding boxes are not used.
+export const MOBILE_LINKS=[
+ [0,1,'telegram',[.78,.65],[.30,.62]],
+ [1,2,'tiktok',[.24,.62],[.68,.77]],
+ [2,3,'x',[.59,.77],[.25,.52]],
+ [3,4,'groyp',[.30,.55],[.70,.73]],
+ [4,5,'telegram',[.62,.78],[.28,.67]]
+];
+export const WIDE_LINKS=[
+ [2,5,'tiktok',[.79,.83],[.28,.62],true],
+ [1,5,'telegram',[.82,.61],[.14,.70],true],
+ [5,0,'groyp',[.88,.57],[.13,.66],true],
+ [5,3,'x',[.88,.72],[.13,.52],true],
+ [2,4,'telegram',[.93,.63],[.23,.69]]
+];
+const SPRITES={"telegram":{"width":795,"height":268,"file":"bridge-telegram-v2.webp"},"tiktok":{"width":796,"height":270,"file":"bridge-tiktok-v2.webp"},"groyp":{"width":795,"height":268,"file":"bridge-groyp-v2.webp"},"x":{"width":796,"height":268,"file":"bridge-x-v2.webp"},"telegram-up":{"width":430,"height":306,"file":"bridge-telegram-up-v3.webp"},"tiktok-up":{"width":443,"height":313,"file":"bridge-tiktok-up-v3.webp"},"groyp-up":{"width":443,"height":315,"file":"bridge-groyp-up-v3.webp"},"x-up":{"width":444,"height":312,"file":"bridge-x-up-v3.webp"},"telegram-down":{"width":430,"height":305,"file":"bridge-telegram-down-v3.webp"},"tiktok-down":{"width":443,"height":313,"file":"bridge-tiktok-down-v3.webp"},"groyp-down":{"width":442,"height":306,"file":"bridge-groyp-down-v3.webp"},"x-down":{"width":428,"height":306,"file":"bridge-x-down-v3.webp"},"tiktok-down-compact":{"width":443,"height":350,"file":"bridge-tiktok-down-v2.webp"},"telegram-up-compact":{"width":432,"height":348,"file":"bridge-telegram-up-v2.webp"},"groyp-up-compact":{"width":430,"height":349,"file":"bridge-groyp-up-v2.webp"},"x-down-compact":{"width":444,"height":351,"file":"bridge-x-down-v2.webp"}};
+export function groundPoint(island,uv){return {x:island.imageX+island.width*uv[0],y:island.imageY+island.height*uv[1]}}
+export function bridgeMarkup(islands,link){
+ const [a,b,kind,uvA,uvB,compact=false]=link;let start=groundPoint(islands[a],uvA),end=groundPoint(islands[b],uvB);
+ // Use separate isometric views for diagonal crossings. A similarity
+ // transform preserves round finials and stone proportions without shearing.
+ if(start.x>end.x)[start,end]=[end,start];
+ const dx=end.x-start.x,dy=end.y-start.y;if(Math.hypot(dx,dy)<1)return '';
+ const view=Math.abs(dy/dx)<.45?'':dy<0?'-up':'-down',sprite=SPRITES[kind+view+(compact?'-compact':'')],width=sprite.width,height=sprite.height;
+ const uv=compact?(view==='-up'?[[.07,.84],[.93,.257]]:[[.07,.257],[.93,.84]]):view==='-up'?[[.065,.91],[.956,.187]]:view==='-down'?[[.077,.215],[.959,.927]]:[[.03,.78],[.97,.78]];
+ const lx=uv[0][0]*width,ly=uv[0][1]*height,rx=uv[1][0]*width,ry=uv[1][1]*height,sx=rx-lx,sy=ry-ly,den=sx*sx+sy*sy;
+ const scale=(dx*sx+dy*sy)/den,turn=(dy*sx-dx*sy)/den,tx=start.x-scale*lx+turn*ly,ty=start.y-turn*lx-scale*ly;
+ const matrix=[scale,turn,-turn,scale,tx,ty].map(n=>Number(n.toFixed(6))).join(' ');
+ return `<image class="map-bridge" href="./assets/${sprite.file}" width="${width}" height="${height}" transform="matrix(${matrix})"/>`;
 }
-export function bridgeMarkup(a,b,unit){
- const start=shore(a,b),end=shore(b,a),length=Math.hypot(end.x-start.x,end.y-start.y);
- if(length<unit)return '';
- const sag=Math.min(unit*2.1,length*.12),cx=(start.x+end.x)/2,cy=(start.y+end.y)/2+sag*2;
- const point=t=>({x:(1-t)**2*start.x+2*(1-t)*t*cx+t*t*end.x,y:(1-t)**2*start.y+2*(1-t)*t*cy+t*t*end.y});
- const curve=(offset=0)=>`M${f(start.x)} ${f(start.y+offset)} Q${f(cx)} ${f(cy+offset)} ${f(end.x)} ${f(end.y+offset)}`;
- const path=(d,stroke,width)=>`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${f(width)}"/>`;
- let back=path(curve(-unit*1.5),'#8b541c',unit*.23)+path(curve(-unit*1.5),'#ffdf75',unit*.1);
- let boards='';const count=Math.max(7,Math.ceil(length/(unit*.7)));
- for(let i=0;i<=count;i++){const t=i/count,p=point(t),dx=2*(1-t)*(cx-start.x)+2*t*(end.x-cx),dy=2*(1-t)*(cy-start.y)+2*t*(end.y-cy),d=Math.hypot(dx,dy),nx=-dy/d*unit*.48,ny=dx/d*unit*.48;boards+=path(`M${f(p.x-nx)} ${f(p.y-ny)} L${f(p.x+nx)} ${f(p.y+ny)}`,'#ffe3a0',unit*.13)}
- for(let i=1;i<6;i++){const p=point(i/6);back+=path(`M${f(p.x)} ${f(p.y-unit*1.5)} V${f(p.y)}`,'#d8a444',unit*.095)}
- let posts='';for(const p of [start,end]){
-  const x=f(p.x),y=p.y,top=y-unit*2.7;
-  posts+=`<path d="M${f(x-unit*.3)} ${f(y+unit*.3)}h${f(unit*.6)}v${f(-unit*.35)}h${f(-unit*.6)}Z" fill="url(#bridge-gold)" stroke="#9c6429" stroke-width="${f(unit*.08)}"/><rect x="${f(x-unit*.14)}" y="${f(top)}" width="${f(unit*.28)}" height="${f(unit*2.9)}" rx="${f(unit*.09)}" fill="url(#bridge-gold)" stroke="#8b541c" stroke-width="${f(unit*.06)}"/><circle cx="${x}" cy="${f(top)}" r="${f(unit*.35)}" fill="url(#bridge-orb)" stroke="#ba7e2e" stroke-width="${f(unit*.07)}"/>`;
- }
- const p=point(.16),q=point(.84),middle=point(.5),top=unit*1.45,bottom=unit*.08;
- const cloth=`M${f(p.x)} ${f(p.y-top)} Q${f(middle.x)} ${f(middle.y-top+sag*.46)} ${f(q.x)} ${f(q.y-top)} L${f(q.x)} ${f(q.y-bottom)} Q${f(middle.x)} ${f(middle.y-bottom+sag*.46)} ${f(p.x)} ${f(p.y-bottom)}Z`;
- return `<g class="map-bridge">${path(curve(unit*.35),'#54769330',unit*1.5)}${back}${path(curve(),'#71401e',unit*1.12)}${path(curve(),'#b9853b',unit*.87)}${boards}<path d="${cloth}" fill="url(#bridge-cloth)" stroke="#ffd575" stroke-width="${f(unit*.12)}"/>${path(curve(-unit*1.5),'#945e20',unit*.24)}${path(curve(-unit*1.55),'#ffe69a',unit*.1)}${posts}</g>`;
-}
-export const BRIDGE_DEFS=`<defs><linearGradient id="bridge-gold"><stop stop-color="#8b4b13"/><stop offset=".28" stop-color="#ffed9b"/><stop offset=".55" stop-color="#e3a738"/><stop offset=".78" stop-color="#fff1a8"/><stop offset="1" stop-color="#a0601b"/></linearGradient><radialGradient id="bridge-orb" cx=".32" cy=".23"><stop stop-color="#fffbd1"/><stop offset=".42" stop-color="#ffdb62"/><stop offset="1" stop-color="#bd741d"/></radialGradient><linearGradient id="bridge-cloth" x2="0" y2="1"><stop stop-color="#b4273d"/><stop offset=".6" stop-color="#8a132f"/><stop offset="1" stop-color="#ce3c4b"/></linearGradient></defs>`;
 export function mountMapBridges(container){
  const buttons=[...container.querySelectorAll('.island')],svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
  svg.classList.add('map-bridges');svg.setAttribute('aria-hidden','true');svg.setAttribute('focusable','false');container.append(svg);container.classList.add('connected');
- const media=matchMedia(WIDE),masks=new WeakMap();let frame=0;
- const maskFor=img=>{if(masks.has(img))return masks.get(img);if(!img.complete||!img.naturalWidth)return null;try{const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,128,128);const pixels=ctx.getImageData(0,0,128,128).data,alpha=new Uint8Array(128*128);for(let i=0;i<alpha.length;i++)alpha[i]=pixels[i*4+3];const mask={width:128,height:128,alpha};masks.set(img,mask);return mask}catch{return null}};
+ const media=matchMedia(WIDE);let frame=0;
  const draw=()=>{frame=0;const box=container.getBoundingClientRect();if(box.width<1||box.height<1)return;
-  const islands=buttons.map(button=>{const rect=button.getBoundingClientRect(),img=button.querySelector('img'),aspect=(img.naturalWidth||1)/(img.naturalHeight||1),width=Math.min(rect.width,rect.height*aspect),height=width/aspect;return {x:rect.left-box.left+rect.width/2,y:rect.top-box.top+rect.height/2+height*.18,width,height,imageX:rect.left-box.left+(rect.width-width)/2,imageY:rect.top-box.top+(rect.height-height)/2,mask:maskFor(img)}});
-  const unit=Math.max(4,Math.min(15,Math.min(...islands.map(x=>x.width))*.062));svg.setAttribute('viewBox',`0 0 ${box.width} ${box.height}`);svg.innerHTML=BRIDGE_DEFS+(media.matches?WIDE_LINKS:MOBILE_LINKS).map(([a,b])=>bridgeMarkup(islands[a],islands[b],unit)).join('');
+  const islands=buttons.map(button=>{const rect=button.getBoundingClientRect(),img=button.querySelector('img'),aspect=(img.naturalWidth||1)/(img.naturalHeight||1),width=Math.min(rect.width,rect.height*aspect),height=width/aspect;return {width,height,imageX:rect.left-box.left+(rect.width-width)/2,imageY:rect.top-box.top+(rect.height-height)/2}});
+  svg.setAttribute('viewBox',`0 0 ${box.width} ${box.height}`);svg.innerHTML=(media.matches?WIDE_LINKS:MOBILE_LINKS).map(link=>bridgeMarkup(islands,link)).join('');
  };
  const schedule=()=>{if(!frame)frame=requestAnimationFrame(draw)};
- const observer=new ResizeObserver(schedule);observer.observe(container);buttons.forEach(b=>b.querySelector('img').addEventListener('load',schedule));media.addEventListener('change',schedule);schedule();
- return ()=>{observer.disconnect();media.removeEventListener('change',schedule);if(frame)cancelAnimationFrame(frame);svg.remove()};
+ const observer=new ResizeObserver(schedule);observer.observe(container);const images=buttons.map(b=>b.querySelector('img'));images.forEach(img=>img.addEventListener('load',schedule));media.addEventListener('change',schedule);schedule();
+ return ()=>{observer.disconnect();images.forEach(img=>img.removeEventListener('load',schedule));media.removeEventListener('change',schedule);if(frame)cancelAnimationFrame(frame);svg.remove();container.classList.remove('connected')};
 }
