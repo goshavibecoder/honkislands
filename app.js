@@ -1,4 +1,4 @@
-import {mountMapBridges} from './map-bridges.js?v=14';
+import {mountMapBridges} from './map-bridges.js?v=15';
 const $=id=>document.getElementById(id),map=$('map'),world=$('world'),transition=$('transition');
 let viewer,activeWorld=null,busy=false,lastButton=null,epoch=0;
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
