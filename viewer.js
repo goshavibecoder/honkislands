@@ -4,6 +4,7 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
+import {WalkPhysics,createGalleryCollision,createStairNavigation,createFloorIndex} from './walk-physics.js?v=12';
 import {createWorldTargets} from './world-links.js?v=10';
 import {prepareTrophy} from './trophy.js?v=8';
 import {attachTapGesture} from './tap-gesture.js?v=7';
@@ -33,12 +34,14 @@ export class IslandViewer {
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Открываем 3D-мир…');
   const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?prepareTrophy(this.root,this.environment):createWorldTargets(this.root,slug);
+  this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):null;this.stairNav=slug==='goat-mountain'?createStairNavigation(this.root):null;
   // Bake static geometry into material batches. Animated nodes remain attached
   // to their original hierarchy, so original animation tracks still work.
   const animated=new Set();for(const clip of gltf.animations)for(const track of clip.tracks){try{const name=THREE.PropertyBinding.parseTrackName(track.name).nodeName;const node=this.root.getObjectByName(name);node?.traverse(o=>animated.add(o.uuid))}catch{}}
   const buckets=new Map(),remove=[];this.root.traverse(o=>{
    if(o.isLight){remove.push(o);return}if(!o.isMesh)return;
    // Keep the existing open-roof presentation while restoring the missing wall.
+   if(slug==='carnival'&&/^(Upper_landing_black_balustrade|Upper_end_landing_luminous_handrail)/.test(o.name)){remove.push(o);return}
    if(this.config.openRoof&&o.name.startsWith('Suspended_acoustic_ceiling_tile')){remove.push(o);return}
    const mats=Array.isArray(o.material)?o.material:[o.material];for(const mat of mats){if(mat.map)mat.map.anisotropy=Math.min(4,this.renderer.capabilities.getMaxAnisotropy());if(mat.emissiveIntensity>2.2)mat.emissiveIntensity=2.2}
    if(animated.has(o.uuid)||o.isSkinnedMesh||Array.isArray(o.material))return;
@@ -52,11 +55,13 @@ export class IslandViewer {
   this.mixers=[];if(gltf.animations.length){const mixer=new THREE.AnimationMixer(this.root);for(const clip of gltf.animations)mixer.clipAction(clip).play();this.mixers.push(mixer)}
   const navBytes=await this.fetchBinary(`./models/${slug}.nav.bin?v=9`);const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.BufferAttribute(new Float32Array(navBytes.buffer,navBytes.byteOffset,navBytes.byteLength/4),3));ng.computeBoundingSphere();this.nav=new THREE.Mesh(ng,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));this.nav.updateMatrixWorld();
   this.boxes=this.manifest.collisionBoxes.map(([lo,hi])=>new THREE.Box3(new THREE.Vector3(...lo),new THREE.Vector3(...hi)));this.bounds=new THREE.Box3(new THREE.Vector3(...this.manifest.bounds[0]),new THREE.Vector3(...this.manifest.bounds[1]));
+  this.floorIndex=['carnival','goat-mountain'].includes(slug)?createFloorIndex(this.nav):null;
+  this.physics=['carnival','goat-mountain'].includes(slug)?new WalkPhysics({floorAt:(...args)=>this.floorAt(...args),canStand:(...args)=>this.canStand(...args),eye:this.config.eye,collision:this.walkCollision}):null;
   this.renderer.toneMappingExposure=this.config.exposure;this.reset();this.setMode('walk');this.resize();progress(.96,'Почти на месте…');await this.renderer.compileAsync(this.scene,this.camera);this.renderer.render(this.scene,this.camera);progress(1,'Добро пожаловать');
  }
  reset(){
-  if(!this.config||!this.nav)return;this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
-  this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();
+  if(!this.config||!this.nav)return;this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,this.physics?this.config.spawn[1]-this.config.eye+.43:100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
+  this.physics?.reset();this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();
  }
  setMode(mode){if(!this.bounds)return;this.mode=mode;this.controls.enabled=mode==='orbit';this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();document.getElementById('knob').style.transform='';
   if(mode==='orbit'){
@@ -64,16 +69,22 @@ export class IslandViewer {
   }else if(this.walkPosition){this.camera.position.copy(this.walkPosition);this.camera.rotation.copy(this.walkRotation);this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.walkPosition=null}
  }
  setActive(value){this.active=value;this.previous=0;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
- floorAt(x,z,top,far=2){this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;const hit=this.navRay.intersectObject(this.nav,false)[0];return hit?.point.y??null}
+ floorAt(x,z,top,far=2){
+  this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;
+  let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObject(this.nav,false)[0]?.point.y??null;
+  if(this.stairNav){const stair=this.navRay.intersectObject(this.stairNav,false)[0];if(stair&&(floor===null||stair.point.y>=floor-.25))floor=stair.point.y}
+  return floor;
+ }
  canStand(x,z,floor){const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
- stepTo(x,z){const floor=this.floorAt(x,z,this.foot+.49,1.2);if(floor===null||floor-this.foot>.48||this.foot-floor>.65||!this.canStand(x,z,floor))return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}
+ stepTo(x,z){if(this.physics){const floor=this.physics.step(x,z,this.foot);if(floor===null)return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}const floor=this.floorAt(x,z,this.foot+.49,1.2);if(floor===null||floor-this.foot>.48||this.foot-floor>.65||!this.canStand(x,z,floor))return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}
  tick(time){this.frame=0;if(!this.active)return;const dt=Math.min((time-(this.previous||time))/1000,.08);this.previous=time;
   if(this.mode==='walk'&&this.nav){
    let sx=this.stick.x+(this.keys.has('KeyD')||this.keys.has('ArrowRight')?1:0)-(this.keys.has('KeyA')||this.keys.has('ArrowLeft')?1:0),sy=-this.stick.y+(this.keys.has('KeyW')||this.keys.has('ArrowUp')?1:0)-(this.keys.has('KeyS')||this.keys.has('ArrowDown')?1:0);const length=Math.hypot(sx,sy);if(length>1){sx/=length;sy/=length}
    if(sx||sy){const speed=this.config.speed*dt*(this.keys.has('ShiftLeft')?1.5:1),dx=(Math.cos(this.yaw)*sx-Math.sin(this.yaw)*sy)*speed,dz=(-Math.sin(this.yaw)*sx-Math.cos(this.yaw)*sy)*speed;
     const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.055));for(let i=0;i<steps;i++){const x=dx/steps,z=dz/steps;if(!this.stepTo(this.camera.position.x+x,this.camera.position.z+z)){const a=this.stepTo(this.camera.position.x+x,this.camera.position.z);const b=this.stepTo(this.camera.position.x,this.camera.position.z+z);if(!a&&!b)break}}
    }
-   this.camera.position.y=THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
+   if(this.physics){this.foot=this.physics.fall(this.camera.position.x,this.camera.position.z,this.foot,dt);if(this.foot<this.bounds.min.y-8)this.reset()}
+   this.camera.position.y=this.physics&&!this.physics.grounded?this.foot+this.config.eye:THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
   }else this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
  }
  gameAt(clientX,clientY){
@@ -99,6 +110,7 @@ export class IslandViewer {
   const codes={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'};document.querySelectorAll('[data-move]').forEach(b=>{b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);this.keys.add(codes[b.dataset.move])});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>this.keys.delete(codes[b.dataset.move]))});
  }
  clear(){
+  this.physics?.dispose();this.physics=null;this.floorIndex?.clear();this.floorIndex=null;this.walkCollision=null;if(this.stairNav){this.stairNav.geometry.dispose();this.stairNav.material.dispose();this.stairNav=null}
   this.arcadeTargets?.dispose();this.arcadeTargets=null;this.gameTaps?.reset();this.renderer.domElement.title='';this.renderer.domElement.style.cursor='';
   for(const mixer of this.mixers||[])mixer.stopAllAction();const geometries=new Set(),materials=new Set(),textures=new Set();for(const root of [this.root,this.staticGroup,this.clouds,this.nav]){if(!root)continue;root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(m);for(const v of Object.values(m))if(v?.isTexture&&v!==this.environment)textures.add(v)}});root.removeFromParent()}
   textures.forEach(t=>{t.dispose();if(t.source?.data?.close)t.source.data.close()});materials.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());this.root=this.staticGroup=this.clouds=this.nav=null;this.mixers=[];this.boxes=[];this.walkPosition=null;this.renderer.renderLists.dispose();
