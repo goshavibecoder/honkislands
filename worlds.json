@@ -73,7 +73,8 @@
   ],
   "speed": 2.0,
   "eye": 1.65,
-  "exposure": 0.95
+  "exposure": 0.95,
+  "pixelRatio": 1.0
  },
  "honkhub": {
   "spawn": [

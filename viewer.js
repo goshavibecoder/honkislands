@@ -3,9 +3,10 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
+import { createTouchStick } from './touch-stick.js?v=6';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
-const configPromise=fetch('./worlds.json?v=2').then(r=>{if(!r.ok)throw Error('World configuration unavailable');return r.json()});
+const configPromise=fetch('./worlds.json?v=6').then(r=>{if(!r.ok)throw Error('World configuration unavailable');return r.json()});
 export class IslandViewer {
  constructor(host){
   this.host=host;this.active=false;this.mode='walk';this.keys=new Set();this.stick={x:0,y:0};this.yaw=0;this.pitch=0;this.drag=null;this.foot=0;this.previous=0;this.frame=0;this.navRay=new THREE.Raycaster();
@@ -22,8 +23,8 @@ export class IslandViewer {
  }
  async fetchBinary(url,onChunk=()=>{}){const response=await fetch(url);if(!response.ok)throw Error(`Asset ${response.status}: ${url}`);if(!response.body)return new Uint8Array(await response.arrayBuffer());const reader=response.body.getReader(),chunks=[];let n=0;while(true){const {value,done}=await reader.read();if(done)break;chunks.push(value);n+=value.length;onChunk(value.length)}const data=new Uint8Array(n);let off=0;for(const chunk of chunks){data.set(chunk,off);off+=chunk.length}return data}
  async open(slug,progress){
-  this.setActive(false);this.clear();this.slug=slug;this.config=(await configPromise)[slug];if(!this.config)throw Error('Unknown island');
-  const response=await fetch(`./models/${slug}.json?v=2`);if(!response.ok)throw Error('Model manifest unavailable');this.manifest=await response.json();let downloaded=0;const payloads=await Promise.all(this.manifest.parts.map(part=>this.fetchBinary(`./models/${part}?v=2`,n=>{downloaded+=n;progress(downloaded/this.manifest.bytes*.72,'Летим на остров…')})));
+  this.setActive(false);this.clear();this.slug=slug;this.config=(await configPromise)[slug];if(!this.config)throw Error('Unknown island');this.renderer.setPixelRatio(Math.min(devicePixelRatio,this.config.pixelRatio||1.6));
+  const response=await fetch(`./models/${slug}.json?v=6`);if(!response.ok)throw Error('Model manifest unavailable');this.manifest=await response.json();let downloaded=0;const payloads=await Promise.all(this.manifest.parts.map(part=>this.fetchBinary(`./models/${part}?v=6`,n=>{downloaded+=n;progress(downloaded/this.manifest.bytes*.72,'Летим на остров…')})));
   const bytes=new Uint8Array(payloads.reduce((n,a)=>n+a.length,0));let offset=0;for(const a of payloads){bytes.set(a,offset);offset+=a.length}
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Открываем 3D-мир…');
@@ -45,28 +46,28 @@ export class IslandViewer {
   }
   const originalGeometries=new Set();for(const o of remove){if(o.geometry)originalGeometries.add(o.geometry);o.removeFromParent()}const retainedGeometries=new Set();this.root.traverse(o=>{if(o.geometry)retainedGeometries.add(o.geometry)});for(const g of originalGeometries)if(!retainedGeometries.has(g))g.dispose();this.scene.add(this.root,this.staticGroup);
   this.mixers=[];if(gltf.animations.length){const mixer=new THREE.AnimationMixer(this.root);for(const clip of gltf.animations)mixer.clipAction(clip).play();this.mixers.push(mixer)}
-  const navBytes=await this.fetchBinary(`./models/${slug}.nav.bin`);const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.BufferAttribute(new Float32Array(navBytes.buffer,navBytes.byteOffset,navBytes.byteLength/4),3));ng.computeBoundingSphere();this.nav=new THREE.Mesh(ng,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));this.nav.updateMatrixWorld();
+  const navBytes=await this.fetchBinary(`./models/${slug}.nav.bin?v=6`);const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.BufferAttribute(new Float32Array(navBytes.buffer,navBytes.byteOffset,navBytes.byteLength/4),3));ng.computeBoundingSphere();this.nav=new THREE.Mesh(ng,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));this.nav.updateMatrixWorld();
   this.boxes=this.manifest.collisionBoxes.map(([lo,hi])=>new THREE.Box3(new THREE.Vector3(...lo),new THREE.Vector3(...hi)));this.bounds=new THREE.Box3(new THREE.Vector3(...this.manifest.bounds[0]),new THREE.Vector3(...this.manifest.bounds[1]));
   this.renderer.toneMappingExposure=this.config.exposure;this.reset();this.setMode('walk');this.resize();progress(.96,'Почти на месте…');await this.renderer.compileAsync(this.scene,this.camera);this.renderer.render(this.scene,this.camera);progress(1,'Добро пожаловать');
  }
  reset(){
   if(!this.config||!this.nav)return;this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
-  this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.keys.clear();this.stick.x=this.stick.y=0;
+  this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();
  }
- setMode(mode){if(!this.bounds)return;this.mode=mode;this.controls.enabled=mode==='orbit';this.keys.clear();this.stick.x=this.stick.y=0;document.getElementById('knob').style.transform='';
+ setMode(mode){if(!this.bounds)return;this.mode=mode;this.controls.enabled=mode==='orbit';this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();document.getElementById('knob').style.transform='';
   if(mode==='orbit'){
    this.walkPosition=this.camera.position.clone();this.walkRotation=this.camera.rotation.clone();const size=this.bounds.getSize(new THREE.Vector3());const center=this.bounds.getCenter(new THREE.Vector3());center.y=Math.max(.8,this.bounds.min.y+size.y*.55);this.controls.target.copy(center);const extent=Math.max(size.x,size.z,size.y*.8);this.camera.position.set(center.x+extent*.92,center.y+extent*.58,center.z+extent*1.25);this.controls.maxDistance=extent*3.8;this.controls.minDistance=extent*.08;this.camera.lookAt(center);this.controls.update();
   }else if(this.walkPosition){this.camera.position.copy(this.walkPosition);this.camera.rotation.copy(this.walkRotation);this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.walkPosition=null}
  }
- setActive(value){this.active=value;this.previous=0;this.keys.clear();this.stick.x=this.stick.y=0;if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
+ setActive(value){this.active=value;this.previous=0;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
  floorAt(x,z,top,far=2){this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;const hit=this.navRay.intersectObject(this.nav,false)[0];return hit?.point.y??null}
  canStand(x,z,floor){const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
  stepTo(x,z){const floor=this.floorAt(x,z,this.foot+.49,1.2);if(floor===null||floor-this.foot>.48||this.foot-floor>.65||!this.canStand(x,z,floor))return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}
- tick(time){this.frame=0;if(!this.active)return;const dt=Math.min((time-(this.previous||time))/1000,.04);this.previous=time;
+ tick(time){this.frame=0;if(!this.active)return;const dt=Math.min((time-(this.previous||time))/1000,.08);this.previous=time;
   if(this.mode==='walk'&&this.nav){
    let sx=this.stick.x+(this.keys.has('KeyD')||this.keys.has('ArrowRight')?1:0)-(this.keys.has('KeyA')||this.keys.has('ArrowLeft')?1:0),sy=-this.stick.y+(this.keys.has('KeyW')||this.keys.has('ArrowUp')?1:0)-(this.keys.has('KeyS')||this.keys.has('ArrowDown')?1:0);const length=Math.hypot(sx,sy);if(length>1){sx/=length;sy/=length}
    if(sx||sy){const speed=this.config.speed*dt*(this.keys.has('ShiftLeft')?1.5:1),dx=(Math.cos(this.yaw)*sx-Math.sin(this.yaw)*sy)*speed,dz=(-Math.sin(this.yaw)*sx-Math.cos(this.yaw)*sy)*speed;
-    if(!this.stepTo(this.camera.position.x+dx,this.camera.position.z+dz)){this.stepTo(this.camera.position.x+dx,this.camera.position.z);this.stepTo(this.camera.position.x,this.camera.position.z+dz)}
+    const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.055));for(let i=0;i<steps;i++){const x=dx/steps,z=dz/steps;if(!this.stepTo(this.camera.position.x+x,this.camera.position.z+z)){const a=this.stepTo(this.camera.position.x+x,this.camera.position.z);const b=this.stepTo(this.camera.position.x,this.camera.position.z+z);if(!a&&!b)break}}
    }
    this.camera.position.y=THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
   }else this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
@@ -75,9 +76,8 @@ export class IslandViewer {
   const canvas=this.renderer.domElement;canvas.style.touchAction='none';canvas.addEventListener('pointerdown',e=>{if(!this.active||this.mode!=='walk')return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
   canvas.addEventListener('pointermove',e=>{if(!this.drag||e.pointerId!==this.drag.id||this.mode!=='walk')return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=clamp(this.pitch-(e.clientY-this.drag.y)*.003,-1.35,1.35);this.drag.x=e.clientX;this.drag.y=e.clientY});
   const end=e=>{if(this.drag?.id===e.pointerId)this.drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);canvas.addEventListener('lostpointercapture',end);
-  window.addEventListener('keydown',e=>{if(!this.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>{this.keys.clear();this.stick.x=this.stick.y=0;this.drag=null});
-  const joy=document.getElementById('joystick'),knob=document.getElementById('knob');let joyId=null;const joystick=e=>{const rect=joy.getBoundingClientRect(),r=rect.width/2,dx=e.clientX-rect.left-r,dy=e.clientY-rect.top-r,dist=Math.hypot(dx,dy),limit=r*.58,m=Math.min(1,limit/Math.max(dist,.001));this.stick.x=dx*m/limit;this.stick.y=dy*m/limit;knob.style.transform=`translate(${dx*m}px,${dy*m}px)`};
-  joy.addEventListener('pointerdown',e=>{if(joyId!==null)return;joyId=e.pointerId;joy.setPointerCapture(e.pointerId);joystick(e)});joy.addEventListener('pointermove',e=>{if(e.pointerId===joyId)joystick(e)});const release=e=>{if(e.pointerId!==joyId)return;joyId=null;this.stick.x=this.stick.y=0;knob.style.transform=''};for(const name of ['pointerup','pointercancel','lostpointercapture'])joy.addEventListener(name,release);
+  window.addEventListener('keydown',e=>{if(!this.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>{this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.drag=null});
+  this.touchStick=createTouchStick(document.getElementById('joystick'),document.getElementById('knob'),(x,y)=>{this.stick.x=x;this.stick.y=y});
   const codes={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'};document.querySelectorAll('[data-move]').forEach(b=>{b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);this.keys.add(codes[b.dataset.move])});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>this.keys.delete(codes[b.dataset.move]))});
  }
  clear(){
