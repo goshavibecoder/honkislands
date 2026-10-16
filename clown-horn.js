@@ -19,40 +19,54 @@ export const HORN_URL='./assets/clown-honk-v25.wav';
 
 export function createClownHorn(){
  let context=null,buffer=null,last=-Infinity,generation=0,disposed=false,previousSession=null,useSynthesis=false,lastError=null;
- const sources=new Set();let audio=null;
- try{if(globalThis.Audio){audio=new globalThis.Audio(HORN_URL);audio.preload='auto';audio.volume=.9;audio.muted=false;audio.setAttribute?.('playsinline','');audio.load()}}catch{audio=null}
+ const sources=new Set(),pending=new Set();let audio=null;
+ try{if(globalThis.Audio){audio=new globalThis.Audio(HORN_URL);audio.preload='auto';audio.volume=1;audio.muted=false;audio.setAttribute?.('playsinline','');audio.load()}}catch{audio=null}
  const playbackSession=()=>{try{const session=globalThis.navigator?.audioSession;if(session){if(previousSession===null)previousSession=session.type;session.type='playback'}}catch{}};
  const restoreSession=()=>{try{if(previousSession!==null&&globalThis.navigator?.audioSession)globalThis.navigator.audioSession.type=previousSession}catch{}previousSession=null};
  const stopSources=()=>{for(const source of [...sources]){try{source.stop()}catch{}}sources.clear()};
  const resetMedia=()=>{if(audio){audio.pause();try{audio.currentTime=0}catch{}}};
- const failed=(error,token)=>{if(token===generation&&!disposed){lastError=error?.name||'PlaybackError';useSynthesis=true}return false};
+ const failed=(error,token)=>{if(token===generation&&!disposed)lastError=error?.name||'PlaybackError';return false};
+ // Reserve the backup audio channel during the same real tap. No sound is
+ // scheduled unless media playback fails or stalls, so the two never double.
+ const unlockFallback=()=>{
+  const Context=globalThis.AudioContext||globalThis.webkitAudioContext;
+  if(!Context)return Promise.resolve({error:{name:'AudioUnavailable'}});
+  try{
+   if(!context||context.state==='closed'){context=new Context();buffer=null}
+   const channel=context;
+   return Promise.resolve(channel.resume()).then(()=>({channel}),error=>({error}));
+  }catch(error){return Promise.resolve({error})}
+ };
+ const synthesize=(ready,token)=>ready.then(({channel,error})=>{
+  if(token!==generation||disposed)return false;
+  if(error||channel?.state!=='running')return failed(error||{name:'AudioSuspended'},token);
+  try{
+   if(!buffer){const pcm=synthesizeHonk(channel.sampleRate);buffer=channel.createBuffer(1,pcm.length,channel.sampleRate);buffer.getChannelData(0).set(pcm)}
+   stopSources();const source=channel.createBufferSource(),gain=channel.createGain();source.buffer=buffer;gain.gain.value=.9;source.connect(gain);gain.connect(channel.destination);sources.add(source);
+   source.onended=()=>{sources.delete(source);source.disconnect();gain.disconnect()};source.start();lastError=null;return true;
+  }catch(error){return failed(error,token)}
+ });
  return {
   get lastError(){return lastError},
   play(){
    const now=globalThis.performance?.now()??Date.now();if(disposed||now-last<90)return Promise.resolve(false);
-   last=now;lastError=null;const token=++generation;playbackSession();
-   if(audio&&!useSynthesis){
-    try{
-     resetMedia();audio.muted=false;audio.volume=.9;
-     // This call happens synchronously in the tap handler, before any await.
-     return Promise.resolve(audio.play()).then(()=>token===generation&&!disposed,error=>failed(error,token));
-    }catch(error){return Promise.resolve(failed(error,token))}
-   }
-   const Context=globalThis.AudioContext||globalThis.webkitAudioContext;
-   if(!Context)return Promise.resolve(failed({name:'AudioUnavailable'},token));
-   try{
-    if(!context||context.state==='closed'){context=new Context();buffer=null}
-    const resumed=context.resume();
-    return Promise.resolve(resumed).then(()=>{
-     if(token!==generation||disposed)return false;
-     if(context.state!=='running')return failed({name:'AudioSuspended'},token);
-     if(!buffer){const pcm=synthesizeHonk(context.sampleRate);buffer=context.createBuffer(1,pcm.length,context.sampleRate);buffer.getChannelData(0).set(pcm)}
-     stopSources();const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=.75;source.connect(gain);gain.connect(context.destination);sources.add(source);
-     source.onended=()=>{sources.delete(source);source.disconnect();gain.disconnect()};source.start();return true;
-    }).catch(error=>failed(error,token));
-   }catch(error){return Promise.resolve(failed(error,token))}
+   last=now;lastError=null;const token=++generation;for(const cancel of [...pending])cancel();playbackSession();
+   if(!audio||useSynthesis)return synthesize(unlockFallback(),token);
+   let mediaResult;
+   try{resetMedia();audio.muted=false;audio.volume=1;mediaResult=Promise.resolve(audio.play()).then(()=>({played:true}),error=>({error}))}catch(error){mediaResult=Promise.resolve({error})}
+   const ready=unlockFallback(); // still synchronously inside the tap handler
+   mediaResult.then(result=>{if(result.played&&token===generation&&useSynthesis&&!disposed)resetMedia()});
+   let cancel;const watchdog=new Promise(resolve=>{
+    const timer=setTimeout(()=>resolve({error:{name:'MediaStalled'}}),1200);
+    cancel=()=>{clearTimeout(timer);pending.delete(cancel);resolve({cancelled:true})};pending.add(cancel);
+   });
+   return Promise.race([mediaResult,watchdog]).then(result=>{
+    cancel();if(token!==generation||disposed||result.cancelled)return false;
+    if(result.played)return true;
+    resetMedia();useSynthesis=true;return synthesize(ready,token);
+   });
   },
-  stop(){++generation;resetMedia();stopSources();restoreSession()},
+  stop(){++generation;for(const cancel of [...pending])cancel();resetMedia();stopSources();restoreSession()},
   dispose(){this.stop();disposed=true;if(audio){audio.removeAttribute?.('src');audio.load();audio=null}context?.close()?.catch(()=>{});context=null;buffer=null}
  };
 }

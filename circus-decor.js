@@ -31,6 +31,19 @@ export function decorateCircusArena(root){
   const angle=i*Math.PI/2,normal=new THREE.Vector3(-Math.cos(angle),0,-Math.sin(angle)),base=new THREE.Vector3(5.15*Math.cos(angle),1.16,4.12*Math.sin(angle)).addScaledVector(normal,.025);
   face(base,normal,1,`Circus_wall_clown_${i}`,false);
  }
+ // A painted circus ring follows the arena floor without adding a collider.
+ // The central trophy and the diagonal entrance keep their original clearance.
+ const sector=(inner,outer,start,end,material)=>{
+  const points=[];for(let j=0;j<8;j++){
+   const a=start+(end-start)*j/8,b=start+(end-start)*(j+1)/8;
+   const at=(radius,angle)=>[radius*Math.cos(angle),.762,radius*.80*Math.sin(angle)];
+   points.push(...at(inner,a),...at(outer,b),...at(outer,a),...at(inner,a),...at(inner,b),...at(outer,b));
+  }
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(points,3));geometry.computeVertexNormals();geometry.applyMatrix4(inverse);add(group,geometry,material);
+ };
+ for(let i=0;i<24;i++)sector(2.18,4.68,i*Math.PI/12,(i+1)*Math.PI/12,i%2?white:materials[0]);
+ sector(2.12,2.18,0,Math.PI*2,gold);sector(4.68,4.75,0,Math.PI*2,gold);
+ group.userData.floorSectors=24;
  // A large clown crowns the existing entrance, entirely above its opening.
  const portal=new THREE.Box3(),portalMeshes=[];root.traverse(o=>{if(o.isMesh&&/^(Right_entrance_true_open_arched_header|Right_gate_gilded_cornice)/.test(o.name)){portal.expandByObject(o);portalMeshes.push(o)}});
  if(!portal.isEmpty()){
@@ -61,6 +74,18 @@ export function decorateCircusArena(root){
   const pole=new THREE.CylinderGeometry(.022,.022,.45,8);pole.translate(foot.x,foot.y+.225,foot.z);pole.applyMatrix4(inverse);add(group,pole,gold);
   const bead=new THREE.SphereGeometry(.065,12,8);bead.translate(top.x,top.y,top.z);bead.applyMatrix4(inverse);add(group,bead,gold);anchors.push(top);
  }
+ // Tethered balloon bouquets stand on selected roof posts, above the seats.
+ let bouquets=0;
+ for(let i=0;i<anchors.length;i+=4){
+  const anchor=anchors[i],bouquet=new THREE.Group();bouquet.name=`Circus_balloon_bouquet_${bouquets++}`;bouquet.position.copy(anchor);bouquet.updateMatrix();bouquet.matrix.premultiply(inverse);bouquet.matrix.decompose(bouquet.position,bouquet.quaternion,bouquet.scale);group.add(bouquet);
+  for(let k=0;k<3;k++){
+   const x=(k-1)*.25,y=.85+(k===1?.28:0),z=k===1?-.08:.02,material=materials[(i+k)%6];
+   add(bouquet,sphere,material,[x,y,z],[.19,.25,.18]);
+   const knot=new THREE.ConeGeometry(.045,.055,6);knot.rotateX(Math.PI);add(bouquet,knot,material,[x,y-.25,z]);
+   const string=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0),new THREE.Vector3(x*.4,y*.4-.1,z),new THREE.Vector3(x,y-.28,z)]);add(bouquet,new THREE.TubeGeometry(string,10,.006,4,false),gold);
+  }
+ }
+ group.userData.balloonBouquets=bouquets;
  for(let i=0;i<anchors.length;i++){
   const a=anchors[i],b=anchors[(i+1)%anchors.length],mid=a.clone().lerp(b,.5);mid.y-=.13;
   const curve=new THREE.CatmullRomCurve3([a,mid,b]),rope=new THREE.TubeGeometry(curve,12,.012,5,false);rope.applyMatrix4(inverse);add(group,rope,gold);
