@@ -12,12 +12,13 @@ import {createWorldTargets} from './world-links.js?v=32';
 import {prepareArenaCircus} from './arena-circus.js?v=31';
 import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
+import { WalkMotion } from './walk-motion.js?v=33';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
 const configPromise=fetch('./worlds.json?v=6').then(r=>{if(!r.ok)throw Error('World configuration unavailable');return r.json()});
 export class IslandViewer {
  constructor(host){
-  this.host=host;this.active=false;this.mode='walk';this.keys=new Set();this.stick={x:0,y:0};this.yaw=0;this.pitch=0;this.drag=null;this.foot=0;this.previous=0;this.frame=0;this.navRay=new THREE.Raycaster();
+  this.host=host;this.active=false;this.mode='walk';this.keys=new Set();this.stick={x:0,y:0};this.yaw=0;this.pitch=0;this.motion=new WalkMotion();this.drag=null;this.foot=0;this.previous=0;this.frame=0;this.navRay=new THREE.Raycaster();
   this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));this.renderer.setClearColor(0x000000,0);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
   this.renderer.domElement.setAttribute('aria-label','Интерактивная 3D-сцена');host.append(this.renderer.domElement);
   this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.035,1100);this.camera.rotation.order='YXZ';
@@ -76,14 +77,15 @@ export class IslandViewer {
  }
  reset(){
   if(!this.config||!this.nav)return;this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,this.physics?this.config.spawn[1]-this.config.eye+.43:100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
-  this.physics?.reset();this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();
+  this.physics?.reset();this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.clearWalkInput();
  }
- setMode(mode){if(!this.bounds)return;this.mode=mode;this.controls.enabled=mode==='orbit';this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();document.getElementById('knob').style.transform='';
+ clearWalkInput(){const drag=this.drag;this.drag=null;this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop();this.touchStick?.reset();this.gameTaps?.reset();if(drag){const canvas=this.renderer.domElement;try{if(canvas.hasPointerCapture(drag.id))canvas.releasePointerCapture(drag.id)}catch{}}}
+ setMode(mode){if(!this.bounds||this.mode===mode)return;this.clearWalkInput();this.mode=mode;this.controls.enabled=mode==='orbit';document.getElementById('knob').style.transform='';
   if(mode==='orbit'){
    this.walkPosition=this.camera.position.clone();this.walkRotation=this.camera.rotation.clone();const size=this.bounds.getSize(new THREE.Vector3());const center=this.bounds.getCenter(new THREE.Vector3());center.y=Math.max(.8,this.bounds.min.y+size.y*.55);this.controls.target.copy(center);const extent=Math.max(size.x,size.z,size.y*.8);this.camera.position.set(center.x+extent*.92,center.y+extent*.58,center.z+extent*1.25);this.controls.maxDistance=extent*3.8;this.controls.minDistance=extent*.08;this.camera.lookAt(center);this.controls.update();
-  }else if(this.walkPosition){this.camera.position.copy(this.walkPosition);this.camera.rotation.copy(this.walkRotation);this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.walkPosition=null}
+  }else if(this.walkPosition){this.camera.position.copy(this.walkPosition);this.camera.rotation.copy(this.walkRotation);this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.walkPosition=null}
  }
- setActive(value){if(!value)this.arenaCircus?.stop();this.active=value;this.previous=0;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
+ setActive(value){if(!value)this.arenaCircus?.stop();this.active=value;this.previous=0;this.clearWalkInput();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
  floorAt(x,z,top,far=2){
   this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;
   let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObjects(this.padNav?[this.nav,this.padNav]:[this.nav],false)[0]?.point.y??null;
@@ -94,7 +96,9 @@ export class IslandViewer {
  tick(time){this.frame=0;if(!this.active)return;const dt=Math.min((time-(this.previous||time))/1000,.08);this.previous=time;
   if(this.mode==='walk'&&this.nav){
    let sx=this.stick.x+(this.keys.has('KeyD')||this.keys.has('ArrowRight')?1:0)-(this.keys.has('KeyA')||this.keys.has('ArrowLeft')?1:0),sy=-this.stick.y+(this.keys.has('KeyW')||this.keys.has('ArrowUp')?1:0)-(this.keys.has('KeyS')||this.keys.has('ArrowDown')?1:0);const length=Math.hypot(sx,sy);if(length>1){sx/=length;sy/=length}
-   if(sx||sy){const speed=this.config.speed*dt*(this.keys.has('ShiftLeft')?1.5:1),dx=(Math.cos(this.yaw)*sx-Math.sin(this.yaw)*sy)*speed,dz=(-Math.sin(this.yaw)*sx-Math.cos(this.yaw)*sy)*speed;
+   const motion=this.motion.update(dt,sx,sy,this.config.speed*(this.keys.has('ShiftLeft')?1.5:1));this.yaw=motion.yaw;this.pitch=motion.pitch;
+   const {dx,dz}=motion;
+   if(dx||dz){
     const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.055));for(let i=0;i<steps;i++){const x=dx/steps,z=dz/steps;if(!this.stepTo(this.camera.position.x+x,this.camera.position.z+z)){const a=this.stepTo(this.camera.position.x+x,this.camera.position.z);const b=this.stepTo(this.camera.position.x,this.camera.position.z+z);if(!a&&!b)break}}
    }
    if(this.physics){this.foot=this.physics.fall(this.camera.position.x,this.camera.position.z,this.foot,dt);if(this.foot<this.bounds.min.y-8)this.reset()}
@@ -107,9 +111,9 @@ export class IslandViewer {
   return this.arcadeTargets.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean),this.mode==='walk'&&this.slug!=='goat-mountain'?12:Infinity);
  }
  launchGame(clientX,clientY){
-  if(Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size)return;
+  if(Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size||Math.hypot(this.motion.vx,this.motion.vz)>.12)return;
   const game=this.gameAt(clientX,clientY);if(!game)return;
-  this.touchStick?.reset();this.keys.clear();this.drag=null;
+  this.clearWalkInput();
   if(game.action==='honk'){
    const circus=this.arenaCircus;return circus?.honk(game.nose).then(ok=>{if(!ok&&this.active&&this.arenaCircus===circus&&circus.soundError){const hint=document.getElementById('hint');hint.textContent='Нажми на нос ещё раз, чтобы включить гудок';hint.classList.remove('fade')}return ok});
   }
@@ -119,10 +123,10 @@ export class IslandViewer {
   const canvas=this.renderer.domElement;canvas.style.touchAction='none';
   let lastHover=0;this.gameTaps=attachTapGesture(canvas,(x,y)=>this.launchGame(x,y),{enabled:()=>this.active&&!!this.arcadeTargets,tapPolicy:e=>this.slug==='arena'&&this.gameAt(e.clientX,e.clientY)?.action==='honk'?{distance:14,duration:800}:null,onHover:(x,y)=>{const now=performance.now();if(now-lastHover<100)return;lastHover=now;const game=this.gameAt(x,y);canvas.style.cursor=game?'pointer':'';canvas.title=game?(game.action==='honk'?game.title:'Открыть '+game.title):''}});
   this.host.addEventListener('keydown',e=>{if(e.key==='Enter'&&this.active&&this.arcadeTargets){const r=canvas.getBoundingClientRect();e.preventDefault();this.launchGame(r.left+r.width/2,r.top+r.height/2)}});
-  canvas.addEventListener('pointerdown',e=>{if(!this.active||this.mode!=='walk')return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
-  canvas.addEventListener('pointermove',e=>{if(!this.drag||e.pointerId!==this.drag.id||this.mode!=='walk')return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=clamp(this.pitch-(e.clientY-this.drag.y)*.003,-1.35,1.35);this.drag.x=e.clientX;this.drag.y=e.clientY});
+  canvas.addEventListener('pointerdown',e=>{if(!this.active||this.mode!=='walk'||this.drag||(e.pointerType==='mouse'&&e.button!==0))return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
+  canvas.addEventListener('pointermove',e=>{if(!this.active||!this.drag||e.pointerId!==this.drag.id||this.mode!=='walk')return;this.motion.turn(e.clientX-this.drag.x,e.clientY-this.drag.y);this.drag.x=e.clientX;this.drag.y=e.clientY});
   const end=e=>{if(this.drag?.id===e.pointerId)this.drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);canvas.addEventListener('lostpointercapture',end);
-  window.addEventListener('keydown',e=>{if(!this.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>{this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();this.drag=null});
+  window.addEventListener('keydown',e=>{if(!this.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>this.clearWalkInput());
   this.touchStick=createTouchStick(document.getElementById('joystick'),document.getElementById('knob'),(x,y)=>{this.stick.x=x;this.stick.y=y});
   const codes={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'};document.querySelectorAll('[data-move]').forEach(b=>{b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);this.keys.add(codes[b.dataset.move])});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>this.keys.delete(codes[b.dataset.move]))});
  }
@@ -134,4 +138,5 @@ export class IslandViewer {
   textures.forEach(t=>{t.dispose();if(t.source?.data?.close)t.source.data.close()});materials.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());this.root=this.staticGroup=this.clouds=this.nav=null;this.mixers=[];this.boxes=[];this.walkPosition=null;this.renderer.renderLists.dispose();
  }
 }
+
 
