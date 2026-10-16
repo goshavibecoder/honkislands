@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {clearStairCorridors} from './stair-corridors.js?v=19';
+import {clearStairCorridors} from './stair-corridors.js?v=20';
 
 const UP=new THREE.Vector3(0,1,0);
 const normalizedName=object=>object.name.replace(/\s+/g,'_');
@@ -8,10 +8,11 @@ const normalizedName=object=>object.name.replace(/\s+/g,'_');
 // flight in world coordinates so its run and width remain perpendicular.
 export function rebuildMountainStairs(root){
  root.updateMatrixWorld(true);
- const flights=new Map(),obsolete=[];let stone=null,nosing=null,edge=null,landingMaterial=null;
+ const flights=new Map(),obsolete=[];let stone=null,nosing=null,edge=null,landingMaterial=null,rock=null;
  root.traverse(object=>{
   if(!object.isMesh)return;
   const name=normalizedName(object),match=name.match(/^Solid_stair_riser_(\d+)_(\d+)$/);
+  if(/^Faceted_mountain_Basalt/.test(name))rock??=object.material;
   if(match){
    const box=new THREE.Box3().setFromObject(object),center=box.getCenter(new THREE.Vector3());center.y=box.max.y;
    if(!flights.has(Number(match[1])))flights.set(Number(match[1]),[]);
@@ -26,7 +27,8 @@ export function rebuildMountainStairs(root){
  const inverse=root.matrixWorld.clone().invert(),group=new THREE.Group();group.name='Rebuilt_mountain_staircases';
  const navPositions=[],specs=[];
  const addGeometry=(geometry,material,name)=>{
-  geometry.applyMatrix4(inverse);geometry.computeBoundingSphere();const mesh=new THREE.Mesh(geometry,material);mesh.name=name;group.add(mesh);
+  geometry.applyMatrix4(inverse);geometry.computeBoundingSphere();const mesh=new THREE.Mesh(geometry,material);mesh.name=name;
+  const flight=name.match(/^Mountain_retaining_wall_flight_(\d+)/),landing=name.match(/^Mountain_retaining_wall_turn_(\d+)/);if(flight)mesh.userData.mountainFlight=Number(flight[1]);if(landing)mesh.userData.mountainLanding=Number(landing[1]);group.add(mesh);
  };
  const box=(size,center,basis,material,name)=>{
   const geometry=new THREE.BoxGeometry(...size);geometry.applyMatrix4(basis);geometry.translate(center.x,center.y,center.z);addGeometry(geometry,material,name);
@@ -39,6 +41,7 @@ export function rebuildMountainStairs(root){
   if(!(spacing>.1&&rise>.08&&rise<.22))throw Error(`Invalid mountain stair flight ${id}`);
   const side=new THREE.Vector3(direction.z,0,-direction.x),start=first.clone().addScaledVector(direction,-spacing/2);
   const base=first.y-rise,end=start.clone().addScaledVector(direction,length);end.y=last.y;
+  if(id===0)box([2.8,.28,1.6],new THREE.Vector3(start.x,base-.13,start.z+.75),new THREE.Matrix4(),stone,'Mountain_entry_landing');
   // One closed extrusion: treads cannot float apart or expose a sloping ramp
   // through their top faces. The supporting underside stays below every tread.
   const shape=new THREE.Shape();shape.moveTo(0,base-.30);shape.lineTo(0,first.y);
@@ -55,9 +58,13 @@ export function rebuildMountainStairs(root){
   }
   geometry.computeVertexNormals();addGeometry(geometry,stone,`Mountain_solid_stair_flight_${id}`);
   const basis=new THREE.Matrix4().makeBasis(side,UP,direction);
+  const lowLip=start.clone().addScaledVector(direction,-.10);lowLip.y=base-.07;box([width,.18,.30],lowLip,basis,stone,`Mountain_stair_mouth_low_${id}`);
+  const highLip=end.clone().addScaledVector(direction,.10);highLip.y=last.y-.07;box([width,.18,.30],highLip,basis,stone,`Mountain_stair_mouth_high_${id}`);
+  const inward=Math.sign(-((start.x+end.x)*side.x+(start.z+end.z)*side.z));
   for(let i=0;i<count;i++){
    const top=first.y+i*rise,front=start.clone().addScaledVector(direction,i*spacing+.016);front.y=top+.012;
    box([width-.08,.022,.030],front,basis,nosing,`Mountain_stair_nosing_${id}_${i}`);
+   if(inward){const center=start.clone().addScaledVector(direction,(i+.5)*spacing).addScaledVector(side,inward*(width/2+.10));center.y=top+1.42;box([.14,3.14,spacing+.012],center,basis,rock||stone,`Mountain_retaining_wall_flight_${id}_${i}`)}
    for(const sign of [-1,1]){
     const rail=start.clone().addScaledVector(direction,(i+.5)*spacing).addScaledVector(side,sign*(width/2-.025));rail.y=top+.012;
     box([.024,.022,spacing+.002],rail,basis,edge,`Mountain_stair_edge_${id}_${i}_${sign}`);
@@ -85,6 +92,17 @@ export function rebuildMountainStairs(root){
   const geometry=new THREE.ExtrudeGeometry(shape,{depth:.28,steps:1,bevelEnabled:false,curveSegments:1}),position=geometry.attributes.position;
   for(let n=0;n<position.count;n++){const x=position.getX(n),z=-position.getY(n),y=top-.28+position.getZ(n);position.setXYZ(n,x,y,z)}
   geometry.computeVertexNormals();addGeometry(geometry,landingMaterial||stone,`Mountain_stair_turn_landing_${i}`);
+  // Seal terrain-facing cuts with opaque stone. These walls follow the deck's
+  // outer boundary and leave both stair mouths open.
+  const area=outline.reduce((sum,a,k)=>{const b=outline[(k+1)%outline.length];return sum+a.x*b.y-b.x*a.y},0),orientation=Math.sign(area);
+  for(let k=0;k<outline.length;k++){
+   if(k===path.length-1||k===outline.length-1)continue;
+   const a=outline[k],b=outline[(k+1)%outline.length],direction=new THREE.Vector3(b.x-a.x,0,b.y-a.y),length=direction.length();direction.normalize();
+   const outside=new THREE.Vector3(direction.z*orientation,0,-direction.x*orientation),middle=new THREE.Vector3((a.x+b.x)/2,top+1.42,(a.y+b.y)/2);
+   if(outside.x*-middle.x+outside.z*-middle.z<.2)continue;
+   middle.addScaledVector(outside,.09);const basis=new THREE.Matrix4().makeBasis(outside,UP,direction);if(basis.determinant()<0)basis.makeBasis(outside.clone().negate(),UP,direction);
+   box([.14,3.14,length+.012],middle,basis,rock||stone,`Mountain_retaining_wall_turn_${i}_${k}`);
+  }
   for(const triangle of THREE.ShapeUtils.triangulateShape(outline,[])){
    const points=triangle.map(n=>new THREE.Vector3(outline[n].x,top+.006,outline[n].y));
    if(new THREE.Triangle(...points).getNormal(new THREE.Vector3()).y<0)[points[1],points[2]]=[points[2],points[1]];
@@ -101,7 +119,7 @@ export function rebuildMountainStairs(root){
  // Some original neon boxes share geometry; dispose only after checking that
  // no surviving mountain object still references it.
  root.traverse(object=>{if(object.geometry)disposed.delete(object.geometry)});for(const geometry of disposed)geometry.dispose();
- const trimmed=clearStairCorridors(root,corridors);root.add(group);root.updateMatrixWorld(true);
+ const trimmed=clearStairCorridors(root,corridors);root.add(group);root.updateMatrixWorld(true);clearStairCorridors(group,corridors);root.updateMatrixWorld(true);
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(navPositions,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();
  const nav=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Mountain_stair_navigation';nav.userData.flights=specs;nav.userData.corridors=corridors;nav.userData.landingPaths=landingPaths;nav.userData.trimmedSurfaces=trimmed;nav.updateMatrixWorld(true);return nav;
 }

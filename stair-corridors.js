@@ -9,17 +9,17 @@ export function clearStairCorridors(root,flights,navigation=false){
    const polygon=f.polygon,area=polygon.reduce((sum,a,i)=>{const b=polygon[(i+1)%polygon.length];return sum+a[0]*b[1]-b[0]*a[1]},0),sign=Math.sign(area);
    const planes=polygon.map((a,i)=>{const b=polygon[(i+1)%polygon.length];return p=>sign*((b[0]-a[0])*(p[2]-a[1])-(b[1]-a[1])*(p[0]-a[0]))+1e-7});
    planes.push(p=>p[1]-(f.top-.32),p=>f.top+3-p[1]);
-   const bounds=new THREE.Box3();for(const [x,z] of polygon)for(const y of [f.top-.32,f.top+3])bounds.expandByPoint(new THREE.Vector3(x,y,z));return {planes,bounds};
+   const bounds=new THREE.Box3();for(const [x,z] of polygon)for(const y of [f.top-.32,f.top+3])bounds.expandByPoint(new THREE.Vector3(x,y,z));return {id:f.id,planes,bounds};
   }
   const start=new THREE.Vector3(...f.start);start.y-=.006;const dir=new THREE.Vector3(...f.direction),side=new THREE.Vector3(...f.side),length=f.spacing*f.count,slope=f.rise/f.spacing,half=f.width/2+.18;
   const run=p=>(p[0]-start.x)*dir.x+(p[2]-start.z)*dir.z,across=p=>(p[0]-start.x)*side.x+(p[2]-start.z)*side.z;
-  const planes=[p=>run(p)+.008,p=>length+.008-run(p),p=>half-across(p),p=>half+across(p),p=>p[1]-(start.y-.30+run(p)*slope),p=>start.y+run(p)*slope+3-p[1]];
-  const bounds=new THREE.Box3();for(const s of [0,length])for(const a of [-half,half])for(const h of [-.30,3])bounds.expandByPoint(new THREE.Vector3(start.x+dir.x*s+side.x*a,start.y+s*slope+h,start.z+dir.z*s+side.z*a));return {planes,bounds};
+  const planes=[p=>run(p)+.26,p=>length+.26-run(p),p=>half-across(p),p=>half+across(p),p=>p[1]-(start.y-.30+run(p)*slope),p=>start.y+run(p)*slope+3-p[1]];
+  const bounds=new THREE.Box3();for(const s of [-.26,length+.26])for(const a of [-half,half])for(const h of [-.30,3])bounds.expandByPoint(new THREE.Vector3(start.x+dir.x*s+side.x*a,start.y+s*slope+h,start.z+dir.z*s+side.z*a));return {id:f.id,planes,bounds};
  });
  const retired=new Set();let trimmed=0;
  root.traverse(object=>{
-  if(!object.isMesh||(!navigation&&! /^(Faceted_mountain_|Angular_flank_rock|Shrine_rock_support|Stone_landing_buttress|Unified_supported_landing_|Landing_neon_edge|Shrine_balcony_light|Summit_circular_terrace|Summit_luminous_ring|Summit_radial_paving_joint)/.test(object.name.replace(/\s+/g,'_'))))return;
-  const candidates=corridors.filter(c=>c.bounds.intersectsBox(new THREE.Box3().setFromObject(object)));if(!candidates.length)return;
+  if(!object.isMesh||(!navigation&&! /^(Mountain_retaining_wall|Faceted_mountain_|Angular_flank_rock|Shrine_rock_support|Stone_landing_buttress|Unified_supported_landing_|Landing_neon_edge|Shrine_balcony_light|Summit_circular_terrace|Summit_luminous_ring|Summit_radial_paving_joint)/.test(object.name.replace(/\s+/g,'_'))))return;
+  const candidates=corridors.filter(c=>c.id!==object.userData.mountainFlight&&!(object.userData.mountainLanding!==undefined&&String(c.id).startsWith(`landing-${object.userData.mountainLanding}-`))&&c.bounds.intersectsBox(new THREE.Box3().setFromObject(object)));if(!candidates.length)return;
   const world=object.geometry.clone().applyMatrix4(object.matrixWorld),p=world.attributes.position,n=world.attributes.normal,uv=world.attributes.uv,index=world.index;
   const positions=[],normals=[],uvs=[];let changed=false;
   const vertex=i=>[p.getX(i),p.getY(i),p.getZ(i),n?.getX(i)||0,n?.getY(i)||0,n?.getZ(i)||0,uv?.getX(i)||0,uv?.getY(i)||0];
