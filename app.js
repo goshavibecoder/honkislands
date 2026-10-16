@@ -1,4 +1,4 @@
-import {mountEntryIntro} from './entry-intro.js?v=29';
+import {mountEntryIntro} from './entry-intro.js?v=30';
 const $=id=>document.getElementById(id),map=$('map'),world=$('world'),transition=$('transition');
 let viewer,activeWorld=null,busy=false,lastButton=null,epoch=0;
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -6,7 +6,7 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 async function cover(){transition.className='active';transition.setAttribute('aria-hidden','false');void transition.offsetWidth;transition.classList.add('covered');await wait(reduced?180:950)}
 async function reveal(){transition.classList.add('depart');await wait(reduced?220:1000);transition.className='';transition.setAttribute('aria-hidden','true')}
 function progress(value,label){$('progress').style.width=`${Math.round(value*100)}%`;$('load-label').textContent=label||'Летим на остров…'}
-async function enter(slug,button){if(busy)return;busy=true;lastButton=button||lastButton;activeWorld=slug;const current=++epoch;$('error').hidden=true;progress(0);const curtain=cover();try{
+async function enter(slug,button){if(busy)return;entryIntro?.finish();busy=true;lastButton=button||lastButton;activeWorld=slug;const current=++epoch;$('error').hidden=true;progress(0);const curtain=cover();try{
  const module=await import('./viewer.js?v=27');viewer??=new module.IslandViewer($('viewport'));await curtain;
  world.hidden=false;map.hidden=true;world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');
  await viewer.open(slug,progress);if(current!==epoch)return;
@@ -26,4 +26,4 @@ window.addEventListener('pagehide',()=>viewer?.setActive(false));
 
 
 
-mountEntryIntro({audioUrl:'./assets/honk-entry-sound-v29.mp3'});
+const entryIntro=mountEntryIntro({audioUrl:'./assets/honk-entry-sound-v29.mp3'});
