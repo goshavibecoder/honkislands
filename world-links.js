@@ -10,7 +10,7 @@ export const NOTE_LINKS=Object.freeze({
  IG:'https://www.instagram.com/honkhonkler',
  TikTok:'https://tiktok.com/@honk.honkler',
  Chart:'https://dexscreener.com/ton/EQAmWanX8ohlsG6qBpfL2ritCQ7tr7MlJpEK64Khm-O4742K',
- Lore:'https://tiny-duckanoo-d07164.netlify.app',
+ Lore:'https://meek-kulfi-9f56e0.netlify.app/',
  ADL:'https://www.adl.org/resources/hate-symbol/honk-honkler',
  Meme:'https://knowyourmeme.com/sensitive/memes/clown-pepe-honk-honk-clown-world',
  Honkster:'https://t.me/Honkster_Bot',

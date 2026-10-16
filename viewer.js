@@ -8,7 +8,7 @@ import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physic
 import {rebuildMountainStairs} from './mountain-stairs.js?v=23';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=21';
-import {createWorldTargets} from './world-links.js?v=10';
+import {createWorldTargets} from './world-links.js?v=32';
 import {prepareArenaCircus} from './arena-circus.js?v=31';
 import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
