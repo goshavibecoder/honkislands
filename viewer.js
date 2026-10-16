@@ -5,7 +5,7 @@ import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
 import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=12';
-import {rebuildMountainStairs} from './mountain-stairs.js?v=21';
+import {rebuildMountainStairs} from './mountain-stairs.js?v=22';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=21';
 import {createWorldTargets} from './world-links.js?v=10';
@@ -37,7 +37,7 @@ export class IslandViewer {
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Открываем 3D-мир…');
   const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?prepareTrophy(this.root,this.environment):createWorldTargets(this.root,slug);
-  let mountainShell=null;if(slug==='goat-mountain'){const sealed=await this.fetchBinary('./models/goat-mountain-shell.bin?v=21');mountainShell=await new Response(new Blob([sealed]).stream().pipeThrough(new DecompressionStream('gzip'))).json()}
+  let mountainShell=null;if(slug==='goat-mountain'){const sealed=await this.fetchBinary('./models/goat-mountain-shell-v22.bin?v=22');mountainShell=await new Response(new Blob([sealed]).stream().pipeThrough(new DecompressionStream('gzip'))).json()}
   this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;
   this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):slug==='goat-mountain'?createMountainCollision(this.root):null;
   if(slug==='goat-mountain')this.nav=createMountainNavigation(this.root);

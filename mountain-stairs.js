@@ -7,7 +7,7 @@ const normalizedName=object=>object.name.replace(/\s+/g,'_');
 // flight in world coordinates so its run and width remain perpendicular.
 export function rebuildMountainStairs(root,shell){
  root.updateMatrixWorld(true);
- const flights=new Map(),obsolete=[];let stone=null,nosing=null,edge=null,landingMaterial=null;
+ const flights=new Map(),obsolete=[];let stone=null,nosing=null,edge=null,landingMaterial=null,summit=null;
  root.traverse(object=>{
   if(!object.isMesh)return;
   const name=normalizedName(object),match=name.match(/^Solid_stair_riser_(\d+)_(\d+)$/);
@@ -16,12 +16,14 @@ export function rebuildMountainStairs(root,shell){
    if(!flights.has(Number(match[1])))flights.set(Number(match[1]),[]);
    flights.get(Number(match[1])).push({order:Number(match[2]),center});stone??=object.material;
   }
+  if(/^Summit_circular_terrace(?:_\d+)?$/.test(name)){const bounds=new THREE.Box3().setFromObject(object);if(!summit||bounds.max.y>summit.max.y)summit=bounds}
   if(name.startsWith('Unified_supported_landing_'))landingMaterial??=object.material;
   if(/^Neon_stair_nosing(?:_\d+)?$/.test(name))nosing??=object.material;
   if(/^Continuous_stair_side_light(?:_\d+)?$/.test(name))edge??=object.material;
   if(/^(Solid_stair_riser_\d+_\d+|Stair_solid_supporting_stringer_\d+|Neon_stair_nosing(?:_\d+)?|Continuous_stair_side_light(?:_\d+)?)$/.test(name))obsolete.push(object);
  });
  if(flights.size!==5||!stone||!nosing||!edge)throw Error('Mountain staircase source is incomplete');
+ nosing=nosing.clone();edge=edge.clone();for(const material of [nosing,edge]){material.polygonOffset=true;material.polygonOffsetFactor=-1;material.polygonOffsetUnits=-1}
  const inverse=root.matrixWorld.clone().invert(),group=new THREE.Group();group.name='Rebuilt_mountain_staircases';
  const navPositions=[],specs=[];
  const addGeometry=(geometry,material,name)=>{
@@ -33,12 +35,19 @@ export function rebuildMountainStairs(root,shell){
  };
  for(const [id,steps] of [...flights].sort((a,b)=>a[0]-b[0])){
   steps.sort((a,b)=>a.order-b.order);
-  const first=steps[0].center,last=steps.at(-1).center,count=steps.length;
+  const first=steps[0].center.clone(),last=steps.at(-1).center.clone(),count=steps.length;
   const direction=last.clone().sub(first);direction.y=0;const spacing=direction.length()/(count-1);direction.normalize();
-  const rise=(last.y-first.y)/(count-1),width=1.46,length=spacing*count;
+  let rise=(last.y-first.y)/(count-1);const width=1.46,length=spacing*count;
+  const start=first.clone().addScaledVector(direction,-spacing/2),base=first.y-rise;
+  // Aim the summit approach into the actual terrace, with the last tread flush
+  // to its top. The widened source flight pointed along the outside rim.
+  if(id===4){
+   if(!summit)throw Error('Summit platform unavailable');
+   const target=summit.getCenter(new THREE.Vector3());target.z+=summit.getSize(new THREE.Vector3()).z*.19;direction.subVectors(target,start);direction.y=0;direction.normalize();
+   rise=(summit.max.y-base)/count;first.y=base+rise;last.y=summit.max.y;
+  }
   if(!(spacing>.1&&rise>.08&&rise<.22))throw Error(`Invalid mountain stair flight ${id}`);
-  const side=new THREE.Vector3(direction.z,0,-direction.x),start=first.clone().addScaledVector(direction,-spacing/2);
-  const base=first.y-rise,end=start.clone().addScaledVector(direction,length);end.y=last.y;
+  const side=new THREE.Vector3(direction.z,0,-direction.x),end=start.clone().addScaledVector(direction,length);end.y=last.y;
   if(id===0)box([2.8,.28,1.6],new THREE.Vector3(start.x,base-.13,start.z+.75),new THREE.Matrix4(),stone,'Mountain_entry_landing');
   // One closed extrusion: treads cannot float apart or expose a sloping ramp
   // through their top faces. The supporting underside stays below every tread.
@@ -57,14 +66,14 @@ export function rebuildMountainStairs(root,shell){
   geometry.computeVertexNormals();addGeometry(geometry,stone,`Mountain_solid_stair_flight_${id}`);
   const basis=new THREE.Matrix4().makeBasis(side,UP,direction);
   const lowLip=start.clone().addScaledVector(direction,-.10);lowLip.y=base-.07;box([width,.18,.30],lowLip,basis,stone,`Mountain_stair_mouth_low_${id}`);
-  const highLip=end.clone().addScaledVector(direction,.10);highLip.y=last.y-.07;box([width,.18,.30],highLip,basis,stone,`Mountain_stair_mouth_high_${id}`);
+  const highLip=end.clone().addScaledVector(direction,.125);highLip.y=last.y-.09;box([width,.18,.25],highLip,basis,stone,`Mountain_stair_mouth_high_${id}`);
   for(let i=0;i<count;i++){
    const top=first.y+i*rise,front=start.clone().addScaledVector(direction,i*spacing+.016);front.y=top+.012;
    box([width-.08,.022,.030],front,basis,nosing,`Mountain_stair_nosing_${id}_${i}`);
    for(const sign of [-1,1]){
     const rail=start.clone().addScaledVector(direction,(i+.5)*spacing).addScaledVector(side,sign*(width/2-.025));rail.y=top+.012;
     box([.024,.022,spacing+.002],rail,basis,edge,`Mountain_stair_edge_${id}_${i}_${sign}`);
-    const vertical=start.clone().addScaledVector(direction,i*spacing+.012).addScaledVector(side,sign*(width/2-.025));vertical.y=top-rise/2;
+    const vertical=start.clone().addScaledVector(direction,i*spacing-.012).addScaledVector(side,sign*(width/2-.025));vertical.y=top-rise/2;
     box([.024,rise,.024],vertical,basis,edge,`Mountain_stair_edge_riser_${id}_${i}_${sign}`);
    }
   }
@@ -73,7 +82,7 @@ export function rebuildMountainStairs(root,shell){
   const half=width/2-.19,low=start.clone().addScaledVector(direction,-.02);low.y=base+.006-.02*rise/spacing;const high=end.clone().addScaledVector(direction,.02);high.y+=.006+.02*rise/spacing;
   const a=low.clone().addScaledVector(side,half),b=low.clone().addScaledVector(side,-half),c=high.clone().addScaledVector(side,half),d=high.clone().addScaledVector(side,-half);
   navPositions.push(...a.toArray(),...b.toArray(),...c.toArray(),...b.toArray(),...d.toArray(),...c.toArray());
-  specs.push({id,count,width,spacing,rise,start:[start.x,base+.006,start.z],end:[end.x,end.y+.006,end.z],direction:direction.toArray(),side:side.toArray()});
+  specs.push({id,count,width,spacing,rise,exitPadding:id===4?.25:.26,start:[start.x,base+.006,start.z],end:[end.x,end.y+.006,end.z],direction:direction.toArray(),side:side.toArray()});
  }
  // Flat turn landings join the complete widths of adjacent stair mouths.
  // They also replace the old rock floor through the middle of these turns.
@@ -104,7 +113,11 @@ export function rebuildMountainStairs(root,shell){
  // Some original neon boxes share geometry; dispose only after checking that
  // no surviving mountain object still references it.
  root.traverse(object=>{if(object.geometry)disposed.delete(object.geometry)});for(const geometry of disposed)geometry.dispose();
- const trimmed=applySealedMountain(root,shell);root.add(group);root.updateMatrixWorld(true);
+ const trimmed=applySealedMountain(root,shell);
+ // The offline union already contains the opaque treads and decks. Keeping
+ // these construction meshes too would render the same faces twice.
+ if(shell.mergedStairs)for(const mesh of [...group.children])if(/^(Mountain_entry_landing|Mountain_solid_stair_flight_|Mountain_stair_mouth_|Mountain_stair_turn_landing_)/.test(mesh.name)){mesh.removeFromParent();mesh.geometry.dispose()}
+ root.add(group);root.updateMatrixWorld(true);
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(navPositions,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();
  const nav=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Mountain_stair_navigation';nav.userData.flights=specs;nav.userData.corridors=corridors;nav.userData.landingPaths=landingPaths;nav.userData.trimmedSurfaces=trimmed;nav.updateMatrixWorld(true);return nav;
 }
