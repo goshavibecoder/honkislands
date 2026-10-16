@@ -6,7 +6,7 @@ async function cover(){transition.className='active';transition.setAttribute('ar
 async function reveal(){transition.classList.add('depart');await wait(reduced?220:1000);transition.className='';transition.setAttribute('aria-hidden','true')}
 function progress(value,label){$('progress').style.width=`${Math.round(value*100)}%`;$('load-label').textContent=label||'Летим на остров…'}
 async function enter(slug,button){if(busy)return;busy=true;lastButton=button||lastButton;activeWorld=slug;const current=++epoch;$('error').hidden=true;progress(0);const curtain=cover();try{
- const module=await import('./viewer.js?v=17');viewer??=new module.IslandViewer($('viewport'));await curtain;
+ const module=await import('./viewer.js?v=19');viewer??=new module.IslandViewer($('viewport'));await curtain;
  world.hidden=false;map.hidden=true;world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');
  await viewer.open(slug,progress);if(current!==epoch)return;
  viewer.setActive(true);history.replaceState(null,'',`#${slug}`);await reveal();busy=false;$('viewport').focus({preventScroll:true});showHint();
@@ -20,6 +20,7 @@ let hintTimer;function showHint(orbit=false){clearTimeout(hintTimer);$('hint').t
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!world.hidden&&!busy)back()});
 document.addEventListener('visibilitychange',()=>viewer?.setActive(!document.hidden&&!world.hidden&&!busy));
 window.addEventListener('pagehide',()=>viewer?.setActive(false));
+
 
 
 

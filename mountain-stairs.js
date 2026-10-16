@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {clearStairCorridors} from './stair-corridors.js?v=17';
+import {clearStairCorridors} from './stair-corridors.js?v=19';
 
 const UP=new THREE.Vector3(0,1,0);
 const normalizedName=object=>object.name.replace(/\s+/g,'_');
@@ -90,10 +90,10 @@ export function rebuildMountainStairs(root){
    if(new THREE.Triangle(...points).getNormal(new THREE.Vector3()).y<0)[points[1],points[2]]=[points[2],points[1]];
    for(const point of points)navPositions.push(...point.toArray());
   }
-  for(let n=0;n<path.length-1;n++){
-   const from=path[n],to=path[n+1],dir=to.clone().sub(from);dir.y=0;const length=dir.length();dir.normalize();const side=new THREE.Vector3(dir.z,0,-dir.x);
-   landingCuts.push({id:`landing-${i}-${n}`,count:1,width:1.46,spacing:length,rise:0,start:[from.x,top+.006,from.z],end:[to.x,top+.006,to.z],direction:dir.toArray(),side:side.toArray()});
-  }
+  // Cut the entire turn, including mitered outer corners, out of the rock.
+  // Three narrow center-line strips left rock protruding through those corners.
+  const clearanceOutline=pathOutline(path,.91);
+  for(const [n,triangle] of THREE.ShapeUtils.triangulateShape(clearanceOutline,[]).entries())landingCuts.push({id:`landing-${i}-${n}`,polygon:triangle.map(k=>[clearanceOutline[k].x,clearanceOutline[k].y]),top:top+.006});
   landingPaths.push(path.map(p=>[p.x,top+.006,p.z]));
  }
  const corridors=[...specs,...landingCuts];
@@ -115,3 +115,4 @@ function pathOutline(path,half){
  }
  return left.concat(right.reverse());
 }
+

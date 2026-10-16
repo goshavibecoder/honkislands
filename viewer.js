@@ -5,8 +5,9 @@ import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
 import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=12';
-import {clearStairCorridors} from './stair-corridors.js?v=17';
-import {rebuildMountainStairs} from './mountain-stairs.js?v=17';
+import {clearStairCorridors} from './stair-corridors.js?v=19';
+import {rebuildMountainStairs} from './mountain-stairs.js?v=19';
+import {repairLandingPad} from './landing-pad.js?v=19';
 import {createWorldTargets} from './world-links.js?v=10';
 import {prepareTrophy} from './trophy.js?v=8';
 import {attachTapGesture} from './tap-gesture.js?v=7';
@@ -36,7 +37,7 @@ export class IslandViewer {
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Открываем 3D-мир…');
   const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?prepareTrophy(this.root,this.environment):createWorldTargets(this.root,slug);
-  this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):null;this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root):null;
+  this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):null;this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;
   // Bake static geometry into material batches. Animated nodes remain attached
   // to their original hierarchy, so original animation tracks still work.
   const animated=new Set();for(const clip of gltf.animations)for(const track of clip.tracks){try{const name=THREE.PropertyBinding.parseTrackName(track.name).nodeName;const node=this.root.getObjectByName(name);node?.traverse(o=>animated.add(o.uuid))}catch{}}
@@ -47,7 +48,9 @@ export class IslandViewer {
    if(this.config.openRoof&&o.name.startsWith('Suspended_acoustic_ceiling_tile')){remove.push(o);return}
    const mats=Array.isArray(o.material)?o.material:[o.material];for(const mat of mats){if(mat.map)mat.map.anisotropy=Math.min(4,this.renderer.capabilities.getMaxAnisotropy());if(mat.emissiveIntensity>2.2)mat.emissiveIntensity=2.2}
    if(animated.has(o.uuid)||o.isSkinnedMesh||Array.isArray(o.material))return;
-   const key=o.material.uuid;let bucket=buckets.get(key);if(!bucket){bucket={material:o.material,geometries:[]};buckets.set(key,bucket)}
+   // Clipped terrain and extruded stairs are non-indexed; the original GLB
+   // also contains indexed meshes using the same material. Keep them separate.
+   const key=o.material.uuid+(o.geometry.index?':indexed':':triangles');let bucket=buckets.get(key);if(!bucket){bucket={material:o.material,geometries:[]};buckets.set(key,bucket)}
    const geometry=o.geometry.clone().applyMatrix4(o.matrixWorld);for(const name of Object.keys(geometry.attributes))if(!['position','normal','uv'].includes(name))geometry.deleteAttribute(name);if(!geometry.attributes.normal)geometry.computeVertexNormals();if(!geometry.attributes.uv)geometry.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count*2),2));bucket.geometries.push(geometry);remove.push(o);
   });
   this.staticGroup=new THREE.Group();for(const bucket of buckets.values()){
@@ -73,7 +76,7 @@ export class IslandViewer {
  setActive(value){this.active=value;this.previous=0;this.keys.clear();this.stick.x=this.stick.y=0;this.touchStick?.reset();this.gameTaps?.reset();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
  floorAt(x,z,top,far=2){
   this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;
-  let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObject(this.nav,false)[0]?.point.y??null;
+  let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObjects(this.padNav?[this.nav,this.padNav]:[this.nav],false)[0]?.point.y??null;
   if(this.stairNav){const stair=this.navRay.intersectObject(this.stairNav,false)[0];if(stair)floor=stair.point.y}
   return floor;
  }
@@ -112,9 +115,11 @@ export class IslandViewer {
   const codes={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'};document.querySelectorAll('[data-move]').forEach(b=>{b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);this.keys.add(codes[b.dataset.move])});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>this.keys.delete(codes[b.dataset.move]))});
  }
  clear(){
+  if(this.padNav){this.padNav.geometry.dispose();this.padNav.material.dispose();this.padNav=null}
   this.physics?.dispose();this.physics=null;this.floorIndex?.clear();this.floorIndex=null;this.walkCollision=null;if(this.stairNav){this.stairNav.geometry.dispose();this.stairNav.material.dispose();this.stairNav=null}
   this.arcadeTargets?.dispose();this.arcadeTargets=null;this.gameTaps?.reset();this.renderer.domElement.title='';this.renderer.domElement.style.cursor='';
   for(const mixer of this.mixers||[])mixer.stopAllAction();const geometries=new Set(),materials=new Set(),textures=new Set();for(const root of [this.root,this.staticGroup,this.clouds,this.nav]){if(!root)continue;root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(m);for(const v of Object.values(m))if(v?.isTexture&&v!==this.environment)textures.add(v)}});root.removeFromParent()}
   textures.forEach(t=>{t.dispose();if(t.source?.data?.close)t.source.data.close()});materials.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());this.root=this.staticGroup=this.clouds=this.nav=null;this.mixers=[];this.boxes=[];this.walkPosition=null;this.renderer.renderLists.dispose();
  }
 }
+

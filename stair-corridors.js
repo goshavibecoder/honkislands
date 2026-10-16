@@ -5,10 +5,16 @@ import * as THREE from 'three';
 // the statue, columns and banners retain their original geometry.
 export function clearStairCorridors(root,flights,navigation=false){
  const corridors=flights.map(f=>{
-  const start=new THREE.Vector3(...f.start);start.y-=.006;const dir=new THREE.Vector3(...f.direction),side=new THREE.Vector3(...f.side),length=f.spacing*f.count,slope=f.rise/f.spacing,half=f.width/2-.008;
+  if(f.polygon){
+   const polygon=f.polygon,area=polygon.reduce((sum,a,i)=>{const b=polygon[(i+1)%polygon.length];return sum+a[0]*b[1]-b[0]*a[1]},0),sign=Math.sign(area);
+   const planes=polygon.map((a,i)=>{const b=polygon[(i+1)%polygon.length];return p=>sign*((b[0]-a[0])*(p[2]-a[1])-(b[1]-a[1])*(p[0]-a[0]))+1e-7});
+   planes.push(p=>p[1]-(f.top-.32),p=>f.top+3-p[1]);
+   const bounds=new THREE.Box3();for(const [x,z] of polygon)for(const y of [f.top-.32,f.top+3])bounds.expandByPoint(new THREE.Vector3(x,y,z));return {planes,bounds};
+  }
+  const start=new THREE.Vector3(...f.start);start.y-=.006;const dir=new THREE.Vector3(...f.direction),side=new THREE.Vector3(...f.side),length=f.spacing*f.count,slope=f.rise/f.spacing,half=f.width/2+.18;
   const run=p=>(p[0]-start.x)*dir.x+(p[2]-start.z)*dir.z,across=p=>(p[0]-start.x)*side.x+(p[2]-start.z)*side.z;
-  const planes=[p=>run(p)+.008,p=>length+.008-run(p),p=>half-across(p),p=>half+across(p),p=>p[1]-(start.y-.30+run(p)*slope),p=>start.y+run(p)*slope+2.35-p[1]];
-  const bounds=new THREE.Box3();for(const s of [0,length])for(const a of [-half,half])for(const h of [-.30,2.35])bounds.expandByPoint(new THREE.Vector3(start.x+dir.x*s+side.x*a,start.y+s*slope+h,start.z+dir.z*s+side.z*a));return {planes,bounds};
+  const planes=[p=>run(p)+.008,p=>length+.008-run(p),p=>half-across(p),p=>half+across(p),p=>p[1]-(start.y-.30+run(p)*slope),p=>start.y+run(p)*slope+3-p[1]];
+  const bounds=new THREE.Box3();for(const s of [0,length])for(const a of [-half,half])for(const h of [-.30,3])bounds.expandByPoint(new THREE.Vector3(start.x+dir.x*s+side.x*a,start.y+s*slope+h,start.z+dir.z*s+side.z*a));return {planes,bounds};
  });
  const retired=new Set();let trimmed=0;
  root.traverse(object=>{
@@ -44,3 +50,4 @@ function subtractConvex(polygon,planes){
  }
  return {changed:inside.length>=3,polygons:outside};
 }
+
