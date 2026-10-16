@@ -34,10 +34,11 @@ export function createStairNavigation(root){
 }
 
 // Index upward-facing floor triangles once; queries do not scan the whole
-// island on every movement substep. Undersides can never become walkable floors.
-export function createFloorIndex(nav){
+// island on every movement substep. Keep the upward-only default; the arena
+// opt-in preserves its legacy double-sided navigation, including reversed rings.
+export function createFloorIndex(nav,{doubleSided=false}={}){
  const tree=new Octree(),p=nav.geometry.attributes.position,triangle=new THREE.Triangle(),normal=new THREE.Vector3();
- for(let i=0;i<p.count;i+=3){triangle.a.fromBufferAttribute(p,i);triangle.b.fromBufferAttribute(p,i+1);triangle.c.fromBufferAttribute(p,i+2);if(triangle.getNormal(normal).y>.5)tree.addTriangle(triangle.clone())}
+ for(let i=0;i<p.count;i+=3){triangle.a.fromBufferAttribute(p,i);triangle.b.fromBufferAttribute(p,i+1);triangle.c.fromBufferAttribute(p,i+2);triangle.getNormal(normal);if(doubleSided||normal.y>.5){if(doubleSided&&normal.y<0){const swap=triangle.b.clone();triangle.b.copy(triangle.c);triangle.c.copy(swap)}tree.addTriangle(triangle.clone())}}
  tree.build();return tree;
 }
 
@@ -71,3 +72,4 @@ export class WalkPhysics{
  }
  dispose(){this.collision?.clear()}
 }
+

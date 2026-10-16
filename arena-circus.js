@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
-import {decorateCircusArena} from './circus-decor.js?v=26';
-import {createClownHorn} from './clown-horn.js?v=26';
+import {decorateCircusArena} from './circus-decor.js?v=27';
+import {createClownHorn} from './clown-horn.js?v=27';
 
 const RAINBOW=['#ed3346','#ff982e','#ffe15a','#37b86d','#498cf0','#aa56d7'];
 const COLORS={
@@ -14,6 +14,18 @@ const COLORS={
 
 export function prepareArenaCircus(root,environment){
  root.updateMatrixWorld(true);const palette=new Map();
+ // Exterior foliage, cloud puffs and tiny flowers were each high-resolution
+ // unit spheres. Reuse lighter smooth spheres; the interior keeps its detail.
+ const lightSpheres=[new THREE.SphereGeometry(1,12,8),new THREE.SphereGeometry(1,12,6),new THREE.SphereGeometry(1,8,4)],replaced=new Set();let removedTriangles=0;
+ root.traverse(mesh=>{
+  if(!mesh.isMesh||mesh.material?.map)return;
+  const type=/^(Garden_tall_cypress_canopy|Floating_island_billowing_cloud)(?:_|$)/.test(mesh.name)?0:/^Dense_island_garden_shrub(?:_|$)/.test(mesh.name)?1:/^Island_small_scarlet_flower(?:_|$)/.test(mesh.name)?2:-1;
+  if(type<0)return;mesh.geometry.computeBoundingBox();const b=mesh.geometry.boundingBox;
+  if(!b.min.equals(new THREE.Vector3(-1,-1,-1))||!b.max.equals(new THREE.Vector3(1,1,1)))return;
+  const replacement=lightSpheres[type];removedTriangles+=((mesh.geometry.index?.count||mesh.geometry.attributes.position.count)-(replacement.index?.count||replacement.attributes.position.count))/3;replaced.add(mesh.geometry);mesh.geometry=replacement;
+ });
+ const oldFloorGuides=[];root.traverse(mesh=>{if(mesh.isMesh&&/^Arena_cyan_radial_floor_path/.test(mesh.name))oldFloorGuides.push(mesh)});for(const mesh of oldFloorGuides){replaced.add(mesh.geometry);mesh.removeFromParent()}
+ const retained=new Set();root.traverse(mesh=>{if(mesh.isMesh)retained.add(mesh.geometry)});for(const geometry of replaced)if(!retained.has(geometry))geometry.dispose();root.userData.arenaTrianglesRemoved=removedTriangles;
  root.traverse(mesh=>{
   if(!mesh.isMesh||Array.isArray(mesh.material))return;
   const name=mesh.name.replace(/\s+/g,'_'),source=mesh.material;let color=COLORS[source.name];

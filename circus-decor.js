@@ -34,8 +34,8 @@ export function decorateCircusArena(root){
  // A painted circus ring follows the arena floor without adding a collider.
  // The central trophy and the diagonal entrance keep their original clearance.
  const sector=(inner,outer,start,end,material)=>{
-  const points=[];for(let j=0;j<8;j++){
-   const a=start+(end-start)*j/8,b=start+(end-start)*(j+1)/8;
+  const points=[],steps=Math.max(2,Math.ceil((end-start)/(Math.PI/96)));for(let j=0;j<steps;j++){
+   const a=start+(end-start)*j/steps,b=start+(end-start)*(j+1)/steps;
    const at=(radius,angle)=>[radius*Math.cos(angle),.762,radius*.80*Math.sin(angle)];
    points.push(...at(inner,a),...at(outer,b),...at(outer,a),...at(inner,a),...at(inner,b),...at(outer,b));
   }
@@ -44,6 +44,34 @@ export function decorateCircusArena(root){
  for(let i=0;i<24;i++)sector(2.18,4.68,i*Math.PI/12,(i+1)*Math.PI/12,i%2?white:materials[0]);
  sector(2.12,2.18,0,Math.PI*2,gold);sector(4.68,4.75,0,Math.PI*2,gold);
  group.userData.floorSectors=24;
+ // Four miniature circus displays fill the upper arena walls. All details
+ // share the existing paint materials and are batched with the static scene.
+ const starGeometry=(radius=.12)=>{const shape=new THREE.Shape();for(let j=0;j<10;j++){const a=Math.PI/2+j*Math.PI/5,r=j%2?radius*.43:radius,x=Math.cos(a)*r,y=Math.sin(a)*r;if(j)shape.lineTo(x,y);else shape.moveTo(x,y)}shape.closePath();return new THREE.ShapeGeometry(shape)};
+ const star=starGeometry();
+ for(let i=0;i<4;i++){
+  const a=i*Math.PI/2,normal=new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),side=new THREE.Vector3(normal.z,0,-normal.x),display=new THREE.Group();display.name=`Circus_wall_display_${i}`;
+  display.position.set(5.08*Math.cos(a),3.03,4.04*Math.sin(a));display.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side,new THREE.Vector3(0,1,0),normal));display.updateMatrix();display.matrix.premultiply(inverse);display.matrix.decompose(display.position,display.quaternion,display.scale);group.add(display);
+  add(display,new THREE.BoxGeometry(1.72,1.16,.045),gold,[0,0,0]);add(display,new THREE.BoxGeometry(1.62,1.06,.045),materials[4],[0,0,.026]);
+  for(const sign of [-1,1]){add(display,sphere,materials[0],[sign*.72,0,.08],[.11,.55,.07]);add(display,sphere,gold,[sign*.71,-.12,.15],[.12,.035,.025]);add(display,star,gold,[sign*.55,.05,.12])}
+  for(let k=0;k<7;k++)add(display,sphere,materials[0],[(k-3)*.22,.51,.08],[.14,.12,.06]);
+  if(i===0){ // Three-point jester cap, each tip ending in a golden bell.
+   add(display,sphere,white,[0,-.19,.14],[.38,.085,.08]);
+   for(let k=0;k<3;k++){const x=(k-1)*.34,top=k===1?.40:.24,curve=new THREE.CatmullRomCurve3([new THREE.Vector3((k-1)*.18,-.13,.13),new THREE.Vector3(x*.9,.13,.13),new THREE.Vector3(x,top,.13)]);add(display,new THREE.TubeGeometry(curve,10,.075,8,false),materials[(k+1)%6]);add(display,sphere,gold,[x,top,.14],[.07,.07,.05])}
+  }else if(i===1){ // Crossed juggling clubs with coloured pear-shaped bodies.
+   for(const sign of [-1,1]){const club=new THREE.Group();club.rotation.z=sign*.56;club.position.set(sign*.10,-.03,.14);display.add(club);add(club,new THREE.CylinderGeometry(.026,.026,.30,8),white,[0,-.20,0]);add(club,sphere,materials[sign<0?0:2],[0,.08,0],[.10,.23,.07]);add(club,sphere,gold,[0,-.36,0],[.055,.045,.045]);add(club,sphere,white,[0,.29,0],[.07,.06,.05])}
+  }else if(i===2){ // Oversized polka-dot bow tie.
+   for(const sign of [-1,1]){add(display,sphere,materials[2],[sign*.21,0,.13],[.25,.24,.06]);for(let k=0;k<3;k++)add(display,sphere,white,[sign*(.22+(k===1?.09:0)),(k-1)*.12,.193],[.035,.035,.012])}add(display,sphere,materials[0],[0,0,.19],[.10,.12,.06]);
+  }else{ // Six rainbow pinwheel sails, with a golden centre.
+   for(let k=0;k<6;k++){const a=k*Math.PI/3,b=a+.68,positions=[0,0,.16,.39*Math.cos(a),.39*Math.sin(a),.16,.23*Math.cos(b),.23*Math.sin(b),.19];const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.computeVertexNormals();add(display,geo,materials[k])}add(display,sphere,gold,[0,0,.20],[.065,.065,.04]);
+  }
+ }
+ group.userData.interiorDisplays=4;
+ // Little gold stars alternate with rainbow diamonds on the inner wall rim.
+ for(let i=0;i<32;i++){
+  const a=i*Math.PI/16;if(Math.abs(Math.sin(a*2))>.93)continue; // keep door arches visually clear
+  const normal=new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),side=new THREE.Vector3(normal.z,0,-normal.x),ornament=new THREE.Group();ornament.position.set(5.08*Math.cos(a),2.30,4.04*Math.sin(a));ornament.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side,new THREE.Vector3(0,1,0),normal));ornament.updateMatrix();ornament.matrix.premultiply(inverse);ornament.matrix.decompose(ornament.position,ornament.quaternion,ornament.scale);group.add(ornament);
+  if(i%2)add(ornament,star,gold,[0,0,.025]);else{const diamond=add(ornament,new THREE.PlaneGeometry(.13,.13),materials[i%6],[0,0,.025]);diamond.rotation.z=Math.PI/4}
+ }
  // A large clown crowns the existing entrance, entirely above its opening.
  const portal=new THREE.Box3(),portalMeshes=[];root.traverse(o=>{if(o.isMesh&&/^(Right_entrance_true_open_arched_header|Right_gate_gilded_cornice)/.test(o.name)){portal.expandByObject(o);portalMeshes.push(o)}});
  if(!portal.isEmpty()){
