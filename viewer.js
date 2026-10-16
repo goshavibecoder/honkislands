@@ -9,8 +9,8 @@ import {rebuildMountainStairs} from './mountain-stairs.js?v=23';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=21';
 import {createWorldTargets} from './world-links.js?v=10';
-import {prepareArenaCircus} from './arena-circus.js?v=24';
-import {attachTapGesture} from './tap-gesture.js?v=7';
+import {prepareArenaCircus} from './arena-circus.js?v=25';
+import {attachTapGesture} from './tap-gesture.js?v=25';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
@@ -110,12 +110,14 @@ export class IslandViewer {
   if(Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size)return;
   const game=this.gameAt(clientX,clientY);if(!game)return;
   this.touchStick?.reset();this.keys.clear();this.drag=null;
-  if(game.action==='honk'){this.arenaCircus?.honk(game.nose);return}
+  if(game.action==='honk'){
+   const circus=this.arenaCircus;return circus?.honk(game.nose).then(ok=>{if(!ok&&this.active&&this.arenaCircus===circus&&circus.soundError){const hint=document.getElementById('hint');hint.textContent='Нажми на нос ещё раз, чтобы включить гудок';hint.classList.remove('fade')}return ok});
+  }
   const link=document.createElement('a');link.href=game.url;link.target='_blank';link.rel='noopener noreferrer';link.style.display='none';document.body.append(link);link.click();link.remove();
  }
  bindInput(){
   const canvas=this.renderer.domElement;canvas.style.touchAction='none';
-  let lastHover=0;this.gameTaps=attachTapGesture(canvas,(x,y)=>this.launchGame(x,y),{enabled:()=>this.active&&!!this.arcadeTargets,onHover:(x,y)=>{const now=performance.now();if(now-lastHover<100)return;lastHover=now;const game=this.gameAt(x,y);canvas.style.cursor=game?'pointer':'';canvas.title=game?(game.action==='honk'?game.title:'Открыть '+game.title):''}});
+  let lastHover=0;this.gameTaps=attachTapGesture(canvas,(x,y)=>this.launchGame(x,y),{enabled:()=>this.active&&!!this.arcadeTargets,tapPolicy:e=>this.slug==='arena'&&this.gameAt(e.clientX,e.clientY)?.action==='honk'?{distance:14,duration:800}:null,onHover:(x,y)=>{const now=performance.now();if(now-lastHover<100)return;lastHover=now;const game=this.gameAt(x,y);canvas.style.cursor=game?'pointer':'';canvas.title=game?(game.action==='honk'?game.title:'Открыть '+game.title):''}});
   this.host.addEventListener('keydown',e=>{if(e.key==='Enter'&&this.active&&this.arcadeTargets){const r=canvas.getBoundingClientRect();e.preventDefault();this.launchGame(r.left+r.width/2,r.top+r.height/2)}});
   canvas.addEventListener('pointerdown',e=>{if(!this.active||this.mode!=='walk')return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
   canvas.addEventListener('pointermove',e=>{if(!this.drag||e.pointerId!==this.drag.id||this.mode!=='walk')return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=clamp(this.pitch-(e.clientY-this.drag.y)*.003,-1.35,1.35);this.drag.x=e.clientX;this.drag.y=e.clientY});

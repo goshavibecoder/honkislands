@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
-import {createClownHorn} from './clown-horn.js?v=24';
+import {decorateCircusArena} from './circus-decor.js?v=25';
+import {createClownHorn} from './clown-horn.js?v=25';
 
 const RAINBOW=['#ed3346','#ff982e','#ffe15a','#37b86d','#498cf0','#aa56d7'];
 const COLORS={
@@ -34,7 +35,7 @@ export function prepareArenaCircus(root,environment){
   hit.userData={title:'Клоунский гудок — HONK!',action:'honk',nose:index};hit.updateMatrixWorld();picker.targets.push(hit);noses.push({mesh,scale:mesh.scale.clone(),time:0,squeeze});
  };
  for(const mesh of existing)register(mesh);
- const sphere=new THREE.SphereGeometry(.235,24,16),plate=new THREE.CylinderGeometry(.315,.315,.055,32),ring=new THREE.TorusGeometry(.30,.025,8,40);
+ const sphere=new THREE.SphereGeometry(.30,24,16),plate=new THREE.CylinderGeometry(.315,.315,.055,32),ring=new THREE.TorusGeometry(.30,.025,8,40);
  const ivory=new THREE.MeshStandardMaterial({name:'Nose rosette ivory',color:0xfff0ca,roughness:.5}),gold=new THREE.MeshStandardMaterial({name:'Nose rosette gold',color:0xffc74f,metalness:.75,roughness:.25});
  const inverse=root.matrixWorld.clone().invert(),rootRotation=new THREE.Quaternion();root.getWorldQuaternion(rootRotation);rootRotation.invert();
  const attach=(geometry,material,position,axis,name)=>{
@@ -48,10 +49,12 @@ export function prepareArenaCircus(root,environment){
   attach(ring,gold,base.clone().addScaledVector(inward,.035),{from:new THREE.Vector3(0,0,1),to:inward},`Circus_nose_gold_ring_${i}`);
   const ball=attach(sphere,red,base.clone().addScaledVector(inward,.17),null,`Circus_red_nose_button_${i}`);register(ball,true);extraBoxes.push(new THREE.Box3().setFromObject(ball));
  }
+ const decor=decorateCircusArena(root);for(const nose of decor.noses)register(nose);extraBoxes.push(...decor.extraBoxes);
  root.updateMatrixWorld(true);
  return {
-  picker,extraBoxes,noses,
-  honk(index){const nose=noses[index];if(!nose)return false;if(!horn.play())return false;nose.time=.24;return true},
+  picker,extraBoxes,noses,decor,
+  get soundError(){return horn.lastError},
+  honk(index){const nose=noses[index];if(!nose)return Promise.resolve(false);nose.time=.24;return horn.play()},
   update(dt){for(const nose of noses){if(nose.time<=0)continue;nose.time=Math.max(0,nose.time-dt);if(nose.squeeze){const squash=1-.18*Math.sin(nose.time/.24*Math.PI);nose.mesh.scale.copy(nose.scale).multiplyScalar(squash)}}},
   stop(){horn.stop();for(const nose of noses){nose.time=0;nose.mesh.scale.copy(nose.scale)}},
   dispose(){horn.dispose();picker.dispose();noses.length=0}

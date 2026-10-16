@@ -1,4 +1,4 @@
-// Two short, bending reed notes, made locally: no audio download or autoplay.
+// Two short reed notes, shared by the shipped WAV and the Web Audio fallback.
 export function synthesizeHonk(sampleRate=44100){
  const samples=new Float32Array(Math.ceil(sampleRate*.55));let seed=9741;
  for(const [start,length,frequency] of [[0,.20,435],[.245,.28,375]]){
@@ -15,23 +15,44 @@ export function synthesizeHonk(sampleRate=44100){
  return samples;
 }
 
+export const HORN_URL='./assets/clown-honk-v25.wav';
+
 export function createClownHorn(){
- let context=null,buffer=null,last=-Infinity;const sources=new Set();
+ let context=null,buffer=null,last=-Infinity,generation=0,disposed=false,previousSession=null,useSynthesis=false,lastError=null;
+ const sources=new Set();let audio=null;
+ try{if(globalThis.Audio){audio=new globalThis.Audio(HORN_URL);audio.preload='auto';audio.volume=.9;audio.muted=false;audio.setAttribute?.('playsinline','');audio.load()}}catch{audio=null}
+ const playbackSession=()=>{try{const session=globalThis.navigator?.audioSession;if(session){if(previousSession===null)previousSession=session.type;session.type='playback'}}catch{}};
+ const restoreSession=()=>{try{if(previousSession!==null&&globalThis.navigator?.audioSession)globalThis.navigator.audioSession.type=previousSession}catch{}previousSession=null};
+ const stopSources=()=>{for(const source of [...sources]){try{source.stop()}catch{}}sources.clear()};
+ const resetMedia=()=>{if(audio){audio.pause();try{audio.currentTime=0}catch{}}};
+ const failed=(error,token)=>{if(token===generation&&!disposed){lastError=error?.name||'PlaybackError';useSynthesis=true}return false};
  return {
+  get lastError(){return lastError},
   play(){
-   const now=globalThis.performance?.now()??Date.now();if(now-last<90)return false;
-   const Context=globalThis.AudioContext||globalThis.webkitAudioContext;if(!Context)return false;
+   const now=globalThis.performance?.now()??Date.now();if(disposed||now-last<90)return Promise.resolve(false);
+   last=now;lastError=null;const token=++generation;playbackSession();
+   if(audio&&!useSynthesis){
+    try{
+     resetMedia();audio.muted=false;audio.volume=.9;
+     // This call happens synchronously in the tap handler, before any await.
+     return Promise.resolve(audio.play()).then(()=>token===generation&&!disposed,error=>failed(error,token));
+    }catch(error){return Promise.resolve(failed(error,token))}
+   }
+   const Context=globalThis.AudioContext||globalThis.webkitAudioContext;
+   if(!Context)return Promise.resolve(failed({name:'AudioUnavailable'},token));
    try{
-    // Construction and resume happen directly in the tap event for iOS.
     if(!context||context.state==='closed'){context=new Context();buffer=null}
-    const resumed=context.resume();resumed?.catch(()=>{});
-    if(!buffer){const pcm=synthesizeHonk(context.sampleRate);buffer=context.createBuffer(1,pcm.length,context.sampleRate);buffer.getChannelData(0).set(pcm)}
-    if(sources.size>=2){const oldest=sources.values().next().value;try{oldest.stop()}catch{}sources.delete(oldest)}
-    const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=.55;source.connect(gain);gain.connect(context.destination);sources.add(source);
-    source.onended=()=>{sources.delete(source);source.disconnect();gain.disconnect()};source.start();last=now;return true;
-   }catch{return false}
+    const resumed=context.resume();
+    return Promise.resolve(resumed).then(()=>{
+     if(token!==generation||disposed)return false;
+     if(context.state!=='running')return failed({name:'AudioSuspended'},token);
+     if(!buffer){const pcm=synthesizeHonk(context.sampleRate);buffer=context.createBuffer(1,pcm.length,context.sampleRate);buffer.getChannelData(0).set(pcm)}
+     stopSources();const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=.75;source.connect(gain);gain.connect(context.destination);sources.add(source);
+     source.onended=()=>{sources.delete(source);source.disconnect();gain.disconnect()};source.start();return true;
+    }).catch(error=>failed(error,token));
+   }catch(error){return Promise.resolve(failed(error,token))}
   },
-  stop(){for(const source of [...sources]){try{source.stop()}catch{}}sources.clear()},
-  dispose(){this.stop();context?.close()?.catch(()=>{});context=null;buffer=null}
+  stop(){++generation;resetMedia();stopSources();restoreSession()},
+  dispose(){this.stop();disposed=true;if(audio){audio.removeAttribute?.('src');audio.load();audio=null}context?.close()?.catch(()=>{});context=null;buffer=null}
  };
 }
