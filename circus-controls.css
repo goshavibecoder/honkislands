@@ -1,0 +1,65 @@
+/* Circus controls share one light, static paint treatment across all rooms. */
+#world{--circus-ink:#493124;--circus-red:#bf243e;--circus-gold:#c28a28;--circus-cream:#fff6df}
+#world .glass,.error-card.glass{
+ color:#493124;background:#fff6df;border:2px solid #c28a28;
+ box-shadow:inset 0 0 0 2px #fffbea,0 3px 0 #95601e,0 6px 14px #39210e24;
+ backdrop-filter:none;-webkit-backdrop-filter:none
+}
+#world button,.error-card button{touch-action:manipulation;transition:background-color .15s,box-shadow .15s,transform .15s}
+#world button:focus-visible,.error-card button:focus-visible{outline:3px solid #1466a8;outline-offset:4px}
+#world .back{min-height:48px;border-radius:16px;padding:9px 15px 9px 9px;gap:9px;font-weight:750;letter-spacing:.01em}
+#world .back::after{
+ content:"";width:8px;height:8px;margin-left:2px;flex:none;
+ background:#c28a28;clip-path:polygon(50% 0,61% 35%,100% 50%,61% 65%,50% 100%,39% 65%,0 50%,39% 35%);pointer-events:none
+}
+#world .back svg{width:28px;height:28px;padding:5px;flex:none;border-radius:50%;color:#fff9e8;background:#bf243e;box-shadow:inset 0 1px 0 #ff9c9c;stroke-width:2.2}
+@media(hover:hover){
+ #world .back:hover,.error-card button:hover{background:#fffce9;box-shadow:inset 0 0 0 2px #fffbea,0 3px 0 #95601e,0 7px 17px #39210e33}
+ #world .view-switch button[aria-pressed=false]:hover{background:#f5dfb6}
+}
+#world .back:active,.error-card button:active{transform:translateY(2px);box-shadow:inset 0 0 0 2px #fffbea,0 1px 0 #95601e}
+#world .view-switch{padding:5px;gap:4px;border-radius:17px}
+#world .view-switch button{min-height:44px;padding:9px 15px;border-radius:10px;font-weight:700;color:#59432e}
+#world .view-switch button[aria-pressed=true]{color:#fff9e8;background:#bf243e;box-shadow:inset 0 1px 0 #f08089,0 2px 0 #8c182e}
+#world .view-switch button:active{transform:translateY(1px)}
+#world .reset{
+ width:48px;height:48px;border:2px solid #ffd56d;color:#fffbea;
+ background:radial-gradient(ellipse at 32% 24%,#ffbbb2 0 5%,#f65a68 17%,#d52d46 48%,#a81730 100%);
+ box-shadow:0 0 0 2px #a66e23,0 4px 0 #82182b,0 6px 14px #39210e33
+}
+#world .reset svg{width:23px;height:23px;stroke-width:2.2;filter:drop-shadow(0 1px 0 #7d193a)}
+#world .reset:active{transform:translateY(2px);box-shadow:0 0 0 2px #a66e23,0 2px 0 #82182b}
+#world #joystick{
+ border:2px solid #d3a34c;
+ background:repeating-conic-gradient(from -7.5deg,#c12b43 0 15deg,#fff4d9 15deg 30deg);
+ box-shadow:0 2px 0 #9d6d26,0 5px 12px #39210e28;backdrop-filter:none;-webkit-backdrop-filter:none
+}
+#world #joystick::before{content:"";position:absolute;inset:7px;border:1px solid #d2aa59;border-radius:50%;background:#fff6dfeb;pointer-events:none}
+#world #knob{border:2px solid #ffe3a0;background:radial-gradient(ellipse at 30% 24%,#ffb1a9 0 5%,#f35c68 18%,#dc304a 49%,#ae1f3a 100%);box-shadow:0 3px 6px #64142b45,inset 0 -2px 2px #9a173444}
+#world .joy-arrows{color:#8a581c;z-index:1;font-weight:750;pointer-events:none}
+#world #move-buttons button{
+ min-width:44px;min-height:44px;border:2px solid #c28a28;border-radius:11px;background:#fff6df;color:#aa2039;font-weight:750;
+ box-shadow:inset 0 0 0 1px #fffbea,0 2px 0 #95601e
+}
+#world #move-buttons button:active{background:#bf243e;color:#fff9e8;transform:translateY(1px)}
+#world #hint{color:#624531;border:1px solid #d3ac62;background:#fff6dff2;box-shadow:0 2px 7px #39210e18;border-radius:13px;padding:10px 16px;white-space:normal;text-align:center;line-height:1.45;max-width:min(760px,calc(100vw - 48px));width:max-content}
+#world .reticle{background:#fff9e8;box-shadow:0 0 0 1px #b42a43,0 1px 3px #4e192b66}
+.error-card.glass{border-radius:20px}
+.error-card button{min-height:44px;border:2px solid #c28a28;border-radius:12px;font-weight:700;color:#493124;background:#fff6df;box-shadow:0 2px 0 #95601e}
+.error-card #retry{color:#fff9e8;background:#bf243e;border-color:#d7a342}
+#loading{color:#79532b;font-weight:650}
+#loading .spinner{width:30px;height:30px;border-width:3px;border-color:#ead4a1;border-top-color:#bf243e;border-right-color:#e6ab2f;border-bottom-color:#4e9b74}
+#loading .progress-track{height:5px;background:#ead8b3;border-radius:5px}
+#loading #progress{background:linear-gradient(90deg,#c52c45,#ee9d32,#efd560,#45ab77,#4988c9,#a065b6)}
+@media(pointer:coarse){#world #hint{bottom:max(158px,calc(env(safe-area-inset-bottom) + 138px))}}
+@media(pointer:fine){#world #hint{max-width:min(760px,calc(100vw - 360px))}}
+@media(max-width:600px){
+ #world .back{min-height:46px;padding:7px 10px 7px 7px;gap:6px;font-size:12px}
+ #world .back svg{width:26px;height:26px}
+ #world .back::after{width:6px;height:6px;margin:0}
+ #world .view-switch{padding:4px;gap:3px}
+ #world .view-switch button{min-height:44px;padding:8px 11px;font-size:12px}
+ #world #hint{max-width:calc(100vw - 40px);font-size:11px}
+}
+@media(max-width:360px){#world .view-switch{top:calc(max(14px,env(safe-area-inset-top)) + 60px)}}
+@media(prefers-reduced-motion:reduce){#world button,.error-card button{transition:none}}
