@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
 import {decorateCircusArena} from './circus-decor.js?v=27';
-import {createClownHorn} from './clown-horn.js?v=27';
+import {createClownHorn} from './clown-horn.js?v=31';
 
 const RAINBOW=['#ed3346','#ff982e','#ffe15a','#37b86d','#498cf0','#aa56d7'];
 const COLORS={
