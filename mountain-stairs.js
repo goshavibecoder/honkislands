@@ -117,7 +117,7 @@ export function rebuildMountainStairs(root,shell){
  // The offline union already contains the opaque treads and decks. Keeping
  // these construction meshes too would render the same faces twice.
  if(shell.mergedStairs)for(const mesh of [...group.children])if(/^(Mountain_entry_landing|Mountain_solid_stair_flight_|Mountain_stair_mouth_|Mountain_stair_turn_landing_)/.test(mesh.name)){mesh.removeFromParent();mesh.geometry.dispose()}
- root.add(group);root.updateMatrixWorld(true);
+ root.add(group);applyCircusPalette(root);root.updateMatrixWorld(true);
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(navPositions,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();
  const nav=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Mountain_stair_navigation';nav.userData.flights=specs;nav.userData.corridors=corridors;nav.userData.landingPaths=landingPaths;nav.userData.trimmedSurfaces=trimmed;nav.updateMatrixWorld(true);return nav;
 }
@@ -147,4 +147,33 @@ function applySealedMountain(root,shell){
   const mesh=new THREE.Mesh(geometry,materials.get(part.material));mesh.name=part.name.replace(/_sealed_\d+$/,'');root.add(mesh);
  }
  root.traverse(o=>{if(o.geometry)retired.delete(o.geometry)});for(const geometry of retired)geometry.dispose();return shell.replace.length;
+}
+
+// A painted circus setting: a full rainbow on the stairs, warm stone and
+// crimson fabric. Cache the small palette so the model still batches well.
+function applyCircusPalette(root){
+ const rainbow=['#ed3346','#ff982e','#ffe15a','#37b86d','#498cf0','#aa56d7'];
+ const stone={Basalt:'#66544e','Basalt blue':'#7c6660','Basalt grey':'#9f8977','Basalt light':'#bca68c',Snow:'#fff0dc','Snow shadow':'#d6cec1','Snow bright':'#fffaf0','Stone blocks':'#e3ca98','Stone blocks light':'#f5dfb0',Mortar:'#86705d','Stair tread':'#ad3044','Royal purple cloth':'#b82436','Saddle violet':'#c13a41'};
+ const starts=[0,15,32,49,66],cache=new Map();
+ root.traverse(mesh=>{
+  if(!mesh.isMesh||Array.isArray(mesh.material))return;
+  const source=mesh.material,name=normalizedName(mesh);let color=stone[source.name],glow=false;
+  const stair=name.match(/^Mountain_stair_(?:nosing|edge|edge_riser)_(\d+)_(\d+)/),ring=name.match(/^Summit_luminous_ring(?:_(\d+))?$/),landing=name.match(/^Landing_neon_edge(?:_(\d+))?$/),shrine=name.match(/^Shrine_balcony_light(?:_(\d+))?$/),arch=name.match(/^Gate_arch_voussoir_(\d+)$/);
+  if(stair){color=rainbow[(starts[Number(stair[1])]+Number(stair[2]))%6];glow=true}
+  else if(ring){color=rainbow[[0,2,3][Number(ring[1]||0)%3]];glow=true}
+  else if(landing){color=rainbow[[2,1,3,0][Number(landing[1]||0)%4]];glow=true}
+  else if(shrine){color=rainbow[(Number(shrine[1]||0)+1)%6];glow=true}
+  else if(arch)color=Number(arch[1])%2?'#d84142':'#f5dfb0';
+  else if(/^Gateway_inner_purple_arch/.test(name)){color='#ffd36b';glow=true}
+  else if(/^Gateway_upright_neon/.test(name)){color='#ed3346';glow=true}
+  else if(/^(Cyan neon|Purple neon|Gold neon|Cold beacon|White starlight)$/.test(source.name)){color={'Cyan neon':'#ffd36b','Purple neon':'#ed3346','Gold neon':'#ffcc57','Cold beacon':'#ffbc68','White starlight':'#fff0c8'}[source.name];glow=true}
+  if(!color)return;
+  const key=source.uuid+color+glow;let material=cache.get(key);
+  if(!material){
+   material=source.clone();material.name=`Circus ${source.name} ${color}`;material.color.set(color);
+   if(glow){material.emissive.set(color);material.emissiveIntensity=.45;material.roughness=.5;material.metalness=.1}
+   cache.set(key,material);
+  }
+  mesh.material=material;
+ });
 }

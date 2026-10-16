@@ -5,7 +5,7 @@ import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
 import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=12';
-import {rebuildMountainStairs} from './mountain-stairs.js?v=22';
+import {rebuildMountainStairs} from './mountain-stairs.js?v=23';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=21';
 import {createWorldTargets} from './world-links.js?v=10';
@@ -66,6 +66,12 @@ export class IslandViewer {
   this.floorIndex=['carnival','goat-mountain'].includes(slug)?createFloorIndex(this.nav):null;
   const Physics=slug==='goat-mountain'?MountainWalkPhysics:WalkPhysics;
   this.physics=['carnival','goat-mountain'].includes(slug)?new Physics({floorAt:(...args)=>this.floorAt(...args),canStand:(...args)=>this.canStand(...args),eye:this.config.eye,collision:this.walkCollision}):null;
+  // Reset the lighting on every visit so the mountain's warm circus light
+  // cannot tint the other rooms after returning to the map.
+  const circus=slug==='goat-mountain';for(const light of this.scene.children){
+   if(light.isHemisphereLight){light.color.set(circus?0xfff1da:0xe7f5ff);light.groundColor.set(circus?0x8a6b54:0x80717f)}
+   else if(light.isDirectionalLight)light.color.set(light.position.x>0?(circus?0xffdfaa:0xfff1d2):(circus?0xffe5c2:0xb5dfff));
+  }
   this.renderer.toneMappingExposure=this.config.exposure;this.reset();this.setMode('walk');this.resize();progress(.96,'Почти на месте…');await this.renderer.compileAsync(this.scene,this.camera);this.renderer.render(this.scene,this.camera);progress(1,'Добро пожаловать');
  }
  reset(){
