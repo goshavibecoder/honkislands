@@ -18,7 +18,7 @@ export function createMountainNavigation(root){
 export function createMountainCollision(root){
  root.updateMatrixWorld(true);const tree=new Octree(),triangle=new THREE.Triangle();
  root.traverse(o=>{
-  if(!o.isMesh||!/^(Faceted_mountain_(?!cloud)|Angular_flank_rock|Shrine_rock_support|Stone_landing_buttress|Gateway_(pier|flanking|outer)|Gate_arch_|Gatehouse_|Ruined_temple_column|Statue_pedestal_|Mountain_retaining_wall)/.test(o.name))return;
+  if(!o.isMesh||!/^(Faceted_mountain_(?!cloud)|Angular_flank_rock|Shrine_rock_support|Stone_landing_buttress|Gateway_(pier|flanking|outer)|Gate_arch_|Gatehouse_|Ruined_temple_column|Statue_pedestal_)/.test(o.name))return;
   const p=o.geometry.attributes.position,index=o.geometry.index,total=index?index.count:p.count;
   for(let i=0;i<total;i+=3){triangle.a.fromBufferAttribute(p,index?index.getX(i):i).applyMatrix4(o.matrixWorld);triangle.b.fromBufferAttribute(p,index?index.getX(i+1):i+1).applyMatrix4(o.matrixWorld);triangle.c.fromBufferAttribute(p,index?index.getX(i+2):i+2).applyMatrix4(o.matrixWorld);tree.addTriangle(triangle.clone())}
  });tree.build();return tree;
