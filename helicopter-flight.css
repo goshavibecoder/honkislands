@@ -1,0 +1,13 @@
+.heli-controls{position:absolute;z-index:16;right:max(18px,env(safe-area-inset-right));bottom:calc(125px + env(safe-area-inset-bottom));width:min(275px,calc(100vw - 36px));font:600 13px/1.35 system-ui;color:#493124;pointer-events:auto}
+.heli-controls[hidden],.heli-controls [hidden]{display:none!important}
+.heli-controls button{font:inherit;cursor:pointer;touch-action:none;min-height:44px;border-radius:12px}
+.heli-board{width:100%;padding:11px 13px;display:flex;align-items:center;gap:10px;font-weight:750!important}
+.heli-board b{display:grid;place-items:center;width:30px;height:30px;border:1px solid #ffd56d;border-radius:50%;color:#fff9e8;background:#bf243e;font-size:21px}
+.heli-dashboard{padding:15px;border-radius:18px}.heli-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#a91f39;font-size:12px;letter-spacing:.05em}.heli-altitude{font-variant-numeric:tabular-nums;color:#72512d;letter-spacing:0}
+.heli-status{min-height:36px;margin:10px 0;color:#72512d;font-size:11px;font-weight:550}
+.heli-height{display:flex;gap:8px}.heli-height button{flex:1;border:1px solid #d3a34c;background:#fffbea;color:#a91f39;box-shadow:0 2px 0 #a67a32}
+.heli-camera,.heli-land{display:block;width:100%;margin-top:10px;padding:8px;border:1px solid #c28a28;background:#fff4da;color:#8d273a;box-shadow:0 2px 0 #95601e}
+.heli-land{background:#bf243e;color:#fff6df}.heli-controls button:disabled{opacity:.5;cursor:default}.heli-controls button:enabled:active,.heli-controls button.pressed{transform:translateY(2px);background:#e7c784}
+#world.flying .view-switch{opacity:.8}#world.flying #hint,#world.flying .reticle{display:none}#world.heli-cabin::after{content:'HONK AIR';position:absolute;bottom:0;left:50%;translate:-50% 0;width:min(290px,34vw);height:30px;padding-top:11px;border:2px solid #d3a34c;border-bottom:0;border-radius:45px 45px 0 0;background:#32283fe6;color:#ffd888;text-align:center;font:750 11px system-ui;letter-spacing:.18em;pointer-events:none}
+@media(max-width:600px){.heli-controls{right:12px;bottom:calc(135px + env(safe-area-inset-bottom));width:220px}.heli-dashboard{padding:12px}.heli-status{font-size:10px}}
+@media(orientation:landscape) and (max-height:550px){.heli-controls{bottom:max(70px,env(safe-area-inset-bottom));max-height:calc(100svh - 150px);overflow:auto}.heli-dashboard{padding:10px}.heli-status{min-height:0;margin:6px 0}.heli-camera,.heli-land{margin-top:6px}}

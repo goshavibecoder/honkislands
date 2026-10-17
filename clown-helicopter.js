@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // A parked, lightweight aircraft built in metres, with +Z pointing forwards.
-// It uses the real landing deck height and joins the viewer's static batches.
+// It uses the real landing deck height; the aircraft keeps its moving hierarchy.
 export function addClownHelicopter(root){
  const pad=root.getObjectByName('Helipad_dark_landing_surface');if(!pad)return null;
  root.updateMatrixWorld(true);const deck=new THREE.Box3().setFromObject(pad),center=deck.getCenter(new THREE.Vector3()),size=deck.getSize(new THREE.Vector3()),radius=Math.min(size.x,size.z)/2;
@@ -85,5 +85,10 @@ export function addClownHelicopter(root){
  const scale=radius/2.2;group.scale.setScalar(scale);group.rotation.y=Math.PI/2;group.position.set(center.x,deck.max.y+.01,center.z-.12);
  group.updateMatrix();group.matrix.premultiply(root.matrixWorld.clone().invert());group.matrix.decompose(group.position,group.quaternion,group.scale);root.add(group);root.updateMatrixWorld(true);
  const extraBoxes=[body,tail,gear].map(part=>new THREE.Box3().setFromObject(part));
- return {group,extraBoxes,deck,scale};
+ const home={x:center.x,y:deck.max.y+.01,z:center.z-.12},inverse=root.matrixWorld.clone().invert(),matrix=new THREE.Matrix4(),position=new THREE.Vector3(),rotation=new THREE.Quaternion(),scaling=new THREE.Vector3(scale,scale,scale);
+ group.traverse(o=>{if(o.isMesh)o.userData.helicopterDynamic=true});
+ return {group,extraBoxes,deck,scale,home,
+  setPose(p,yaw){position.set(p.x,p.y,p.z);rotation.setFromAxisAngle(new THREE.Vector3(0,1,0),yaw);matrix.compose(position,rotation,scaling).premultiply(inverse);matrix.decompose(group.position,group.quaternion,group.scale);group.updateWorldMatrix(true,true)},
+  rotate(angle){rotor.rotation.y=.29+angle;tailRotor.rotation.z=.32-angle*1.8}
+ };
 }

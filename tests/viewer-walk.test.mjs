@@ -70,3 +70,12 @@ test('lift travel owns camera position and cancels on deactivation or overview',
  v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.x,-4.15);
  v.setActive(false);assert.equal(cancelled,2);
 });
+
+test('helicopter flight owns the camera and walking resumes at the pad after overview or deactivation',()=>{
+ const {v}=setup();let cancelled=0;
+ v.helicopterFlight={active:true,update(){v.camera.position.set(12,7,18)},cancel(){cancelled++;this.active=false;v.camera.position.set(0,2.005,6.9);v.foot=.355}};
+ v.keys.add('KeyW');v.physics={fall(){throw Error('Walking gravity must not run in flight')}};
+ v.tick(1016);assert.equal(v.camera.position.x,12);assert.equal(v.camera.position.y,7);assert.equal(v.camera.position.z,18);
+ v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.z,6.9);assert.equal(v.foot,.355);
+ v.setActive(false);assert.equal(cancelled,2);
+});
