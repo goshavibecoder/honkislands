@@ -17,6 +17,7 @@ import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
 import {prepareGalleryInterior} from './gallery-interior.js?v=36';
+import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=47';
 import {mountGalleryLift} from './gallery-lift.js?v=36';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
@@ -49,6 +50,7 @@ export class IslandViewer {
   this.helicopterCollision=this.helicopter?createHelicopterCollision(this.root,this.helicopter.scale):null;
   this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):slug==='goat-mountain'?createMountainCollision(this.root):null;
   if(slug==='goat-mountain')this.nav=createMountainNavigation(this.root);
+  const stormAnchor=slug==='goat-mountain'?findMountainStormAnchor(this.root):null;
   // Bake static geometry into material batches. Animated nodes remain attached
   // to their original hierarchy, so original animation tracks still work.
   const animated=new Set();for(const clip of gltf.animations)for(const track of clip.tracks){try{const name=THREE.PropertyBinding.parseTrackName(track.name).nodeName;const node=this.root.getObjectByName(name);node?.traverse(o=>animated.add(o.uuid))}catch{}}
@@ -82,11 +84,11 @@ export class IslandViewer {
    if(light.isHemisphereLight){light.color.set(circus?0xfff1da:0xe7f5ff);light.groundColor.set(circus?0x8a6b54:0x80717f)}
    else if(light.isDirectionalLight)light.color.set(light.position.x>0?(circus?0xffdfaa:0xfff1d2):(circus?0xffe5c2:0xb5dfff));
   }
-  this.renderer.toneMappingExposure=this.config.exposure;this.reset();this.setMode('walk');this.galleryLift=this.gallery?mountGalleryLift(this,this.gallery):null;this.helicopterExplosion=this.helicopter?createHelicopterExplosion(this.root):null;this.helicopterFlight=this.helicopter?mountHelicopterFlight(this,this.helicopter,{collision:this.helicopterCollision,effects:this.helicopterExplosion}):null;this.resize();progress(.96,'Почти на месте…');await this.renderer.compileAsync(this.scene,this.camera);this.renderer.render(this.scene,this.camera);progress(1,'Добро пожаловать');
+  this.renderer.toneMappingExposure=this.config.exposure;this.mountainStorm=slug==='goat-mountain'?mountMountainStorm(this,stormAnchor):null;this.reset();this.setMode('walk');this.galleryLift=this.gallery?mountGalleryLift(this,this.gallery):null;this.helicopterExplosion=this.helicopter?createHelicopterExplosion(this.root):null;this.helicopterFlight=this.helicopter?mountHelicopterFlight(this,this.helicopter,{collision:this.helicopterCollision,effects:this.helicopterExplosion}):null;this.resize();progress(.96,'Почти на месте…');await this.renderer.compileAsync(this.scene,this.camera);this.renderer.render(this.scene,this.camera);progress(1,'Добро пожаловать');
  }
  reset(){
   if(!this.config||!this.nav)return;this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,this.physics?this.config.spawn[1]-this.config.eye+.43:100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
-  this.physics?.reset();this.arenaCircus?.arrival.reset({x:this.config.spawn[0],z:this.config.spawn[2]});this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.clearWalkInput();
+  this.physics?.reset();this.mountainStorm?.reset();this.arenaCircus?.arrival.reset({x:this.config.spawn[0],z:this.config.spawn[2]});this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.clearWalkInput();
  }
  clearWalkInput(){const drag=this.drag;this.drag=null;this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop();this.touchStick?.reset();this.gameTaps?.reset();if(drag){const canvas=this.renderer.domElement;try{if(canvas.hasPointerCapture(drag.id))canvas.releasePointerCapture(drag.id)}catch{}}}
  setMode(mode){if(!this.bounds||this.mode===mode)return;this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.clearWalkInput();this.mode=mode;this.controls.enabled=mode==='orbit';document.getElementById('knob').style.transform='';
@@ -94,7 +96,7 @@ export class IslandViewer {
    this.walkPosition=this.camera.position.clone();this.walkRotation=this.camera.rotation.clone();const size=this.bounds.getSize(new THREE.Vector3());const center=this.bounds.getCenter(new THREE.Vector3());center.y=Math.max(.8,this.bounds.min.y+size.y*.55);this.controls.target.copy(center);const extent=Math.max(size.x,size.z,size.y*.8);this.camera.position.set(center.x+extent*.92,center.y+extent*.58,center.z+extent*1.25);this.controls.maxDistance=extent*3.8;this.controls.minDistance=extent*.08;this.camera.lookAt(center);this.controls.update();
   }else if(this.walkPosition){this.camera.position.copy(this.walkPosition);this.camera.rotation.copy(this.walkRotation);this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.walkPosition=null}
  }
- setActive(value){if(!value){this.arenaCircus?.stop();this.galleryLift?.cancel();this.helicopterFlight?.cancel()}this.active=value;this.previous=0;this.clearWalkInput();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
+ setActive(value){if(!value){this.mountainStorm?.stop();this.arenaCircus?.stop();this.galleryLift?.cancel();this.helicopterFlight?.cancel()}this.active=value;this.previous=0;this.clearWalkInput();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
  floorAt(x,z,top,far=2){
   this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;
   let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObjects(this.padNav?[this.nav,this.padNav]:[this.nav],false)[0]?.point.y??null;
@@ -114,7 +116,7 @@ export class IslandViewer {
    }
    if(this.physics){this.foot=this.physics.fall(this.camera.position.x,this.camera.position.z,this.foot,dt);if(this.foot<this.bounds.min.y-8)this.reset()}
    this.camera.position.y=this.physics&&!this.physics.grounded?this.foot+this.config.eye:THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
-  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!flying)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
+  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!flying)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.mountainStorm?.update(dt,this.mode==='walk'?this.camera.position:null);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
  }
  gameAt(clientX,clientY){
   if(!this.active||!this.arcadeTargets)return null;
@@ -142,6 +144,7 @@ export class IslandViewer {
   const codes={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'};document.querySelectorAll('[data-move]').forEach(b=>{b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);this.keys.add(codes[b.dataset.move])});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>this.keys.delete(codes[b.dataset.move]))});
  }
  clear(){
+  this.mountainStorm?.dispose();this.mountainStorm=null;
   this.helicopterFlight?.dispose();this.helicopterFlight=null;this.galleryLift?.dispose();this.galleryLift=null;this.gallery=null;this.helicopter=null;
   this.helicopterCollision?.dispose();this.helicopterCollision=null;this.helicopterExplosion?.dispose();this.helicopterExplosion=null;
   if(this.padNav){this.padNav.geometry.dispose();this.padNav.material.dispose();this.padNav=null}
