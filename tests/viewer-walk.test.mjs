@@ -62,3 +62,11 @@ test('overview round trip and repeated mode buttons preserve the walk pose witho
  v.tick(1032);assert.deepEqual(v.camera.position,position);assert.equal(v.yaw,yaw);
  v.setActive(false);assert.equal(v.active,false);assert.equal(v.frame,0);assert.equal(v.motion.vz,0);
 });
+test('lift travel owns camera position and cancels on deactivation or overview',()=>{
+ const {v}=setup();let cancelled=0;
+ v.galleryLift={active:true,update(){v.camera.position.set(-2.7,5,-1.8)},cancel(){cancelled++;this.active=false;v.camera.position.set(-4.15,1.668,-1.8)}};
+ v.keys.add('KeyW');v.physics={fall(){throw Error('Gravity must not run inside a moving lift')}};
+ v.tick(1016);assert.equal(v.camera.position.y,5);assert.equal(v.camera.position.z,-1.8);
+ v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.x,-4.15);
+ v.setActive(false);assert.equal(cancelled,2);
+});
