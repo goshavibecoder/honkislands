@@ -67,3 +67,18 @@ test('rain only appears under a fully overcast sky and the original panorama ret
  }
  assert.ok(rainyFrames>200);assert.equal(scene.background,original);assert.ok(ambient.groundColor.equals(ground));effect.dispose();assert.equal(scene.background,original);
 });
+
+test('current reaches from the struck horns to the hooves and follows actual statue surfaces',()=>{
+ const anchor=findMountainStormAnchor(gltf.scene),points=anchor.currentPaths.flat();assert.ok(anchor.currentPaths.length>=8);assert.ok(points.length>300);assert.ok(Math.max(...points.map(p=>p.y))>16.9);assert.ok(Math.min(...points.map(p=>p.y))<12.5);
+ const meshes=[];gltf.scene.traverse(o=>{if(o.isMesh&&/^(Goat_|Rider_Museum_HONK_)/.test(o.name))meshes.push(o)});
+ const ray=new THREE.Raycaster(),directions=[new THREE.Vector3(1,0,0),new THREE.Vector3(-1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,-1,0),new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,-1)];ray.far=.085;
+ for(let i=0;i<points.length;i+=9){let close=false;for(const direction of directions){ray.set(points[i],direction);if(ray.intersectObjects(meshes,false).length){close=true;break}}assert.ok(close,'electric filament floats away from the statue')}
+});
+
+test('surface current starts with the strike, flows after the sky bolt and then fades completely',()=>{
+ const {effect,near}=setup();advance(effect,14.8,near);assert.equal(effect.current.group.visible,false);
+ advance(effect,.45,near);assert.equal(effect.state.strikes,1);assert.equal(effect.current.group.visible,true);assert.ok(effect.current.light.intensity>0);assert.ok(effect.current.triangles<24000);
+ advance(effect,.6,near);assert.equal(effect.group.getObjectByName('Lightning_hits_statue').visible,false);assert.equal(effect.current.group.visible,true);
+ const arcs=effect.current.group.children.filter(o=>o.isMesh);assert.ok(arcs.length>=16);for(const arc of arcs){assert.equal(arc.material.depthTest,true);assert.equal(arc.material.depthWrite,false);assert.ok(arc.geometry.attributes.position.array.every(Number.isFinite))}
+ advance(effect,4,near);assert.equal(effect.current.group.visible,false);assert.equal(effect.current.light.intensity,0);effect.reset();assert.equal(effect.current.group.visible,false);effect.dispose();
+});
