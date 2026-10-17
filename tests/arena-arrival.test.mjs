@@ -41,7 +41,7 @@ test('the small car travels along the real corridor floor and clears its masonry
  tree.clear();assert.equal(arrival.state.car.progress,1);
 });
 
-test('ten HONKs exit the open cabin one at a time and line the arena walls',()=>{
+test('ten HONKs exit the enclosed cabin one at a time and line the arena walls',()=>{
  arrival.reset();advance(4.5);assert.equal(arrival.state.clowns.filter(a=>a.visible).length,0);advance(.4);assert.equal(arrival.state.clowns.filter(a=>a.visible).length,1);advance(30);
  assert.equal(arrival.state.phase,'at-walls');assert.equal(arrival.state.clowns.length,10);
  const points=new Set();for(const a of arrival.state.clowns){assert.equal(a.visible,true);assert.equal(a.walking,false);assert.ok(Math.abs((a.x/4.7)**2+(a.z/3.68)**2-1)<1e-8);assert.ok(Math.hypot(a.x-player.x,a.z-player.z)>1.1);assert.ok(Math.abs(a.y-floorAt(a.x,a.z))<.05);assert.ok(Math.hypot(a.x,a.z)>.95);assert.ok(Math.hypot(a.x,a.z/.8)<5);points.add(`${a.x.toFixed(4)},${a.z.toFixed(4)}`)}assert.equal(points.size,10);
@@ -62,7 +62,7 @@ test('walking routes stay on the arena floor, avoid the trophy and keep exits se
   }
   previous=current.map(a=>({...a}));
  }
- const cabin=arrival.car.getObjectByName('Clown_car_open_cabin_seat');assert.ok(cabin);
+ const cabin=arrival.car.getObjectByName('Clown_car_cabin_seat');assert.ok(cabin);
  const doors=[];arrival.car.traverse(o=>{if(o.name==='Clown_car_swinging_door')doors.push(o)});assert.equal(doors.length,2);
 });
 

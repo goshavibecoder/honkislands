@@ -50,11 +50,12 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
  function add(geometry,material,parent,x=0,y=0,z=0){const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);parent.add(mesh);return mesh}
  function ball(material,parent,x,y,z,sx,sy,sz){const o=add(new THREE.SphereGeometry(1,20,14),material,parent,x,y,z);o.scale.set(sx,sy,sz);return o}
  function rod(material,parent,a,b,r){const p=new THREE.Vector3(...a),q=new THREE.Vector3(...b),delta=q.clone().sub(p),o=add(new THREE.CylinderGeometry(r,r,delta.length(),12),material,parent);o.position.copy(p.add(q).multiplyScalar(.5));o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());return o}
- // Open cabin: the doors cover genuine openings, with no solid bubble inside.
+ // Hollow enclosed cabin: opaque roof and glazing hide the empty interior;
+ // the complete side doors still open around a clear exit.
  const floor=add(new THREE.BoxGeometry(.88,.12,1.32),m.red,car,0,.25,-.03);floor.name='Clown_car_cabin_floor';
  ball(m.red,car,0,.40,.57,.49,.22,.35);ball(m.red,car,0,.39,-.66,.49,.22,.24);
  ball(m.cream,car,0,.50,.60,.38,.07,.26);
- const seat=add(new THREE.BoxGeometry(.70,.12,.42),m.blue,car,0,.37,-.27);seat.name='Clown_car_open_cabin_seat';
+ const seat=add(new THREE.BoxGeometry(.70,.12,.42),m.blue,car,0,.37,-.27);seat.name='Clown_car_cabin_seat';
  ball(m.blue,car,0,.57,-.49,.36,.23,.09);
  for(const sign of [-1,1]){
   for(const z of [-.57,.52]){
@@ -63,21 +64,33 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
    const cap=add(new THREE.CylinderGeometry(.055,.055,.135,16),m.gold,wheel);cap.rotation.z=Math.PI/2;wheels.push(wheel);
   }
   ball(m.gold,car,sign*.33,.49,.79,.115,.115,.06);ball(m.white,car,sign*.33,.49,.835,.08,.08,.025);
-  rod(m.gold,car,[sign*.41,.59,.28],[sign*.38,.94,.20],.022);
+  rod(m.gold,car,[sign*.41,.59,.28],[sign*.40,1.34,.16],.022);
   const door=new THREE.Group();door.position.set(sign*.455,.48,.26);car.add(door);
   const panel=add(new THREE.BoxGeometry(.055,.31,.57),m.blue,door,0,0,-.285);panel.name='Clown_car_swinging_door';
   rod(m.cream,door,[0,.17,-.56],[0,.17,0],.023);
+  add(new THREE.BoxGeometry(.025,.67,.53),m.glass,door,0,.50,-.285);
+  for(const z of [-.56,-.01])rod(m.cream,door,[0,.17,z],[0,.86,z],.019);
+  rod(m.cream,door,[0,.86,-.56],[0,.86,0],.024);
+  add(new THREE.BoxGeometry(.055,.32,.32),m.red,car,sign*.455,.48,-.48);
+  add(new THREE.BoxGeometry(.035,.67,.30),m.glass,car,sign*.455,.98,-.48);
+  rod(m.cream,car,[sign*.455,.62,-.64],[sign*.455,1.34,-.64],.026);
   for(const [y,z] of [[-.04,-.12],[.07,-.30],[-.06,-.46]])ball(m.cream,door,sign*.035,y,z,.012,.035,.035);
   rod(m.gold,door,[sign*.04,.08,-.48],[sign*.04,.08,-.39],.014);doors.push(door);
   ball(m.gold,car,sign*.46,.75,.28,.06,.045,.07);
  }
- const windshield=add(new THREE.BoxGeometry(.73,.30,.025),m.glass,car,0,.77,.24);windshield.rotation.x=-.20;
- rod(m.cream,car,[-.38,.94,.20],[.38,.94,.20],.025);
+ const windshield=add(new THREE.BoxGeometry(.80,.70,.025),m.glass,car,0,.99,.22);windshield.rotation.x=-.12;
+ rod(m.cream,car,[-.40,1.34,.16],[.40,1.34,.16],.025);
+ add(new THREE.BoxGeometry(.88,.31,.05),m.red,car,0,.48,-.65);
+ add(new THREE.BoxGeometry(.85,.67,.035),m.glass,car,0,.99,-.65);
+ rod(m.cream,car,[-.45,1.34,-.65],[.45,1.34,-.65],.025);
+ const roof=ball(m.cream,car,0,1.39,-.22,.51,.105,.61);roof.name='Clown_car_closed_roof';
+ add(new THREE.BoxGeometry(.96,.07,1.10),m.cream,car,0,1.375,-.22);
+ for(const sign of [-1,1])rod(m.gold,car,[sign*.47,1.35,-.69],[sign*.47,1.35,.25],.018);
  rod(m.gold,car,[-.47,.26,.84],[.47,.26,.84],.035);rod(m.gold,car,[-.47,.26,-.85],[.47,.26,-.85],.035);
  ball(m.red,car,0,.52,.89,.145,.145,.145);ball(m.white,car,-.045,.57,1.015,.025,.018,.008);
- // A miniature striped circus pennant replaces the old bubble roof.
- rod(m.gold,car,[0,.55,-.72],[0,1.05,-.72],.014);
- for(let i=0;i<3;i++)add(new THREE.BoxGeometry(.075,.14,.012),[m.red,m.cream,m.blue][i],car,.04+i*.075,.96,-.72);
+ // Small circus pennant mounted above the closed roof.
+ rod(m.gold,car,[0,1.43,-.55],[0,1.70,-.55],.014);
+ for(let i=0;i<3;i++)add(new THREE.BoxGeometry(.075,.14,.012),[m.red,m.cream,m.blue][i],car,.04+i*.075,1.64,-.55);
 
  const curve=new THREE.CatmullRomCurve3(PATH.map(([x,z])=>new THREE.Vector3(x,0,z))),curveLength=curve.getLength(),matrix=new THREE.Matrix4(),rootMatrix=new THREE.Matrix4(),rotation=new THREE.Quaternion(),unit=new THREE.Vector3(1,1,1),boneMatrix=new THREE.Matrix4(),position=new THREE.Vector3(),axis=new THREE.Vector3(0,1,0),poses=Object.fromEntries(Object.keys(pivots).map(name=>[name,Array.from({length:COUNT},()=>new THREE.Matrix4())]));let time=0;
  const parked=curve.getPointAt(1),tangent=parked.clone().sub(curve.getPointAt(.998)),parkYaw=Math.atan2(tangent.x,tangent.z);
