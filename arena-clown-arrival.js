@@ -3,7 +3,8 @@ import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 
 const clamp=t=>Math.max(0,Math.min(1,t)),ease=t=>{t=clamp(t);return t*t*(3-2*t)},COUNT=10;
 const PATH=[[6.1,4],[5.35,3.05],[4.35,1.85],[3.55,1.4],[2.65,1.85]];
-const ANGLES=[0,1,-1,2,-2,3,-3,4,-4,5].map(i=>i*Math.PI/5);
+const ANGLES=Array.from({length:COUNT},(_,i)=>1+(COUNT-1-i)*.55);
+const WALL_X=4.7,WALL_Z=3.68,EXIT_DURATION=.95,EXIT_INTERVAL=1.05;
 const SUITS=[0x3c66ce,0xce3456,0x399588,0xb376cb,0xe8a338,0x437fbb,0xbf476b,0x598f4a,0xa45dbe,0xd17437];
 
 // A small shared actor LOD keeps the original HONK silhouette and face without
@@ -49,35 +50,65 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
  function add(geometry,material,parent,x=0,y=0,z=0){const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);parent.add(mesh);return mesh}
  function ball(material,parent,x,y,z,sx,sy,sz){const o=add(new THREE.SphereGeometry(1,20,14),material,parent,x,y,z);o.scale.set(sx,sy,sz);return o}
  function rod(material,parent,a,b,r){const p=new THREE.Vector3(...a),q=new THREE.Vector3(...b),delta=q.clone().sub(p),o=add(new THREE.CylinderGeometry(r,r,delta.length(),12),material,parent);o.position.copy(p.add(q).multiplyScalar(.5));o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());return o}
- ball(m.red,car,0,.47,0,.52,.27,.83);ball(m.cream,car,0,.75,-.08,.46,.39,.63);
+ // Open cabin: the doors cover genuine openings, with no solid bubble inside.
+ const floor=add(new THREE.BoxGeometry(.88,.12,1.32),m.red,car,0,.25,-.03);floor.name='Clown_car_cabin_floor';
+ ball(m.red,car,0,.40,.57,.49,.22,.35);ball(m.red,car,0,.39,-.66,.49,.22,.24);
+ ball(m.cream,car,0,.50,.60,.38,.07,.26);
+ const seat=add(new THREE.BoxGeometry(.70,.12,.42),m.blue,car,0,.37,-.27);seat.name='Clown_car_open_cabin_seat';
+ ball(m.blue,car,0,.57,-.49,.36,.23,.09);
  for(const sign of [-1,1]){
-  ball(m.glass,car,sign*.205,.82,.405,.19,.20,.17);ball(m.gold,car,sign*.365,.49,.74,.11,.10,.045);ball(m.white,car,sign*.365,.49,.779,.075,.07,.018);
-  for(const z of [-.5,.49]){const wheel=new THREE.Group();wheel.position.set(sign*.48,.18,z);car.add(wheel);const tyre=add(new THREE.CylinderGeometry(.18,.18,.12,24),m.dark,wheel);tyre.rotation.z=Math.PI/2;const hub=add(new THREE.CylinderGeometry(.085,.085,.128,20),m.gold,wheel);hub.rotation.z=Math.PI/2;wheels.push(wheel)}
-  const door=new THREE.Group();door.position.set(sign*.455,.59,.20);car.add(door);const panel=ball(m.blue,door,sign*.022,0,-.23,.045,.22,.29);panel.name='Clown_car_swinging_door';ball(m.glass,door,sign*.054,.18,-.22,.022,.13,.21);
-  for(const [y,z] of [[-.02,-.11],[-.08,-.31],[.08,-.27]])ball(m.cream,door,sign*.07,y,z,.018,.035,.035);rod(m.gold,door,[sign*.074,.04,-.36],[sign*.074,.04,-.26],.013);doors.push(door);
-  ball(m.gold,car,sign*.48,.80,.29,.05,.045,.07);
+  for(const z of [-.57,.52]){
+   ball(m.red,car,sign*.43,.36,z,.14,.16,.24);
+   const wheel=new THREE.Group();wheel.position.set(sign*.48,.18,z);car.add(wheel);const tyre=add(new THREE.CylinderGeometry(.18,.18,.12,24),m.dark,wheel);tyre.rotation.z=Math.PI/2;const hub=add(new THREE.CylinderGeometry(.105,.105,.128,20),m.cream,wheel);hub.rotation.z=Math.PI/2;
+   const cap=add(new THREE.CylinderGeometry(.055,.055,.135,16),m.gold,wheel);cap.rotation.z=Math.PI/2;wheels.push(wheel);
+  }
+  ball(m.gold,car,sign*.33,.49,.79,.115,.115,.06);ball(m.white,car,sign*.33,.49,.835,.08,.08,.025);
+  rod(m.gold,car,[sign*.41,.59,.28],[sign*.38,.94,.20],.022);
+  const door=new THREE.Group();door.position.set(sign*.455,.48,.26);car.add(door);
+  const panel=add(new THREE.BoxGeometry(.055,.31,.57),m.blue,door,0,0,-.285);panel.name='Clown_car_swinging_door';
+  rod(m.cream,door,[0,.17,-.56],[0,.17,0],.023);
+  for(const [y,z] of [[-.04,-.12],[.07,-.30],[-.06,-.46]])ball(m.cream,door,sign*.035,y,z,.012,.035,.035);
+  rod(m.gold,door,[sign*.04,.08,-.48],[sign*.04,.08,-.39],.014);doors.push(door);
+  ball(m.gold,car,sign*.46,.75,.28,.06,.045,.07);
  }
- rod(m.gold,car,[-.49,.29,.79],[.49,.29,.79],.038);rod(m.gold,car,[-.49,.29,-.78],[.49,.29,-.78],.038);
- ball(m.red,car,0,.56,.86,.15,.15,.15);ball(m.white,car,-.045,.61,.982,.027,.018,.008);
- for(let i=0;i<6;i++)ball(paint([0xe5344e,0xffa438,0xf7d352,0x44ac81,0x4d91d9,0xa664ce][i]),car,(i-2.5)*.11,1.07+Math.sin(i/5*Math.PI)*.12,-.10,.075,.08,.075);
+ const windshield=add(new THREE.BoxGeometry(.73,.30,.025),m.glass,car,0,.77,.24);windshield.rotation.x=-.20;
+ rod(m.cream,car,[-.38,.94,.20],[.38,.94,.20],.025);
+ rod(m.gold,car,[-.47,.26,.84],[.47,.26,.84],.035);rod(m.gold,car,[-.47,.26,-.85],[.47,.26,-.85],.035);
+ ball(m.red,car,0,.52,.89,.145,.145,.145);ball(m.white,car,-.045,.57,1.015,.025,.018,.008);
+ // A miniature striped circus pennant replaces the old bubble roof.
+ rod(m.gold,car,[0,.55,-.72],[0,1.05,-.72],.014);
+ for(let i=0;i<3;i++)add(new THREE.BoxGeometry(.075,.14,.012),[m.red,m.cream,m.blue][i],car,.04+i*.075,.96,-.72);
 
  const curve=new THREE.CatmullRomCurve3(PATH.map(([x,z])=>new THREE.Vector3(x,0,z))),curveLength=curve.getLength(),matrix=new THREE.Matrix4(),rootMatrix=new THREE.Matrix4(),rotation=new THREE.Quaternion(),unit=new THREE.Vector3(1,1,1),boneMatrix=new THREE.Matrix4(),position=new THREE.Vector3(),axis=new THREE.Vector3(0,1,0),poses=Object.fromEntries(Object.keys(pivots).map(name=>[name,Array.from({length:COUNT},()=>new THREE.Matrix4())]));let time=0;
+ const parked=curve.getPointAt(1),tangent=parked.clone().sub(curve.getPointAt(.998)),parkYaw=Math.atan2(tangent.x,tangent.z);
+ const exitPoint=new THREE.Vector3(parked.x+1.02*Math.cos(parkYaw)-.28*Math.sin(parkYaw),0,parked.z-1.02*Math.sin(parkYaw)-.28*Math.cos(parkYaw));
+ // Furthest destinations leave first, so nobody walks through a waiting HONK.
+ const routes=ANGLES.map(angle=>{
+  const points=[exitPoint.clone()];for(let a=.8;a<angle;a+=.08)points.push(new THREE.Vector3(WALL_X*Math.cos(a),0,WALL_Z*Math.sin(a)));
+  points.push(new THREE.Vector3(WALL_X*Math.cos(angle),0,WALL_Z*Math.sin(angle)));
+  const path=new THREE.CatmullRomCurve3(points);return {path,duration:path.getLength()/1.45};
+ });
  const state={car:{x:0,z:0,yaw:0,progress:0},clowns:Array.from({length:COUNT},()=>({visible:false,x:0,y:0,z:0,yaw:0,walking:false,age:0})),center:{...center},phase:'arriving'};
  function render(player){
   const u=ease((time-.65)/3.5),point=curve.getPointAt(u),ahead=curve.getPointAt(Math.min(1,u+.002)),behind=curve.getPointAt(Math.max(0,u-.002)),direction=u<1?ahead.clone().sub(point):point.clone().sub(behind),yaw=Math.atan2(direction.x,direction.z);
   car.position.set(point.x,floorAt(point.x,point.z)+.008,point.z);car.rotation.y=yaw;car.rotation.z=Math.sin(time*10)*(1-u)*.012;state.car={x:point.x,z:point.z,yaw,progress:u};
   for(const wheel of wheels)wheel.rotation.x=-curveLength*u/.18;
-  const opening=ease((time-4.15)/.45)*(1-ease((time-9.25)/.6));doors.forEach((door,i)=>door.rotation.y=(i?-1:1)*opening*1.18);
+  const opening=ease((time-4.15)/.45)*(1-ease((time-(4.6+(COUNT-1)*EXIT_INTERVAL+EXIT_DURATION))/.6));doors.forEach((door,i)=>door.rotation.y=(i?-1:1)*opening*1.18);
   for(let i=0;i<COUNT;i++){
-   const actor=state.clowns[i],age=time-(4.6+i*.42),a=ANGLES[i],side=a>=0?1:-1;actor.visible=age>=0;actor.age=age;
+   const actor=state.clowns[i],age=time-(4.6+i*EXIT_INTERVAL),route=routes[i];actor.visible=age>=0;actor.age=age;
    if(!actor.visible){actor.x=point.x;actor.z=point.z;actor.y=-20;continue}
-   const doorX=point.x+side*.82*Math.cos(yaw)-.1*Math.sin(yaw),doorZ=point.z-side*.82*Math.sin(yaw)-.1*Math.cos(yaw),entry=side*.12,walkDuration=1.2+Math.abs(a)*.50;
-   let x,z;
-   if(age<.65){const t=ease(age/.65),startX=point.x+side*.18*Math.cos(yaw),startZ=point.z-side*.18*Math.sin(yaw);x=startX+(doorX-startX)*t;z=startZ+(doorZ-startZ)*t}
-   else if(age<1.25){const t=ease((age-.65)/.6);x=doorX+(state.center.x+1.24*Math.cos(entry)-doorX)*t;z=doorZ+(state.center.z+1.24*Math.sin(entry)-doorZ)*t}
-   else{const t=ease((age-1.25)/walkDuration),theta=entry+(a-entry)*t;x=state.center.x+1.24*Math.cos(theta);z=state.center.z+1.24*Math.sin(theta)}
-   actor.walking=age<1.25+walkDuration;actor.x=x;actor.z=z;actor.y=floorAt(x,z)+.008+(age<.65?.10*Math.sin(Math.PI*clamp(age/.65)):actor.walking?.012*(1+Math.sin(age*13)):0);
-   actor.yaw=Math.atan2((player?.x??state.center.x)-x,(player?.z??state.center.z)-z);
+   let x,z,heading;
+   if(age<EXIT_DURATION){
+    const t=clamp(age/EXIT_DURATION),localX=.04+.98*t,localZ=-.28;
+    x=point.x+localX*Math.cos(yaw)+localZ*Math.sin(yaw);z=point.z-localX*Math.sin(yaw)+localZ*Math.cos(yaw);heading=yaw+Math.PI/2;
+    actor.y=floorAt(x,z)+.008+.22*(1-ease(t))+.08*Math.sin(Math.PI*t);
+   }else{
+    const t=clamp((age-EXIT_DURATION)/route.duration),p=route.path.getPointAt(t),v=route.path.getTangentAt(t);
+    x=p.x;z=p.z;heading=Math.atan2(v.x,v.z);actor.y=floorAt(x,z)+.008+(t<1?.012*(1+Math.sin(age*13)):0);
+   }
+   actor.walking=age<EXIT_DURATION+route.duration;actor.x=x;actor.z=z;
+   const turn=ease((age-EXIT_DURATION-route.duration)/.5),facing=Math.atan2(-x,-z),delta=Math.atan2(Math.sin(facing-heading),Math.cos(facing-heading));
+   actor.yaw=heading+delta*turn;
   }
   for(let i=0;i<COUNT;i++){
     const a=state.clowns[i],visibleScale=a.visible?1:.0001;position.set(a.x,a.y,a.z);rotation.setFromAxisAngle(axis,a.yaw);unit.setScalar(visibleScale);rootMatrix.compose(position,rotation,unit);
@@ -91,7 +122,7 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
   }
   const visibleCount=state.clowns.filter(a=>a.visible).length;
   for(const bucket of actors){bucket.mesh.count=visibleCount;for(let i=0;i<COUNT;i++)bucket.mesh.setMatrixAt(i,poses[bucket.bone][i]);bucket.mesh.instanceMatrix.needsUpdate=true}
-  state.phase=time<4.6?'arriving':state.clowns.some(a=>!a.visible||a.walking)?'unloading':'surrounding';
+  state.phase=time<4.6?'arriving':state.clowns.some(a=>!a.visible||a.walking)?'unloading':'at-walls';
  }
  group.traverse(o=>{if(o.isMesh)o.userData.arenaArrival=true});render(null);
  return {group,car,state,actorTriangles,drawCalls:actors.length,

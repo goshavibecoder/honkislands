@@ -41,11 +41,29 @@ test('the small car travels along the real corridor floor and clears its masonry
  tree.clear();assert.equal(arrival.state.car.progress,1);
 });
 
-test('ten recognisable HONKs emerge in sequence and form a clear ring around spawn',()=>{
- arrival.reset();advance(4.5);assert.equal(arrival.state.clowns.filter(a=>a.visible).length,0);advance(.4);assert.equal(arrival.state.clowns.filter(a=>a.visible).length,1);advance(10);
- assert.equal(arrival.state.phase,'surrounding');assert.equal(arrival.state.clowns.length,10);
- const points=new Set();for(const a of arrival.state.clowns){assert.equal(a.visible,true);assert.equal(a.walking,false);assert.ok(Math.abs(Math.hypot(a.x-player.x,a.z-player.z)-1.24)<1e-8);assert.ok(Math.abs(a.y-floorAt(a.x,a.z))<.05);assert.ok(Math.hypot(a.x,a.z)>.95);assert.ok(Math.hypot(a.x,a.z/.8)<5);points.add(`${a.x.toFixed(4)},${a.z.toFixed(4)}`)}assert.equal(points.size,10);
+test('ten HONKs exit the open cabin one at a time and line the arena walls',()=>{
+ arrival.reset();advance(4.5);assert.equal(arrival.state.clowns.filter(a=>a.visible).length,0);advance(.4);assert.equal(arrival.state.clowns.filter(a=>a.visible).length,1);advance(30);
+ assert.equal(arrival.state.phase,'at-walls');assert.equal(arrival.state.clowns.length,10);
+ const points=new Set();for(const a of arrival.state.clowns){assert.equal(a.visible,true);assert.equal(a.walking,false);assert.ok(Math.abs((a.x/4.7)**2+(a.z/3.68)**2-1)<1e-8);assert.ok(Math.hypot(a.x-player.x,a.z-player.z)>1.1);assert.ok(Math.abs(a.y-floorAt(a.x,a.z))<.05);assert.ok(Math.hypot(a.x,a.z)>.95);assert.ok(Math.hypot(a.x,a.z/.8)<5);points.add(`${a.x.toFixed(4)},${a.z.toFixed(4)}`)}assert.equal(points.size,10);
  assert.ok(arrival.actorTriangles<17000);assert.ok(arrival.drawCalls<=30);let batches=0;arrival.group.traverse(o=>{if(o.isInstancedMesh){assert.equal(o.count,10);assert.ok(o.userData.arenaArrival);assert.ok(o.instanceMatrix.array.every(Number.isFinite));batches++}});assert.equal(batches,arrival.drawCalls);
+});
+
+test('walking routes stay on the arena floor, avoid the trophy and keep exits separated',()=>{
+ arrival.reset();let previous=null;
+ for(let frame=0;frame<32*30;frame++){
+  advance(1/30,30);const current=arrival.state.clowns;
+  for(let i=0;i<current.length;i++){
+   const a=current[i];if(!a.visible||a.age<.95)continue;
+   assert.ok(Math.abs(a.y-floorAt(a.x,a.z))<.05,`HONK ${i} leaves floor`);
+   assert.ok(Math.hypot(a.x,a.z)>2.4,'route crosses the central trophy');
+   assert.ok((a.x/5.15)**2+(a.z/4.12)**2<.95,'route enters the wall');
+   const p=previous?.[i];if(p?.visible&&a.walking&&p.age>=.95){const dx=a.x-p.x,dz=a.z-p.z;if(Math.hypot(dx,dz)>.001)assert.ok((Math.sin(a.yaw)*dx+Math.cos(a.yaw)*dz)/Math.hypot(dx,dz)>.95,'HONK slides sideways')}
+   for(let j=0;j<i;j++){const b=current[j];if(b.visible&&b.age>=.95)assert.ok(Math.hypot(a.x-b.x,a.z-b.z)>.60,'HONKs overlap after leaving the door')}
+  }
+  previous=current.map(a=>({...a}));
+ }
+ const cabin=arrival.car.getObjectByName('Clown_car_open_cabin_seat');assert.ok(cabin);
+ const doors=[];arrival.car.traverse(o=>{if(o.name==='Clown_car_swinging_door')doors.push(o)});assert.equal(doors.length,2);
 });
 
 test('the car waits for a player in its path, overview pauses the scene and reset replays it',()=>{
