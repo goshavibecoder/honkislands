@@ -39,7 +39,7 @@ export function decorateCircusArena(root){
    const at=(radius,angle)=>[radius*Math.cos(angle),.762,radius*.80*Math.sin(angle)];
    points.push(...at(inner,a),...at(outer,b),...at(outer,a),...at(inner,a),...at(inner,b),...at(outer,b));
   }
-  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(points,3));geometry.computeVertexNormals();geometry.applyMatrix4(inverse);add(group,geometry,material);
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(points,3));geometry.computeVertexNormals();geometry.applyMatrix4(inverse);add(group,geometry,material).name='Circus_floor_paint';
  };
  for(let i=0;i<24;i++)sector(2.18,4.68,i*Math.PI/12,(i+1)*Math.PI/12,i%2?white:materials[0]);
  sector(2.12,2.18,0,Math.PI*2,gold);sector(4.68,4.75,0,Math.PI*2,gold);

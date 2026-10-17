@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
-import {decorateCircusArena} from './circus-decor.js?v=41';
-import {createArenaClownArrival} from './arena-clown-arrival.js?v=45';
+import {decorateCircusArena} from './circus-decor.js?v=46';
+import {createArenaClownArrival} from './arena-clown-arrival.js?v=46';
 import {createClownHorn} from './clown-horn.js?v=31';
+import {prepareArenaSurfaces} from './arena-surfaces.js?v=46';
 import {finishArenaFacade} from './arena-facade.js?v=37';
 
 const RAINBOW=['#ed3346','#ff982e','#ffe15a','#37b86d','#498cf0','#aa56d7'];
@@ -65,14 +66,15 @@ export function prepareArenaCircus(root,environment){
   const ball=attach(sphere,red,base.clone().addScaledVector(inward,.17),null,`Circus_red_nose_button_${i}`);register(ball,true);extraBoxes.push(new THREE.Box3().setFromObject(ball));
  }
  const decor=decorateCircusArena(root);for(const nose of decor.noses)register(nose);extraBoxes.push(...decor.extraBoxes);
- const arrival=createArenaClownArrival(root);
+ const surfaces=prepareArenaSurfaces(root),arrival=createArenaClownArrival(root);
  root.updateMatrixWorld(true);
  return {
-  picker,extraBoxes,noses,decor,facade,arrival,
+  picker,extraBoxes,noses,decor,facade,arrival,surfaces,
+  canStand:(x,z,floor,eye)=>surfaces.canStand(x,z,floor,eye),
   get soundError(){return horn.lastError},
   honk(index){const nose=noses[index];if(!nose)return Promise.resolve(false);nose.time=.24;return horn.play()},
   update(dt,player){arrival.update(dt,player);for(const nose of noses){if(nose.time<=0)continue;nose.time=Math.max(0,nose.time-dt);if(nose.squeeze){const squash=1-.18*Math.sin(nose.time/.24*Math.PI);nose.mesh.scale.copy(nose.scale).multiplyScalar(squash)}}},
   stop(){horn.stop();for(const nose of noses){nose.time=0;nose.mesh.scale.copy(nose.scale)}},
-  dispose(){arrival.dispose();horn.dispose();picker.dispose();noses.length=0}
+  dispose(){surfaces.dispose();arrival.dispose();horn.dispose();picker.dispose();noses.length=0}
  };
 }

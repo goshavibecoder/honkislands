@@ -12,7 +12,7 @@ import {mountHelicopterFlight} from './helicopter-flight.js?v=40';
 import {createHelicopterCollision,createHelicopterExplosion} from './helicopter-world.js?v=40';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=21';
 import {createWorldTargets} from './world-links.js?v=32';
-import {prepareArenaCircus} from './arena-circus.js?v=45';
+import {prepareArenaCircus} from './arena-circus.js?v=46';
 import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
@@ -37,7 +37,7 @@ export class IslandViewer {
  }
  async fetchBinary(url,onChunk=()=>{}){const response=await fetch(url);if(!response.ok)throw Error(`Asset ${response.status}: ${url}`);if(!response.body)return new Uint8Array(await response.arrayBuffer());const reader=response.body.getReader(),chunks=[];let n=0;while(true){const {value,done}=await reader.read();if(done)break;chunks.push(value);n+=value.length;onChunk(value.length)}const data=new Uint8Array(n);let off=0;for(const chunk of chunks){data.set(chunk,off);off+=chunk.length}return data}
  async open(slug,progress){
-  this.setActive(false);this.clear();this.slug=slug;this.config=(await configPromise)[slug];if(!this.config)throw Error('Unknown island');this.renderer.setPixelRatio(Math.min(devicePixelRatio,this.config.pixelRatio||1.6));
+  this.setActive(false);this.clear();this.slug=slug;this.camera.near=slug==='arena'?.10:.035;this.camera.far=slug==='arena'?180:1100;this.camera.updateProjectionMatrix();this.config=(await configPromise)[slug];if(!this.config)throw Error('Unknown island');this.renderer.setPixelRatio(Math.min(devicePixelRatio,this.config.pixelRatio||1.6));
   const response=await fetch(`./models/${slug}.json?v=9`);if(!response.ok)throw Error('Model manifest unavailable');this.manifest=await response.json();let downloaded=0;const payloads=await Promise.all(this.manifest.parts.map(part=>this.fetchBinary(`./models/${part}?v=9`,n=>{downloaded+=n;progress(downloaded/this.manifest.bytes*.72,'Летим на остров…')})));
   const bytes=new Uint8Array(payloads.reduce((n,a)=>n+a.length,0));let offset=0;for(const a of payloads){bytes.set(a,offset);offset+=a.length}
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
@@ -100,7 +100,7 @@ export class IslandViewer {
   let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObjects(this.padNav?[this.nav,this.padNav]:[this.nav],false)[0]?.point.y??null;
   const cabin=this.gallery?.floorAt(x,z,top,far);return cabin!==null&&cabin!==undefined?floor===null?cabin:Math.max(floor,cabin):floor;
  }
- canStand(x,z,floor){if(this.gallery&&!this.gallery.canStand(x,z,floor))return false;const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
+ canStand(x,z,floor){if(this.arenaCircus&&!this.arenaCircus.canStand(x,z,floor,this.config.eye))return false;if(this.gallery&&!this.gallery.canStand(x,z,floor))return false;const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
  stepTo(x,z){if(this.physics){const floor=this.physics.step(x,z,this.foot);if(floor===null)return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}const floor=this.floorAt(x,z,this.foot+.49,1.2);if(floor===null||floor-this.foot>.48||this.foot-floor>.65||!this.canStand(x,z,floor))return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}
  tick(time){this.frame=0;if(!this.active)return;const dt=Math.min((time-(this.previous||time))/1000,.08);this.previous=time;
   const riding=this.galleryLift?.active;this.galleryLift?.update(dt);

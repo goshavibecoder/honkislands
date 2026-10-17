@@ -81,6 +81,22 @@ test('HONKs appear outside actual closed bodywork and both doors stay shut',asyn
  tree.clear();
 });
 
+test('solid arena walls block walking from both sides while the real entrance stays open',()=>{
+ assert.ok(arena.surfaces.triangles>50000);
+ for(const degrees of [0,60,90,120,150,180,210,240,270,300,330]){
+  const a=degrees*Math.PI/180;
+  for(const r of [5.06,5.23,5.47])assert.equal(arena.canStand(r*Math.cos(a),r*.8*Math.sin(a),.75),false,`wall ${degrees}, radius ${r}`);
+  let r=4.6;while(r<6&&arena.canStand((r+.04)*Math.cos(a),(r+.04)*.8*Math.sin(a),.75))r+=.04;assert.ok(r<5.15,'walker crosses the arena perimeter');
+ }
+ for(const [x,z] of [[0,2.5],[2.5,1.8],[3.6,1.7],[4.35,1.85],[4.6,2.15],[5,2.65],[5.4,3.1],[5.8,3.6],[6.1,4],[7,5],[8,6.2]])assert.equal(arena.canStand(x,z,floorAt(x,z)),true,`entrance blocked at ${x},${z}`);
+});
+
+test('overlapping stone faces are removed and floor decoration has depth separation',()=>{
+ assert.equal(arena.surfaces.removedTriangles,42);let painted=0,paving=0;
+ gltf.scene.traverse(o=>{if(!o.isMesh)return;if(o.userData.arenaSurfaceDedup)assert.equal(o.material.side,THREE.DoubleSide);if(o.name==='Circus_floor_paint'||/^Passage_real_stone_paving_tile/.test(o.name)){assert.equal(o.material.polygonOffset,true);assert.ok(o.material.polygonOffsetUnits<0);if(o.name==='Circus_floor_paint')painted++;else paving++}});
+ assert.equal(painted,26);assert.equal(paving,27);
+});
+
 test('the car waits for a player in its path, overview pauses the scene and reset replays it',()=>{
  const count=arrival.group.children.length;arrival.reset();advance(1,60,{x:6.1,z:4});assert.equal(arrival.elapsed,0);advance(2);const time=arrival.elapsed;advance(.5,60,null);assert.equal(arrival.elapsed,time);advance(12);arrival.reset();assert.equal(arrival.elapsed,0);assert.equal(arrival.state.car.progress,0);assert.ok(arrival.state.clowns.every(a=>!a.visible));assert.equal(arrival.group.children.length,count);
 });
