@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
 import {decorateCircusArena} from './circus-decor.js?v=27';
 import {createClownHorn} from './clown-horn.js?v=31';
+import {finishArenaFacade} from './arena-facade.js?v=37';
 
 const RAINBOW=['#ed3346','#ff982e','#ffe15a','#37b86d','#498cf0','#aa56d7'];
 const COLORS={
@@ -37,6 +38,7 @@ export function prepareArenaCircus(root,environment){
   if(!material){material=source.clone();material.name=`Circus arena ${source.name} ${color}`;material.color.set(color);if(/neon/.test(source.name)){material.emissive.set(color);material.emissiveIntensity=.5}palette.set(key,material)}
   mesh.material=material;
  });
+ const facade=finishArenaFacade(root);
  // Preserve the polished gold trophy and its existing Telegram destination.
  const picker=prepareTrophy(root,environment),hitMaterial=picker.targets[0].material,horn=createClownHorn(),noses=[],extraBoxes=[];
  const red=new THREE.MeshPhysicalMaterial({name:'Circus glossy red noses',color:0xf51d30,roughness:.19,metalness:.05,clearcoat:.85,clearcoatRoughness:.1,envMapIntensity:1.1});
@@ -64,7 +66,7 @@ export function prepareArenaCircus(root,environment){
  const decor=decorateCircusArena(root);for(const nose of decor.noses)register(nose);extraBoxes.push(...decor.extraBoxes);
  root.updateMatrixWorld(true);
  return {
-  picker,extraBoxes,noses,decor,
+  picker,extraBoxes,noses,decor,facade,
   get soundError(){return horn.lastError},
   honk(index){const nose=noses[index];if(!nose)return Promise.resolve(false);nose.time=.24;return horn.play()},
   update(dt){for(const nose of noses){if(nose.time<=0)continue;nose.time=Math.max(0,nose.time-dt);if(nose.squeeze){const squash=1-.18*Math.sin(nose.time/.24*Math.PI);nose.mesh.scale.copy(nose.scale).multiplyScalar(squash)}}},
