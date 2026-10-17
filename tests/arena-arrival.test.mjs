@@ -66,6 +66,21 @@ test('walking routes stay on the arena floor, avoid the trophy and keep exits se
  const doors=[];arrival.car.traverse(o=>{if(o.name==='Clown_car_swinging_door')doors.push(o)});assert.equal(doors.length,2);
 });
 
+test('the crouched HONK clears actual rounded bodywork, roof and open door surfaces',async()=>{
+ const {Octree}=await import(moduleURL(new URL('../vendor/Octree.js',import.meta.url)));
+ arrival.reset();advance(4.601);gltf.scene.updateMatrixWorld(true);
+ const tree=new Octree().fromGraphNode(arrival.car),body=arrival.group.getObjectByName('Arrival_HONK_body'),matrix=new THREE.Matrix4(),scale=new THREE.Vector3(),nearest=new THREE.Vector3();
+ for(let frame=0;frame<58;frame++){
+  const a=arrival.state.clowns[0];body.getMatrixAt(0,matrix);scale.setFromMatrixScale(matrix);
+  for(const [height,radius] of [[.84,.20],[.49,.18],[.20,.075]]){
+   const sphere=new THREE.Sphere(new THREE.Vector3(a.x,a.y+height*scale.y,a.z),radius),triangles=[];tree.getSphereTriangles(sphere,triangles);
+   for(const triangle of triangles){triangle.closestPointToPoint(sphere.center,nearest);assert.ok(nearest.distanceTo(sphere.center)>=radius-.005,`HONK clips the car at exit age ${a.age}`)}
+  }
+  advance(1/60);
+ }
+ tree.clear();
+});
+
 test('the car waits for a player in its path, overview pauses the scene and reset replays it',()=>{
  const count=arrival.group.children.length;arrival.reset();advance(1,60,{x:6.1,z:4});assert.equal(arrival.elapsed,0);advance(2);const time=arrival.elapsed;advance(.5,60,null);assert.equal(arrival.elapsed,time);advance(12);arrival.reset();assert.equal(arrival.elapsed,0);assert.equal(arrival.state.car.progress,0);assert.ok(arrival.state.clowns.every(a=>!a.visible));assert.equal(arrival.group.children.length,count);
 });
