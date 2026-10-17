@@ -68,3 +68,31 @@ test('an absent cabin blocks the shaft; the arriving cabin supplies a walkable f
  assert.equal(gallery.canStand(-1.9,-1.8,gallery.floors[2].y),false);
  assert.equal(gallery.canStand(-3,-.8,gallery.floors[2].y),false);
 });
+
+test('new atrium objects sit on their plinths without overhanging the display tops',()=>{
+ assert.equal(gallery.floorExhibits.length,4);
+ const point=new THREE.Vector3();
+ for(const {title,group} of gallery.floorExhibits){
+  group.updateWorldMatrix(true,true);const bounds=new THREE.Box3().setFromObject(group),top=.018+.815;
+  assert.ok(bounds.min.y>=top-.001&&bounds.min.y<top+.01,`${title} floats or sinks into its plinth`);
+  assert.ok(bounds.max.y<2.4,`${title} is too tall for the atrium`);
+  const inverse=group.matrixWorld.clone().invert();
+  group.traverse(o=>{if(!o.isMesh)return;const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++){
+   point.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld).applyMatrix4(inverse);
+   assert.ok(point.toArray().every(Number.isFinite),`${title} has invalid geometry`);
+   assert.ok(Math.hypot(point.x,point.z)<.61,`${title} overhangs its plinth`);
+  }});
+ }
+});
+
+test('the actual viewer batches every gallery material and retains porcelain mask colours',async()=>{
+ const {mergeGeometries}=await import(moduleURL(new URL('../vendor/BufferGeometryUtils.js',import.meta.url)));
+ const source=readFileSync(new URL('../viewer.js',import.meta.url),'utf8'),start=source.indexOf('  const animated=new Set();'),end=source.indexOf('  const originalGeometries=',start);
+ const viewer={root:gltf.scene.clone(true),config:{openRoof:true},renderer:{capabilities:{getMaxAnisotropy:()=>4}}};
+ new Function('THREE','mergeGeometries','gltf','slug',source.slice(start,end)).call(viewer,THREE,mergeGeometries,{animations:[]},'carnival');
+ let colored=0;viewer.staticGroup.traverse(o=>{
+  if(!o.isMesh)return;const p=o.geometry.attributes.position;assert.ok(p.count>0);
+  if(o.material.vertexColors){const c=o.geometry.attributes.color;assert.ok(c);assert.equal(c.count,p.count);assert.ok(c.array.some((v,i)=>i%3===0&&v>.5));assert.ok(c.array.some((v,i)=>i%3===0&&v<.6));colored++}
+ });
+ assert.ok(colored>0);viewer.staticGroup.traverse(o=>o.geometry?.dispose());
+});

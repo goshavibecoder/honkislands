@@ -13,8 +13,8 @@ import {prepareArenaCircus} from './arena-circus.js?v=31';
 import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
-import {prepareGalleryInterior} from './gallery-interior.js?v=35';
-import {mountGalleryLift} from './gallery-lift.js?v=34';
+import {prepareGalleryInterior} from './gallery-interior.js?v=36';
+import {mountGalleryLift} from './gallery-lift.js?v=36';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
 const configPromise=fetch('./worlds.json?v=6').then(r=>{if(!r.ok)throw Error('World configuration unavailable');return r.json()});
@@ -56,8 +56,9 @@ export class IslandViewer {
    if(o.userData.honkNose||o.userData.galleryDynamic||animated.has(o.uuid)||o.isSkinnedMesh||Array.isArray(o.material))return;
    // Clipped terrain and extruded stairs are non-indexed; the original GLB
    // also contains indexed meshes using the same material. Keep them separate.
-   const key=o.material.uuid+(o.geometry.index?':indexed':':triangles');let bucket=buckets.get(key);if(!bucket){bucket={material:o.material,geometries:[]};buckets.set(key,bucket)}
-   const geometry=o.geometry.clone().applyMatrix4(o.matrixWorld);for(const name of Object.keys(geometry.attributes))if(!['position','normal','uv'].includes(name))geometry.deleteAttribute(name);if(!geometry.attributes.normal)geometry.computeVertexNormals();if(!geometry.attributes.uv)geometry.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count*2),2));bucket.geometries.push(geometry);remove.push(o);
+   const colored=o.material.vertexColors&&!!o.geometry.attributes.color;
+   const key=o.material.uuid+(o.geometry.index?':indexed':':triangles')+(colored?':colored':'');let bucket=buckets.get(key);if(!bucket){bucket={material:o.material,geometries:[]};buckets.set(key,bucket)}
+   const geometry=o.geometry.clone().applyMatrix4(o.matrixWorld);for(const name of Object.keys(geometry.attributes))if(!['position','normal','uv',...(colored?['color']:[])].includes(name))geometry.deleteAttribute(name);if(!geometry.attributes.normal)geometry.computeVertexNormals();if(!geometry.attributes.uv)geometry.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count*2),2));bucket.geometries.push(geometry);remove.push(o);
   });
   this.staticGroup=new THREE.Group();for(const bucket of buckets.values()){
    const merged=mergeGeometries(bucket.geometries,false);if(!merged)throw Error('Could not prepare geometry');merged.computeBoundingSphere();const mesh=new THREE.Mesh(merged,bucket.material);mesh.name='Static material batch';this.staticGroup.add(mesh);bucket.geometries.forEach(g=>g.dispose());

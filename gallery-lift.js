@@ -38,7 +38,7 @@ export class LiftJourney {
 
 export function mountGalleryLift(viewer,gallery){
  const journey=new LiftJourney(gallery.floors),panel=document.createElement('aside');panel.className='gallery-lift';panel.hidden=true;panel.setAttribute('aria-label','Лифт галереи');
- panel.innerHTML='<button class="lift-toggle" type="button" aria-expanded="false"><span aria-hidden="true">↕</span> Лифт <small>Выбрать этаж</small></button><div class="lift-menu" hidden><p>HONK GALLERY <span>ЛИФТ</span></p><div class="lift-floors"></div><button class="lift-close" type="button">Закрыть</button></div><p class="lift-status" role="status" aria-live="polite" hidden></p>';
+ panel.innerHTML='<button class="lift-toggle glass" type="button" aria-expanded="false"><span aria-hidden="true">↕</span> Лифт <small>Выбрать этаж</small></button><div class="lift-menu glass" hidden><p>HONK GALLERY <span>ЛИФТ</span></p><div class="lift-floors"></div><button class="lift-close" type="button">Закрыть</button></div><p class="lift-status glass" role="status" aria-live="polite" hidden></p>';
  const toggle=panel.querySelector('.lift-toggle'),menu=panel.querySelector('.lift-menu'),status=panel.querySelector('.lift-status'),list=panel.querySelector('.lift-floors');
  const buttons=gallery.floors.map((floor,index)=>{const b=document.createElement('button');b.type='button';b.innerHTML=`<strong>${index+1}</strong><span>${floor.title}</span>`;b.setAttribute('aria-label',`Этаж ${index+1}: ${floor.title}`);list.append(b);b.addEventListener('click',()=>{
   const foot={x:viewer.camera.position.x,y:viewer.foot,z:viewer.camera.position.z};

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createGalleryExhibits} from './gallery-exhibits.js?v=36';
 
 const LIFT={x:-2.7,z:-1.8,front:-3.6,back:-1.8,half:.9},DOWN=new THREE.Vector3(0,-1,0);
 const colors=[0xf05a72,0xffa94b,0xf9d668,0x63c8ab,0x6caef3,0xa58adb];
@@ -13,7 +14,8 @@ export function prepareGalleryInterior(root){
  const floors=[{y:.018,title:'Атриум'},{y:sample(-5.2,-1.8,3.1),title:'Мемы и оригиналы'},{y:sample(-5.2,-1.8,6.4),title:'Коллекция HONK'},{y:sample(-5.2,-1.8,9.2),title:'Верхняя галерея'}];
  if(floors.some(f=>!Number.isFinite(f.y)))throw Error('Gallery lift landing is unavailable');
  const group=new THREE.Group();group.name='Gallery_interior';root.add(group);
- const extraBoxes=[],bridgePositions=[],seating=[],flowerDisplays=[];
+ const extraBoxes=[],bridgePositions=[],seating=[],flowerDisplays=[],floorExhibits=[];
+ const exhibits=createGalleryExhibits();
  const material=(color,roughness=.55,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
  const m={ivory:material(0xf0e4cb),stone:material(0x343a49),dark:material(0x1b2232),gold:material(0xd8aa50,.28,.75),red:material(0xe64258,.3,.15),white:material(0xfff4dd,.4),black:material(0x11131d),green:material(0x477d64),leaf:material(0x6aab83),wood:material(0x9e654b,.55),soil:material(0x342c2a),light:new THREE.MeshBasicMaterial({color:0xffdf99}),glass:new THREE.MeshStandardMaterial({color:0xa2d8e3,transparent:true,opacity:.14,roughness:.22,metalness:.15,depthWrite:false,side:THREE.DoubleSide}),rainbow:colors.map(c=>material(c,.32,.12))};
  m.fabric=[0x94394b,0x375776,0x40817b,0xbb954d].map(c=>material(c,.96));
@@ -81,38 +83,21 @@ export function prepareGalleryInterior(root){
   cylinder(.25,.065,m.dark,g,0,.033,0);cylinder(.21,.61,m.ivory,g,0,.365,0);clownFlowers(g,.67,.55);
   sign(`BOTANICA / 0${index+1}`,'PORCELAIN / MIXED MEDIA',.4,.07,g,0,.42,.214);solid(g);flowerDisplays.push({x,y,z,group:g});
  }
- function plinth(x,z,title,subtitle){const g=placement(x,.018,z);cylinder(.74,.12,m.dark,g,0,.06,0);cylinder(.58,.66,m.ivory,g,0,.44,0);cylinder(.61,.05,m.gold,g,0,.79,0);sign(title,subtitle,1.04,.14,g,0,.5,.585);solid(g);return g}
- function clown(g,y=1.45,s=.72){
-  const h=new THREE.Group();h.position.y=y;h.scale.setScalar(s);g.add(h);
-  sphere(.63,m.green,h,0,0,0,1,.9,.82);
-  for(let i=0;i<9;i++){const a=Math.PI*(.08+i*.105);sphere(.23,m.rainbow[i%6],h,Math.cos(a)*.62,.08+Math.sin(a)*.5,-.08)}
-  for(const x of [-.23,.23]){sphere(.19,m.white,h,x,.14,.43,1,.73,.4);sphere(.075,m.black,h,x,.13,.51,.8,1,.35)}
-  sphere(.17,m.red,h,0,-.05,.55);const smile=mesh(new THREE.TorusGeometry(.25,.035,7,22,Math.PI),m.ivory,h,0,-.1,.48);smile.rotation.z=Math.PI;
-  cylinder(.4,.1,m.gold,h,0,-.58,0);return h;
- }
- const a=plinth(2.65,.25,'THE HONK','001 / CLOWNWORLD COLLECTION');clown(a,1.382,.9);
- const b=plinth(1.25,-3.1,'BALLOON THEORY','002 / OBJECTS OF JOY');
- // A polished balloon dog, shaped from round segments and small knots.
- const dog=new THREE.Group();dog.position.set(0,1.082,0);dog.rotation.y=-.35;b.add(dog);
- sphere(.22,m.rainbow[4],dog,0,.2,0,2,.9,.9);sphere(.19,m.rainbow[4],dog,.38,.4,0,.8,1.5,.85);sphere(.17,m.rainbow[4],dog,.54,.52,.02,1.6,.8,.9);
- for(const x of [-.3,.27])for(const z of [-.12,.12])sphere(.13,m.rainbow[4],dog,x,-.02,z,.85,1.9,.85);
- for(const z of [-.1,.1])sphere(.11,m.rainbow[4],dog,.34,.75,z,.7,2,.7);
- const tail=sphere(.1,m.rainbow[4],dog,-.5,.43,0,.8,2.2,.8);tail.rotation.z=-.5;
- const c=plinth(-2.75,2.25,'GOLDEN SIGNAL','003 / HONK LOUDER');
- const horn=new THREE.Group();horn.position.set(0,1.34,0);horn.rotation.z=-.55;c.add(horn);
- const bell=mesh(new THREE.CylinderGeometry(.42,.12,.62,28,1,true),m.gold,horn,0,.2,0);bell.rotation.z=-Math.PI/2;
- const rim=mesh(new THREE.TorusGeometry(.42,.035,8,28),m.gold,horn,.31,.2,0);rim.rotation.y=Math.PI/2;
- sphere(.24,m.red,horn,-.46,.2,0,1.2,1,1);rod([-.15,.2,0],[-.3,-.25,0],.055,m.gold,horn);
- cylinder(.11,.03,m.dark,c,-.386,.83,0);rod([-.386,.815,0],[-.386,1.29,0],.035,m.gold,c);
- const d=plinth(-.3,3.1,'HONK BOTANICA','004 / PORCELAIN & COLOUR');clownFlowers(d,.815,.78);
+ function plinth(x,z,title,subtitle){const g=placement(x,.018,z);mesh(new THREE.CylinderGeometry(.74,.74,.12,64),m.dark,g,0,.06,0);mesh(new THREE.CylinderGeometry(.58,.58,.66,64),m.ivory,g,0,.44,0);mesh(new THREE.CylinderGeometry(.61,.61,.05,64),m.gold,g,0,.79,0);sign(title,subtitle,1.04,.14,g,0,.5,.585);solid(g);return g}
+ for(const [x,z,title,subtitle,build] of [
+  [2.65,.25,'LE CARROUSEL','001 / ENAMEL & BRASS',exhibits.carousel],
+  [1.25,-3.1,'COMMEDIA','002 / PORCELAIN MASK',exhibits.mask],
+  [-2.75,2.25,'SLEIGHT OF HONK','003 / A LITTLE MAGIC',exhibits.magic],
+  [-.3,3.1,'PRISM OF JOY','004 / OPTICAL INSTRUMENT',exhibits.kaleidoscope]
+ ]){const pedestal=plinth(x,z,title,subtitle),object=build(pedestal);object.position.y=.815;floorExhibits.push({title,group:object})}
 
  // A reception island, exhibition guides and a small collector's cabinet.
  const desk=placement(-.65,.018,-3.3,-.1);box(1.8,.93,.62,m.ivory,desk,0,.465,0);box(1.9,.07,.72,m.wood,desk,0,.965,0);box(1.5,.025,.015,m.gold,desk,0,.66,.318);sign('HONK GALLERY','MEMES / OBJECTS / CULTURE',1.45,.18,desk,0,.45,.321);
  for(let i=0;i<3;i++){const guide=box(.3,.025,.4,m.rainbow[i*2],desk,-.55+i*.4,1.0125,.08);guide.rotation.y=i*.2-.2}solid(desk);
  const cabinet=placement(3.9,.018,-.55,Math.PI/2);box(1.65,.7,.58,m.dark,cabinet,0,.35,0);box(1.7,.04,.65,m.gold,cabinet,0,.72,0);
- for(let i=0;i<3;i++){const g=new THREE.Group();g.position.set(-.5+i*.5,.74,0);cabinet.add(g);clown(g,.189,.3)}
+ [exhibits.mask,exhibits.kaleidoscope,exhibits.magic].forEach((build,i)=>{const g=build(cabinet);g.position.set(-.5+i*.5,.74,0);g.scale.setScalar(.28)});
  box(1.7,.8,.015,m.glass,cabinet,0,1.14,.32);box(1.7,.8,.015,m.glass,cabinet,0,1.14,-.32);box(.015,.8,.65,m.glass,cabinet,-.85,1.14,0);box(.015,.8,.65,m.glass,cabinet,.85,1.14,0);box(1.7,.025,.65,m.glass,cabinet,0,1.55,0);solid(cabinet);
- sign('COLLECTOR’S EDITION','HONK / MINIATURES',1.4,.17,cabinet,0,.4,.302);
+ sign('CABINET OF CURIOSITIES','PORCELAIN / OPTICS / MAGIC',1.4,.17,cabinet,0,.4,.302);
 
  // Upholstered seating belongs at the outer wall, in gaps between paintings.
  // The whole inner lane stays clear from the lift exits around the spiral.
@@ -181,7 +166,7 @@ export function prepareGalleryInterior(root){
  let cabinY=floors[0].y;
  function setCabin(y,open){cabinY=y;cabin.position.y=y;doors.forEach((o,i)=>o.position.z=LIFT.z+(i?1:-1)*(.4+.72*open));gates.forEach((g,i)=>{g.visible=Math.abs(floors[i].y-y)>.025||open<.9})}
  setCabin(cabinY,1);root.updateMatrixWorld(true);
- return {group,floors,extraBoxes,bridgePositions,seating,flowerDisplays,setCabin,
+ return {group,floors,extraBoxes,bridgePositions,seating,flowerDisplays,floorExhibits,setCabin,
   floorAt(x,z,top,far){return x>LIFT.front&&x<LIFT.back&&Math.abs(z-LIFT.z)<.84&&top>=cabinY-.001&&top-cabinY<=far?cabinY:null},
   canStand(x,z,floor){
    if(x> -3.78&&x< -1.63&&Math.abs(z-LIFT.z)<1.07){
