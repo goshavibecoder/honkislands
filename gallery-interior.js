@@ -13,9 +13,10 @@ export function prepareGalleryInterior(root){
  const floors=[{y:.018,title:'Атриум'},{y:sample(-5.2,-1.8,3.1),title:'Мемы и оригиналы'},{y:sample(-5.2,-1.8,6.4),title:'Коллекция HONK'},{y:sample(-5.2,-1.8,9.2),title:'Верхняя галерея'}];
  if(floors.some(f=>!Number.isFinite(f.y)))throw Error('Gallery lift landing is unavailable');
  const group=new THREE.Group();group.name='Gallery_interior';root.add(group);
- const extraBoxes=[],bridgePositions=[];
+ const extraBoxes=[],bridgePositions=[],seating=[],flowerDisplays=[];
  const material=(color,roughness=.55,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
  const m={ivory:material(0xf0e4cb),stone:material(0x343a49),dark:material(0x1b2232),gold:material(0xd8aa50,.28,.75),red:material(0xe64258,.3,.15),white:material(0xfff4dd,.4),black:material(0x11131d),green:material(0x477d64),leaf:material(0x6aab83),wood:material(0x9e654b,.55),soil:material(0x342c2a),light:new THREE.MeshBasicMaterial({color:0xffdf99}),glass:new THREE.MeshStandardMaterial({color:0xa2d8e3,transparent:true,opacity:.14,roughness:.22,metalness:.15,depthWrite:false,side:THREE.DoubleSide}),rainbow:colors.map(c=>material(c,.32,.12))};
+ m.fabric=[0x94394b,0x375776,0x40817b,0xbb954d].map(c=>material(c,.96));
  function mesh(geometry,mat,parent=group,x=0,y=0,z=0,name='Gallery_detail'){const o=new THREE.Mesh(geometry,mat);o.name=name;o.position.set(x,y,z);parent.add(o);return o}
  const box=(w,h,d,mat,parent,x,y,z)=>mesh(new THREE.BoxGeometry(w,h,d),mat,parent,x,y,z);
  const sphere=(r,mat,parent,x,y,z,sx=1,sy=1,sz=1)=>{const o=mesh(new THREE.SphereGeometry(r,16,10),mat,parent,x,y,z);o.scale.set(sx,sy,sz);return o};
@@ -33,18 +34,52 @@ export function prepareGalleryInterior(root){
   const geo=new THREE.PlaneGeometry(w,h),uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setY(i,1-(row+1-uv.getY(i))/16);
   const o=mesh(geo,signMaterial,parent,x,y,z,'Gallery_placard');o.rotation.y=angle;return o;
  }
- function bench(x,y,z,angle=0,small=false){
-  const g=placement(x,y,z,angle),w=small?1.25:1.8;
-  for(const side of [-1,1]){box(.09,.44,.5,m.dark,g,side*(w*.5-.18),.22,0);box(.09,.57,.08,m.gold,g,side*(w*.5-.18),.72,-.2)}
-  for(let i=0;i<4;i++)box(w,.07,.11,m.wood,g,0,.47,-.18+i*.12);
-  box(w,.25,.06,m.wood,g,0,.78,-.23);solid(g);return g;
+ function cushion(w,h,d,mat,parent,x,y,z,r=.065){
+  r=Math.min(r,w/4,h/4,d/4);const a=w/2-r,b=h/2-r,c=Math.min(r,a,b)*.8,shape=new THREE.Shape();
+  shape.moveTo(-a+c,-b);shape.lineTo(a-c,-b);shape.quadraticCurveTo(a,-b,a,-b+c);shape.lineTo(a,b-c);shape.quadraticCurveTo(a,b,a-c,b);shape.lineTo(-a+c,b);shape.quadraticCurveTo(-a,b,-a,b-c);shape.lineTo(-a,-b+c);shape.quadraticCurveTo(-a,-b,-a+c,-b);
+  const geometry=new THREE.ExtrudeGeometry(shape,{depth:d-2*r,steps:1,bevelEnabled:true,bevelSegments:3,bevelSize:r,bevelThickness:r,curveSegments:4});geometry.translate(0,0,-d/2+r);
+  return mesh(geometry,mat,parent,x,y,z,'Gallery_upholstery');
  }
- function plant(x,y,z,small=false){
-  const g=placement(x,y,z),s=small?.65:1;g.scale.setScalar(s);
-  cylinder(.28,.47,m.ivory,g,0,.235,0,.22);cylinder(.24,.025,m.soil,g,0,.47,0);
-  for(let i=0;i<7;i++){const a=i*2.399,h=.75+(i%3)*.17,dx=Math.cos(a)*.28,dz=Math.sin(a)*.28;rod([0,.45,0],[dx,h,dz],.018,m.green,g);const leaf=sphere(.2,i%2?m.green:m.leaf,g,dx,h,dz,.8,1.5,.43);leaf.rotation.set(.4*Math.sin(a),a,.35*Math.cos(a))}
-  // Only the planter blocks walking; foliage leaves the visitor's head clear.
-  extraBoxes.push(new THREE.Box3(new THREE.Vector3(x-.29*s,y,z-.29*s),new THREE.Vector3(x+.29*s,y+.5*s,z+.29*s)));
+ function sofa(degrees,top,index){
+  const angle=degrees*Math.PI/180,radius=8.08,x=radius*Math.cos(angle),z=radius*Math.sin(angle),y=sample(x,z,top);if(y===null)return;
+  const g=placement(x,y+.003,z,-angle-Math.PI/2);g.name='Gallery_wall_sofa';
+  if(Math.abs(y-floors[3].y)>.04)g.rotation.z=-Math.atan(3.25/(2*Math.PI*radius));
+  const fabric=m.fabric[index%m.fabric.length];
+  for(const x of [-.73,.73])for(const z of [-.26,.26])cylinder(.026,.16,m.gold,g,x,.08,z,.035);
+  cushion(1.92,.18,.82,fabric,g,0,.24,0);cushion(1.83,.62,.17,fabric,g,0,.64,-.33);
+  for(const x of [-.45,.45]){cushion(.86,.18,.64,fabric,g,x,.42,.065);sphere(.017,m.gold,g,x,.68,-.234,1,1,.35)}
+  for(const x of [-.94,.94])cushion(.18,.52,.85,fabric,g,x,.60,0);
+  // Harlequin cushions are a small circus accent on otherwise quiet upholstery.
+  for(const [i,x] of [-.64,.64].entries()){
+   const pillow=cushion(.34,.31,.14,i?m.ivory:m.red,g,x,.65,-.11,.045);pillow.rotation.z=i?-.17:.17;
+   for(let row=0;row<2;row++)for(let col=0;col<3;col++){const diamond=box(.044,.044,.005,i?m.red:m.ivory,g,x+(col-1)*.067,.60+row*.08,-.033);diamond.rotation.z=Math.PI/4}
+  }
+  solid(g);seating.push({x,y,z,radius,group:g});return g;
+ }
+ function clownFlowers(parent,y=0,scale=1){
+  const g=new THREE.Group();g.name='Gallery_clown_flower_sculpture';g.position.y=y;g.scale.setScalar(scale);parent.add(g);
+  const profile=[[.13,0],[.19,.03],[.2,.12],[.15,.33],[.13,.4]].map(([x,y])=>new THREE.Vector2(x,y));
+  mesh(new THREE.LatheGeometry(profile,24),m.ivory,g);cylinder(.19,.035,m.gold,g,0,.018,0);
+  const rim=mesh(new THREE.TorusGeometry(.132,.013,7,24),m.gold,g,0,.4,0);rim.rotation.x=Math.PI/2;cylinder(.13,.018,m.dark,g,0,.39,0);
+  for(let i=0;i<3;i++){
+   const x=(i-1)*.31,h=[1.2,1.48,1.28][i],z=i===1?-.08:.07;
+   const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,.38,0),new THREE.Vector3(x*.3,.7,z*.4),new THREE.Vector3(x,h-.15,z),new THREE.Vector3(x,h,z)]);
+   mesh(new THREE.TubeGeometry(curve,14,.019,7,false),m.green,g);
+   const leaf=sphere(.13,m.leaf,g,x*.4,.75,z*.4,1,1.9,.25);leaf.rotation.z=i===0?-.7:.8;
+   const head=new THREE.Group();head.position.set(x,h,z);head.rotation.y=(i-1)*.2;g.add(head);
+   for(let j=0;j<10;j++){const a=j*Math.PI/5,petal=sphere(.1,m.rainbow[(j+i)%6],head,Math.sin(a)*.225,Math.cos(a)*.225,0,.95,1.9,.62);petal.rotation.z=-a}
+   sphere(.14,m.white,head,0,0,.025,1,1,.55);sphere(.066,m.red,head,0,-.015,.13);
+   for(const x of [-.044,.044])sphere(.015,m.black,head,x,.04,.105,1,1,.45);
+   const smile=mesh(new THREE.TorusGeometry(.057,.008,5,14,Math.PI),m.gold,head,0,-.03,.111);smile.rotation.z=Math.PI;
+  }
+  return g;
+ }
+ function flowerDisplay(degrees,top,index){
+  const a=degrees*Math.PI/180,r=8.04,x=r*Math.cos(a),z=r*Math.sin(a),y=sample(x,z,top);if(y===null)return;
+  const g=placement(x,y+.003,z,-a-Math.PI/2);g.name='Gallery_wall_flower_display';
+  if(Math.abs(y-floors[3].y)>.04)g.rotation.z=-Math.atan(3.25/(2*Math.PI*r));
+  cylinder(.25,.065,m.dark,g,0,.033,0);cylinder(.21,.61,m.ivory,g,0,.365,0);clownFlowers(g,.67,.55);
+  sign(`BOTANICA / 0${index+1}`,'PORCELAIN / MIXED MEDIA',.4,.07,g,0,.42,.214);solid(g);flowerDisplays.push({x,y,z,group:g});
  }
  function plinth(x,z,title,subtitle){const g=placement(x,.018,z);cylinder(.74,.12,m.dark,g,0,.06,0);cylinder(.58,.66,m.ivory,g,0,.44,0);cylinder(.61,.05,m.gold,g,0,.79,0);sign(title,subtitle,1.04,.14,g,0,.5,.585);solid(g);return g}
  function clown(g,y=1.45,s=.72){
@@ -69,11 +104,7 @@ export function prepareGalleryInterior(root){
  const rim=mesh(new THREE.TorusGeometry(.42,.035,8,28),m.gold,horn,.31,.2,0);rim.rotation.y=Math.PI/2;
  sphere(.24,m.red,horn,-.46,.2,0,1.2,1,1);rod([-.15,.2,0],[-.3,-.25,0],.055,m.gold,horn);
  cylinder(.11,.03,m.dark,c,-.386,.83,0);rod([-.386,.815,0],[-.386,1.29,0],.035,m.gold,c);
- const d=plinth(-.3,3.1,'RAINBOW STUDY','004 / THE ART OF ABSURDITY');
- for(let i=0;i<6;i++){const ring=mesh(new THREE.TorusGeometry(.49-i*.058,.028,8,32,Math.PI),m.rainbow[i],d,0,.93,0);ring.rotation.z=0}
- for(const x of [-.49,.49])cylinder(.08,.12,m.gold,d,x,.87,0);
- bench(2.4,.018,2.2,-.55);bench(-2.2,.018,.8,.3);
- for(const [x,z] of [[3.65,-2.3],[3.7,2.15],[-3.7,.6],[-1.55,3.85]])plant(x,.018,z);
+ const d=plinth(-.3,3.1,'HONK BOTANICA','004 / PORCELAIN & COLOUR');clownFlowers(d,.815,.78);
 
  // A reception island, exhibition guides and a small collector's cabinet.
  const desk=placement(-.65,.018,-3.3,-.1);box(1.8,.93,.62,m.ivory,desk,0,.465,0);box(1.9,.07,.72,m.wood,desk,0,.965,0);box(1.5,.025,.015,m.gold,desk,0,.66,.318);sign('HONK GALLERY','MEMES / OBJECTS / CULTURE',1.45,.18,desk,0,.45,.321);
@@ -83,12 +114,10 @@ export function prepareGalleryInterior(root){
  box(1.7,.8,.015,m.glass,cabinet,0,1.14,.32);box(1.7,.8,.015,m.glass,cabinet,0,1.14,-.32);box(.015,.8,.65,m.glass,cabinet,-.85,1.14,0);box(.015,.8,.65,m.glass,cabinet,.85,1.14,0);box(1.7,.025,.65,m.glass,cabinet,0,1.55,0);solid(cabinet);
  sign('COLLECTOR’S EDITION','HONK / MINIATURES',1.4,.17,cabinet,0,.4,.302);
 
- // Small resting points sit on the wide ramp's inner half, leaving a clear
- // outer viewing lane in front of all original pictures.
- for(const [i,degrees] of [30,150,270,70,190,310].entries()){
-  const angle=degrees*Math.PI/180,x=6.1*Math.cos(angle),z=6.1*Math.sin(angle),y=sample(x,z,i<3?3.3:6.6);
-  if(y!==null&&y>.3){bench(x,y,z,-angle,true);const px=x+Math.cos(angle)*1.1,pz=z+Math.sin(angle)*1.1;plant(px,sample(px,pz,y+.2)??y,pz,true)}
- }
+ // Upholstered seating belongs at the outer wall, in gaps between paintings.
+ // The whole inner lane stays clear from the lift exits around the spiral.
+ [[80,.8],[115,3.4],[70,4],[-11,6.6],[115,7],[65,8],[215,9.2]].forEach(([a,top],i)=>sofa(a,top,i));
+ [[60,.9],[-25,6.6],[80,8]].forEach(([a,top],i)=>flowerDisplay(a,top,i));
 
  // Open a real doorway in the spiral rail at each bridge, including its
  // luminous trim. Collision is built from this edited geometry afterwards.
@@ -113,18 +142,30 @@ export function prepareGalleryInterior(root){
  for(const [i,floor] of floors.entries()){
   if(i){
    const z0=-2.4,z1=-1.2,x0=-3.55,x1=-5.35,nearY=floor.y;
-   // A ray just beyond the top landing can hit the previous turn of the
-   // spiral. Extend the flat bridge edge there instead of joining that floor.
-   const edgeHeight=z=>{const y=sample(x1,z,floor.y+.35);return y!==null&&Math.abs(y-nearY)<.18?y:nearY};
-   const y0=edgeHeight(z0),y1=edgeHeight(z1);
-   const positions=[x0,nearY,z0,x1,y0,z0,x0,nearY,z1,x0,nearY,z1,x1,y0,z0,x1,y1,z1];bridgePositions.push(...positions);
-   const corners=[[x0,nearY,z0],[x1,y0,z0],[x0,nearY,z1],[x1,y1,z1]],slab=[...positions];
-   const bottom=corners.map(p=>[p[0],p[1]-.12,p[2]]);
-   for(const [a,b] of [[0,1],[1,3],[3,2],[2,0]])slab.push(...corners[a],...bottom[a],...corners[b],...corners[b],...bottom[a],...bottom[b]);
-   slab.push(...bottom[0],...bottom[2],...bottom[1],...bottom[2],...bottom[3],...bottom[1]);
-   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(slab,3));geo.computeVertexNormals();mesh(geo,m.stone);
-   for(const z of [z0,z1]){rod([-3.62,floor.y+1.04,z],[-5.35,floor.y+1.04,z],.026,m.gold);for(const x of [-3.65,-4.5,-5.3])rod([x,floor.y,z],[x,floor.y+1.04,z],.022,m.gold);
-    extraBoxes.push(new THREE.Box3(new THREE.Vector3(-5.4,floor.y,z-.025),new THREE.Vector3(-3.6,floor.y+1.06,z+.025)));
+   const valid=y=>y!==null&&Math.abs(y-nearY)<.2;
+   function bridgeHeight(x,z){
+    const rampX=-Math.sqrt(4.82**2-z*z),edge=sample(rampX,z,nearY+.35),t=THREE.MathUtils.clamp((x0-x)/(x0-rampX),0,1),under=sample(x,z,nearY+.35);
+    // Match the actual spiral all along the overlap, not just at two corners.
+    // A 25 mm cap keeps the visible faces separate even in mobile depth buffers.
+    if(valid(under))return under+.025;
+    return nearY+(valid(edge)?edge-nearY:0)*t+.025*t;
+   }
+   const nx=18,nz=12,stride=nz+1,vertices=[],indices=[],uv=[];
+   for(let ix=0;ix<=nx;ix++)for(let iz=0;iz<=nz;iz++){const x=x0+(x1-x0)*ix/nx,z=z0+(z1-z0)*iz/nz;vertices.push(x,bridgeHeight(x,z),z);uv.push(ix/nx,iz/nz)}
+   for(let ix=0;ix<nx;ix++)for(let iz=0;iz<nz;iz++){const a=ix*stride+iz,b=a+stride;indices.push(a,b,a+1,a+1,b,b+1)}
+   for(const index of indices)bridgePositions.push(...vertices.slice(index*3,index*3+3));
+   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.setIndex(indices);geo.computeVertexNormals();mesh(geo,m.stone,group,0,0,0,'Gallery_lift_bridge');
+   const perimeter=[],slab=[];
+   for(let ix=0;ix<=nx;ix++)perimeter.push(ix*stride);
+   for(let iz=1;iz<=nz;iz++)perimeter.push(nx*stride+iz);
+   for(let ix=nx-1;ix>=0;ix--)perimeter.push(ix*stride+nz);
+   for(let iz=nz-1;iz>0;iz--)perimeter.push(iz);
+   const vertex=index=>vertices.slice(index*3,index*3+3),lower=p=>[p[0],p[1]-.12,p[2]];
+   for(let j=0;j<perimeter.length;j++){const a=vertex(perimeter[j]),b=vertex(perimeter[(j+1)%perimeter.length]);slab.push(...a,...lower(a),...b,...b,...lower(a),...lower(b))}
+   for(let j=0;j<indices.length;j+=3)slab.push(...lower(vertex(indices[j])),...lower(vertex(indices[j+2])),...lower(vertex(indices[j+1])));
+   const sides=new THREE.BufferGeometry();sides.setAttribute('position',new THREE.Float32BufferAttribute(slab,3));sides.computeVertexNormals();mesh(sides,m.dark);
+   for(const z of [z0,z1]){rod([-3.62,bridgeHeight(-3.62,z)+1.04,z],[-5.35,bridgeHeight(-5.35,z)+1.04,z],.026,m.gold);for(const x of [-3.65,-4.5,-5.3]){const y=bridgeHeight(x,z);rod([x,y,z],[x,y+1.04,z],.022,m.gold)}
+    extraBoxes.push(new THREE.Box3(new THREE.Vector3(-5.4,floor.y-.1,z-.025),new THREE.Vector3(-3.6,floor.y+1.2,z+.025)));
    }
   }
   const station=placement(-3.66,floor.y,LIFT.z+.82);box(.1,1.16,.24,m.dark,station,0,.6,0);box(.025,.2,.16,m.gold,station,-.062,.98,0);
@@ -140,7 +181,7 @@ export function prepareGalleryInterior(root){
  let cabinY=floors[0].y;
  function setCabin(y,open){cabinY=y;cabin.position.y=y;doors.forEach((o,i)=>o.position.z=LIFT.z+(i?1:-1)*(.4+.72*open));gates.forEach((g,i)=>{g.visible=Math.abs(floors[i].y-y)>.025||open<.9})}
  setCabin(cabinY,1);root.updateMatrixWorld(true);
- return {group,floors,extraBoxes,bridgePositions,setCabin,
+ return {group,floors,extraBoxes,bridgePositions,seating,flowerDisplays,setCabin,
   floorAt(x,z,top,far){return x>LIFT.front&&x<LIFT.back&&Math.abs(z-LIFT.z)<.84&&top>=cabinY-.001&&top-cabinY<=far?cabinY:null},
   canStand(x,z,floor){
    if(x> -3.78&&x< -1.63&&Math.abs(z-LIFT.z)<1.07){

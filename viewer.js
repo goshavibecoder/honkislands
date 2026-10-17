@@ -13,7 +13,7 @@ import {prepareArenaCircus} from './arena-circus.js?v=31';
 import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
-import {prepareGalleryInterior} from './gallery-interior.js?v=34';
+import {prepareGalleryInterior} from './gallery-interior.js?v=35';
 import {mountGalleryLift} from './gallery-lift.js?v=34';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
