@@ -67,10 +67,12 @@ export function decorateCircusArena(root){
  }
  group.userData.interiorDisplays=4;
  // Little gold stars alternate with rainbow diamonds on the inner wall rim.
+ const passageBounds=new THREE.Box3();root.traverse(o=>{if(o.isMesh&&/^(Passage_|Main_portal_)/.test(o.name))passageBounds.expandByObject(o)});passageBounds.expandByScalar(.45);
  for(let i=0;i<32;i++){
   const a=i*Math.PI/16;if(Math.abs(Math.sin(a*2))>.93)continue; // keep door arches visually clear
+  if(passageBounds.containsPoint(new THREE.Vector3(5.08*Math.cos(a),2.30,4.04*Math.sin(a))))continue;
   const normal=new THREE.Vector3(-Math.cos(a),0,-Math.sin(a)),side=new THREE.Vector3(normal.z,0,-normal.x),ornament=new THREE.Group();ornament.position.set(5.08*Math.cos(a),2.30,4.04*Math.sin(a));ornament.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side,new THREE.Vector3(0,1,0),normal));ornament.updateMatrix();ornament.matrix.premultiply(inverse);ornament.matrix.decompose(ornament.position,ornament.quaternion,ornament.scale);group.add(ornament);
-  if(i%2)add(ornament,star,gold,[0,0,.025]);else{const diamond=add(ornament,new THREE.PlaneGeometry(.13,.13),materials[i%6],[0,0,.025]);diamond.rotation.z=Math.PI/4}
+  ornament.name='Circus_wall_rim_ornament';if(i%2)add(ornament,star,gold,[0,0,.025]);else{const diamond=add(ornament,new THREE.PlaneGeometry(.13,.13),materials[i%6],[0,0,.025]);diamond.rotation.z=Math.PI/4}
  }
  // A large clown crowns the existing entrance, entirely above its opening.
  const portal=new THREE.Box3(),portalMeshes=[];root.traverse(o=>{if(o.isMesh&&/^(Right_entrance_true_open_arched_header|Right_gate_gilded_cornice)/.test(o.name)){portal.expandByObject(o);portalMeshes.push(o)}});

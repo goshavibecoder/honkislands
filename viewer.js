@@ -12,7 +12,7 @@ import {mountHelicopterFlight} from './helicopter-flight.js?v=40';
 import {createHelicopterCollision,createHelicopterExplosion} from './helicopter-world.js?v=40';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=21';
 import {createWorldTargets} from './world-links.js?v=32';
-import {prepareArenaCircus} from './arena-circus.js?v=37';
+import {prepareArenaCircus} from './arena-circus.js?v=41';
 import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
@@ -20,7 +20,7 @@ import {prepareGalleryInterior} from './gallery-interior.js?v=36';
 import {mountGalleryLift} from './gallery-lift.js?v=36';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
-const configPromise=fetch('./worlds.json?v=6').then(r=>{if(!r.ok)throw Error('World configuration unavailable');return r.json()});
+const configPromise=fetch('./worlds.json?v=7').then(r=>{if(!r.ok)throw Error('World configuration unavailable');return r.json()});
 export class IslandViewer {
  constructor(host){
   this.host=host;this.active=false;this.mode='walk';this.keys=new Set();this.stick={x:0,y:0};this.yaw=0;this.pitch=0;this.motion=new WalkMotion();this.drag=null;this.foot=0;this.previous=0;this.frame=0;this.navRay=new THREE.Raycaster();
@@ -58,7 +58,7 @@ export class IslandViewer {
    if(slug==='carnival'&&/^(Upper_landing_black_balustrade|Upper_end_landing_luminous_handrail)/.test(o.name)){remove.push(o);return}
    if(this.config.openRoof&&o.name.startsWith('Suspended_acoustic_ceiling_tile')){remove.push(o);return}
    const mats=Array.isArray(o.material)?o.material:[o.material];for(const mat of mats){if(mat.map)mat.map.anisotropy=Math.min(4,this.renderer.capabilities.getMaxAnisotropy());if(mat.emissiveIntensity>2.2)mat.emissiveIntensity=2.2}
-   if(o.userData.honkNose||o.userData.galleryDynamic||o.userData.helicopterDynamic||animated.has(o.uuid)||o.isSkinnedMesh||Array.isArray(o.material))return;
+   if(o.userData.honkNose||o.userData.galleryDynamic||o.userData.helicopterDynamic||o.userData.arenaArrival||animated.has(o.uuid)||o.isSkinnedMesh||Array.isArray(o.material))return;
    // Clipped terrain and extruded stairs are non-indexed; the original GLB
    // also contains indexed meshes using the same material. Keep them separate.
    const colored=o.material.vertexColors&&!!o.geometry.attributes.color;
@@ -86,7 +86,7 @@ export class IslandViewer {
  }
  reset(){
   if(!this.config||!this.nav)return;this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,this.physics?this.config.spawn[1]-this.config.eye+.43:100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
-  this.physics?.reset();this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.clearWalkInput();
+  this.physics?.reset();this.arenaCircus?.arrival.reset({x:this.config.spawn[0],z:this.config.spawn[2]});this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.clearWalkInput();
  }
  clearWalkInput(){const drag=this.drag;this.drag=null;this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop();this.touchStick?.reset();this.gameTaps?.reset();if(drag){const canvas=this.renderer.domElement;try{if(canvas.hasPointerCapture(drag.id))canvas.releasePointerCapture(drag.id)}catch{}}}
  setMode(mode){if(!this.bounds||this.mode===mode)return;this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.clearWalkInput();this.mode=mode;this.controls.enabled=mode==='orbit';document.getElementById('knob').style.transform='';
@@ -114,7 +114,7 @@ export class IslandViewer {
    }
    if(this.physics){this.foot=this.physics.fall(this.camera.position.x,this.camera.position.z,this.foot,dt);if(this.foot<this.bounds.min.y-8)this.reset()}
    this.camera.position.y=this.physics&&!this.physics.grounded?this.foot+this.config.eye:THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
-  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!flying)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCircus?.update(dt);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
+  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!flying)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
  }
  gameAt(clientX,clientY){
   if(!this.active||!this.arcadeTargets)return null;
