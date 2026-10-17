@@ -18,7 +18,7 @@ const manifest=JSON.parse(readFileSync(new URL('../models/goat-mountain.json',im
 const bytes=gunzipSync(Buffer.concat(manifest.parts.map(part=>readFileSync(new URL('../models/'+part,import.meta.url)))));
 const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
 function setup(){
- const scene=new THREE.Scene();scene.backgroundIntensity=1;scene.environmentIntensity=.55;const sun=new THREE.DirectionalLight(0xffdfaa,2.2),ambient=new THREE.HemisphereLight(0xfff1da,0x8a6b54,1.7);scene.add(sun,ambient);
+ const scene=new THREE.Scene();scene.background=new THREE.Color(0x88bbff);scene.backgroundIntensity=1;scene.environmentIntensity=.55;const sun=new THREE.DirectionalLight(0xffdfaa,2.2),ambient=new THREE.HemisphereLight(0xfff1da,0x8a6b54,1.7);scene.add(sun,ambient);
  const events=new Map(),host={addEventListener:(type,fn)=>events.set(type,fn),removeEventListener:(type,fn)=>{if(events.get(type)===fn)events.delete(type)}};
  const effect=mountMountainStorm({root:gltf.scene,scene,host}),near={x:0,y:12.79,z:1.6},away={x:0,y:3,z:0};
  return {effect,scene,sun,ambient,events,near,away};
@@ -57,4 +57,13 @@ test('the strike and weather schedule agree at 30, 60 and 120 Hz',()=>{
 test('a cached statue anchor survives static batching removing the named source meshes',()=>{
  const anchor=findMountainStormAnchor(gltf.scene),scene=new THREE.Scene(),root=new THREE.Group();scene.environmentIntensity=.55;scene.backgroundIntensity=1;
  const effect=mountMountainStorm({root,scene},anchor);assert.ok(effect);advance(effect,16,{x:0,y:12.79,z:1.6});assert.equal(effect.state.strikes,1);effect.dispose();
+});
+
+test('rain only appears under a fully overcast sky and the original panorama returns afterward',()=>{
+ const {effect,scene,near,ambient}=setup(),original=scene.background,ground=ambient.groundColor.clone(),sky=effect.group.getObjectByName('Mountain_overcast_sky'),rain=effect.group.getObjectByName('Mountain_storm_rain');let rainyFrames=0;
+ for(let frame=0;frame<30*30;frame++){
+  effect.update(1/30,near);
+  if(rain.material.opacity>0&&effect.group.visible){rainyFrames++;assert.notEqual(scene.background,original);assert.equal(sky.material.uniforms.blend.value,1);assert.equal(sky.material.depthWrite,false);assert.equal(sky.material.fog,false);assert.ok(sky.position.distanceTo(new THREE.Vector3(near.x,near.y,near.z))<1e-8)}
+ }
+ assert.ok(rainyFrames>200);assert.equal(scene.background,original);assert.ok(ambient.groundColor.equals(ground));effect.dispose();assert.equal(scene.background,original);
 });
