@@ -41,7 +41,7 @@ test('the small car travels along the real corridor floor and clears its masonry
  tree.clear();assert.equal(arrival.state.car.progress,1);
 });
 
-test('ten HONKs exit the enclosed cabin one at a time and line the arena walls',()=>{
+test('ten HONKs appear beside the closed car one at a time and line the arena walls',()=>{
  arrival.reset();advance(4.5);assert.equal(arrival.state.clowns.filter(a=>a.visible).length,0);advance(.4);assert.equal(arrival.state.clowns.filter(a=>a.visible).length,1);advance(30);
  assert.equal(arrival.state.phase,'at-walls');assert.equal(arrival.state.clowns.length,10);
  const points=new Set();for(const a of arrival.state.clowns){assert.equal(a.visible,true);assert.equal(a.walking,false);assert.ok(Math.abs((a.x/4.7)**2+(a.z/3.68)**2-1)<1e-8);assert.ok(Math.hypot(a.x-player.x,a.z-player.z)>1.1);assert.ok(Math.abs(a.y-floorAt(a.x,a.z))<.05);assert.ok(Math.hypot(a.x,a.z)>.95);assert.ok(Math.hypot(a.x,a.z/.8)<5);points.add(`${a.x.toFixed(4)},${a.z.toFixed(4)}`)}assert.equal(points.size,10);
@@ -53,12 +53,12 @@ test('walking routes stay on the arena floor, avoid the trophy and keep exits se
  for(let frame=0;frame<32*30;frame++){
   advance(1/30,30);const current=arrival.state.clowns;
   for(let i=0;i<current.length;i++){
-   const a=current[i];if(!a.visible||a.age<.95)continue;
+   const a=current[i];if(!a.visible||a.age<0)continue;
    assert.ok(Math.abs(a.y-floorAt(a.x,a.z))<.05,`HONK ${i} leaves floor`);
    assert.ok(Math.hypot(a.x,a.z)>2.4,'route crosses the central trophy');
    assert.ok((a.x/5.15)**2+(a.z/4.12)**2<.95,'route enters the wall');
-   const p=previous?.[i];if(p?.visible&&a.walking&&p.age>=.95){const dx=a.x-p.x,dz=a.z-p.z;if(Math.hypot(dx,dz)>.001)assert.ok((Math.sin(a.yaw)*dx+Math.cos(a.yaw)*dz)/Math.hypot(dx,dz)>.95,'HONK slides sideways')}
-   for(let j=0;j<i;j++){const b=current[j];if(b.visible&&b.age>=.95)assert.ok(Math.hypot(a.x-b.x,a.z-b.z)>.60,'HONKs overlap after leaving the door')}
+   const p=previous?.[i];if(p?.visible&&a.walking&&p.age>=0){const dx=a.x-p.x,dz=a.z-p.z;if(Math.hypot(dx,dz)>.001)assert.ok((Math.sin(a.yaw)*dx+Math.cos(a.yaw)*dz)/Math.hypot(dx,dz)>.95,'HONK slides sideways')}
+   for(let j=0;j<i;j++){const b=current[j];if(b.visible&&b.age>=0)assert.ok(Math.hypot(a.x-b.x,a.z-b.z)>.60,'HONKs overlap beside the car')}
   }
   previous=current.map(a=>({...a}));
  }
@@ -66,15 +66,15 @@ test('walking routes stay on the arena floor, avoid the trophy and keep exits se
  const doors=[];arrival.car.traverse(o=>{if(o.name==='Clown_car_swinging_door')doors.push(o)});assert.equal(doors.length,2);
 });
 
-test('the crouched HONK clears actual rounded bodywork, roof and open door surfaces',async()=>{
+test('HONKs appear outside actual closed bodywork and both doors stay shut',async()=>{
  const {Octree}=await import(moduleURL(new URL('../vendor/Octree.js',import.meta.url)));
  arrival.reset();advance(4.601);gltf.scene.updateMatrixWorld(true);
  const tree=new Octree().fromGraphNode(arrival.car),body=arrival.group.getObjectByName('Arrival_HONK_body'),matrix=new THREE.Matrix4(),scale=new THREE.Vector3(),nearest=new THREE.Vector3();
  for(let frame=0;frame<58;frame++){
-  const a=arrival.state.clowns[0];body.getMatrixAt(0,matrix);scale.setFromMatrixScale(matrix);
+  const a=arrival.state.clowns[0];body.getMatrixAt(0,matrix);scale.setFromMatrixScale(matrix);arrival.car.traverse(o=>{if(o.name==='Clown_car_swinging_door')assert.equal(o.rotation.y,0)});
   for(const [height,radius] of [[.84,.20],[.49,.18],[.20,.075]]){
    const sphere=new THREE.Sphere(new THREE.Vector3(a.x,a.y+height*scale.y,a.z),radius),triangles=[];tree.getSphereTriangles(sphere,triangles);
-   for(const triangle of triangles){triangle.closestPointToPoint(sphere.center,nearest);assert.ok(nearest.distanceTo(sphere.center)>=radius-.005,`HONK clips the car at exit age ${a.age}`)}
+   for(const triangle of triangles){triangle.closestPointToPoint(sphere.center,nearest);assert.ok(nearest.distanceTo(sphere.center)>=radius-.005,`HONK clips the closed car at age ${a.age}`)}
   }
   advance(1/60);
  }

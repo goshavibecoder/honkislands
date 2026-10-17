@@ -4,7 +4,7 @@ import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 const clamp=t=>Math.max(0,Math.min(1,t)),ease=t=>{t=clamp(t);return t*t*(3-2*t)},COUNT=10;
 const PATH=[[6.1,4],[5.35,3.05],[4.35,1.85],[3.55,1.4],[2.65,1.85]];
 const ANGLES=Array.from({length:COUNT},(_,i)=>1+(COUNT-1-i)*.55);
-const WALL_X=4.7,WALL_Z=3.68,EXIT_DURATION=.95,EXIT_INTERVAL=1.05;
+const WALL_X=4.7,WALL_Z=3.68,APPEAR_INTERVAL=1.05;
 const SUITS=[0x3c66ce,0xce3456,0x399588,0xb376cb,0xe8a338,0x437fbb,0xbf476b,0x598f4a,0xa45dbe,0xd17437];
 
 // A small shared actor LOD keeps the original HONK silhouette and face without
@@ -50,8 +50,7 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
  function add(geometry,material,parent,x=0,y=0,z=0){const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);parent.add(mesh);return mesh}
  function ball(material,parent,x,y,z,sx,sy,sz){const o=add(new THREE.SphereGeometry(1,20,14),material,parent,x,y,z);o.scale.set(sx,sy,sz);return o}
  function rod(material,parent,a,b,r){const p=new THREE.Vector3(...a),q=new THREE.Vector3(...b),delta=q.clone().sub(p),o=add(new THREE.CylinderGeometry(r,r,delta.length(),12),material,parent);o.position.copy(p.add(q).multiplyScalar(.5));o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());return o}
- // Split the rounded shells into fixed bodywork and real hinged door patches.
- // The cabin is hollow; no hidden sphere remains across the exit opening.
+ // Rounded closed bodywork; the matching door patches stay fixed in place.
  const hinges=[-1,1].map(sign=>{const door=new THREE.Group();door.position.set(sign*.48,.40,.30);door.name='Clown_car_swinging_door';car.add(door);doors.push(door);return door});
  function shell(material,center,size,keep){
   const source=new THREE.SphereGeometry(1,64,40).toNonIndexed();source.scale(...size);source.translate(...center);
@@ -103,25 +102,19 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
   const u=ease((time-.65)/3.5),point=curve.getPointAt(u),ahead=curve.getPointAt(Math.min(1,u+.002)),behind=curve.getPointAt(Math.max(0,u-.002)),direction=u<1?ahead.clone().sub(point):point.clone().sub(behind),yaw=Math.atan2(direction.x,direction.z);
   car.position.set(point.x,floorAt(point.x,point.z)+.008,point.z);car.rotation.y=yaw;car.rotation.z=Math.sin(time*10)*(1-u)*.012;state.car={x:point.x,z:point.z,yaw,progress:u};
   for(const wheel of wheels)wheel.rotation.x=-curveLength*u/.18;
-  const opening=ease((time-4.15)/.45)*(1-ease((time-(4.6+(COUNT-1)*EXIT_INTERVAL+EXIT_DURATION))/.6));doors.forEach((door,i)=>door.rotation.y=(i?-1:1)*opening*1.85);
+  doors.forEach(door=>door.rotation.y=0);
   for(let i=0;i<COUNT;i++){
-   const actor=state.clowns[i],age=time-(4.6+i*EXIT_INTERVAL),route=routes[i];actor.visible=age>=0;actor.age=age;
+   const actor=state.clowns[i],age=time-(4.6+i*APPEAR_INTERVAL),route=routes[i];actor.visible=age>=0;actor.age=age;
    if(!actor.visible){actor.x=point.x;actor.z=point.z;actor.y=-20;continue}
-   let x,z,heading;
-   if(age<EXIT_DURATION){
-    const t=clamp(age/EXIT_DURATION),localX=.04+.98*t,localZ=-.12;
-    x=point.x+localX*Math.cos(yaw)+localZ*Math.sin(yaw);z=point.z-localX*Math.sin(yaw)+localZ*Math.cos(yaw);heading=yaw+Math.PI/2;
-    actor.y=floorAt(x,z)+.008+.30*(1-ease((localX-.64)/.38));
-   }else{
-    const t=clamp((age-EXIT_DURATION)/route.duration),p=route.path.getPointAt(t),v=route.path.getTangentAt(t);
-    x=p.x;z=p.z;heading=Math.atan2(v.x,v.z);actor.y=floorAt(x,z)+.008+(t<1?.012*(1+Math.sin(age*13)):0);
-   }
-   actor.walking=age<EXIT_DURATION+route.duration;actor.x=x;actor.z=z;
-   const turn=ease((age-EXIT_DURATION-route.duration)/.5),facing=Math.atan2(-x,-z),delta=Math.atan2(Math.sin(facing-heading),Math.cos(facing-heading));
+   // Appear fully outside the closed car, then walk straight onto the route.
+   const t=clamp(age/route.duration),p=route.path.getPointAt(t),v=route.path.getTangentAt(t),x=p.x,z=p.z,heading=Math.atan2(v.x,v.z);
+   actor.y=floorAt(x,z)+.008+(t<1?.012*(1+Math.sin(age*13)):0);
+   actor.walking=age<route.duration;actor.x=x;actor.z=z;
+   const turn=ease((age-route.duration)/.5),facing=Math.atan2(-x,-z),delta=Math.atan2(Math.sin(facing-heading),Math.cos(facing-heading));
    actor.yaw=heading+delta*turn;
   }
   for(let i=0;i<COUNT;i++){
-    const a=state.clowns[i],visibleScale=a.visible?1:.0001;position.set(a.x,a.y,a.z);rotation.setFromAxisAngle(axis,a.yaw);unit.set(visibleScale,visibleScale*(a.visible&&a.age<EXIT_DURATION?.70+.30*ease(((.04+.98*clamp(a.age/EXIT_DURATION))-.74)/.28):1),visibleScale);rootMatrix.compose(position,rotation,unit);
+    const a=state.clowns[i],visibleScale=a.visible?1:.0001;position.set(a.x,a.y,a.z);rotation.setFromAxisAngle(axis,a.yaw);unit.setScalar(visibleScale);rootMatrix.compose(position,rotation,unit);
    for(const [bone,pivot] of Object.entries(pivots)){
     const swing=a.walking?Math.sin(a.age*13)*.28:0,sign=/left/.test(bone)?1:-1;
     boneMatrix.makeTranslation(pivot.x,pivot.y,pivot.z);
