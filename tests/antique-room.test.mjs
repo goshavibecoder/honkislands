@@ -18,7 +18,7 @@ globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,heigh
 const bytes=gunzipSync(readFileSync(new URL('../models/honkhub.0.bin',import.meta.url)));
 const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
 gltf.scene.updateMatrixWorld(true);const preserved=new Map();gltf.scene.traverse(o=>{if(o.isMesh&&/^(Highlighted_|Poster_artwork_|Clown_|Jester_|Left_desktop_|Rear_desktop_)/.test(o.name))preserved.set(o.uuid,{name:o.name,geometry:o.geometry,material:o.material,matrix:o.matrixWorld.clone()})});
-const room=prepareAntiqueRoom(gltf.scene),manifest=JSON.parse(readFileSync(new URL('../models/honkhub.json',import.meta.url),'utf8')),boxes=[...manifest.collisionBoxes.map(([lo,hi])=>new THREE.Box3(new THREE.Vector3(...lo),new THREE.Vector3(...hi))),...room.extraBoxes];
+const room=prepareAntiqueRoom(gltf.scene,{familyTextures:[new THREE.Texture(),new THREE.Texture(),new THREE.Texture()]}),manifest=JSON.parse(readFileSync(new URL('../models/honkhub.json',import.meta.url),'utf8')),boxes=[...manifest.collisionBoxes.map(([lo,hi])=>new THREE.Box3(new THREE.Vector3(...lo),new THREE.Vector3(...hi))),...room.extraBoxes];
 function canStand(x,z){return x>=-2.8&&x<=6&&z>=-1.6&&z<=6&&!boxes.some(b=>1.56>b.min.y&&.248<b.max.y&&x>b.min.x-.17&&x<b.max.x+.17&&z>b.min.z-.17&&z<b.max.z+.17)}
 const ray=new THREE.Raycaster();
 
@@ -40,8 +40,8 @@ test('new floor navigation and furniture leave connected approaches to the origi
  for(const item of room.furniture){assert.ok(item.bounds.min.x>-2.8&&item.bounds.max.x<6);assert.ok(item.bounds.min.z>-1.6&&item.bounds.max.z<6);assert.ok(item.bounds.max.y<3.3)}
 });
 
-test('original circus art, clown figures and every linked note keep their geometry and placement',()=>{
- let count=0;gltf.scene.traverse(o=>{const old=preserved.get(o.uuid);if(!old)return;count++;assert.equal(o.geometry,old.geometry);assert.equal(o.material,old.material);assert.ok(o.matrixWorld.equals(old.matrix))});assert.equal(count,preserved.size);
+test('original circus art keeps its image and every clown and linked note keeps its placement',()=>{
+ let count=0;gltf.scene.traverse(o=>{const old=preserved.get(o.uuid);if(!old)return;count++;assert.equal(o.geometry,old.geometry);assert.equal(o.material,old.material);if(!/^Poster_artwork_/.test(o.name))assert.ok(o.matrixWorld.equals(old.matrix))});assert.equal(count,preserved.size);
  const targets=createWorldTargets(gltf.scene,'honkhub');assert.ok(targets.targets.length>=30);assert.ok(targets.targets.some(o=>o.userData.title==='Lore'));targets.dispose();
  for(const name of ['Antique_worn_sofa','Antique_full_bookcase','Antique_leather_travelling_trunk','Antique_grandfather_clock','Antique_gramophone_cabinet'])assert.ok(room.group.getObjectByName(name));
 });
@@ -56,4 +56,18 @@ test('the real viewer batches the expanded workshop without losing furniture geo
  let before=0;viewer.root.traverse(o=>{if(o.isMesh)before+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3});
  new Function('THREE','mergeGeometries','gltf','slug',source.slice(start,end)).call(viewer,THREE,mergeGeometries,{animations:[]},'honkhub');
  let after=0,batches=0;viewer.staticGroup.traverse(o=>{if(!o.isMesh)return;batches++;after+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));assert.equal(o.geometry.attributes.uv.count,o.geometry.attributes.position.count);o.geometry.dispose()});assert.equal(after,before);assert.ok(batches<100);
+});
+
+test('three cartoon family pictures and five original posters are framed around all four walls',()=>{
+ assert.equal(room.wallArt.pictures.length,3);assert.equal(room.wallArt.posters.length,5);assert.equal(new Set(room.wallArt.posters.map(p=>p.wall)).size,4);
+ const normal=new THREE.Vector3();for(const p of [...room.wallArt.pictures,...room.wallArt.posters]){
+  const image=p.image||p.poster;image.updateWorldMatrix(true,false);const size=new THREE.Box3().setFromObject(image).getSize(new THREE.Vector3());assert.ok(Math.abs(size.y-p.h)<.001);normal.fromBufferAttribute(image.geometry.attributes.normal,0).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(image.matrixWorld));
+  if(p.x< -2)assert.ok(normal.x>.99);else if(p.x>5)assert.ok(normal.x<-.99);else if(p.z>5)assert.ok(normal.z<-.99);else assert.ok(normal.z>.99);
+  const center=new THREE.Box3().setFromObject(image).getCenter(new THREE.Vector3());assert.ok(center.y-p.h/2>1.5);assert.ok(center.y+p.h/2<3.3);
+ }
+ for(const picture of room.wallArt.pictures){assert.ok(picture.image.material.map);assert.ok(picture.image.material.emissiveIntensity<=.1)}
+});
+
+test('the generated family textures are bundled as small browser-readable WebP assets',()=>{
+ for(const name of ['honk-grandma-v51.webp','honk-grandpa-v51.webp','honk-family-v51.webp']){const data=readFileSync(new URL('../assets/'+name,import.meta.url));assert.equal(data.toString('ascii',0,4),'RIFF');assert.equal(data.toString('ascii',8,12),'WEBP');assert.ok(data.length>30000&&data.length<300000)}
 });

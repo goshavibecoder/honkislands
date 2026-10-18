@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import {hangFamilyPictures} from './family-wall.js?v=51';
 
-export function prepareAntiqueRoom(root){
+export function prepareAntiqueRoom(root,{familyTextures=[]}={}){
  root.updateMatrixWorld(true);const sources=new Map(),posters=[],original=[];
  root.traverse(o=>{if(!o.isMesh)return;original.push(o);if(!sources.has(o.material.name))sources.set(o.material.name,o.material);if(/^Poster_artwork_/.test(o.name))posters.push(o)});
  const material=(color,roughness=.85,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
@@ -75,8 +76,8 @@ export function prepareAntiqueRoom(root){
  const music=place('Antique_gramophone_cabinet',3.67,5.47,Math.PI);box(1.16,.88,.54,m.dark,music,0,.54,0);box(1.27,.10,.65,m.wood,music,0,1.02,0);for(const x of [-.42,.42])for(const z of [-.17,.17])rod([x,.04,z],[x,.22,z],.045,m.wood,music);for(const x of [-.27,.27]){box(.49,.64,.04,m.wood,music,x,.58,.29);for(let i=0;i<5;i++)box(.34,.018,.015,m.black,music,x,.40+i*.08,.316)}
  cyl(.23,.023,m.black,music,-.20,1.09,.02);cyl(.065,.026,m.trim,music,-.20,1.106,.02);rod([.22,1.09,-.13],[.13,1.17,.12],.018,m.brass,music);rod([.13,1.17,.12],[-.03,1.12,.13],.014,m.brass,music);
  const horn=mesh(new THREE.LatheGeometry([new THREE.Vector2(.04,0),new THREE.Vector2(.055,.20),new THREE.Vector2(.10,.36),new THREE.Vector2(.22,.50),new THREE.Vector2(.37,.60)],24),m.brass,music,.23,1.10,-.12);horn.rotation.z=-.65;horn.material=m.brass.clone();horn.material.side=THREE.DoubleSide;rod([.58,.75,.0],[.76,.75,.0],.018,m.iron,music);rod([.76,.75,.0],[.76,.66,.0],.018,m.iron,music);solid(music);
- // Reuse original circus illustration materials in dark timber frames.
- for(const [i,x,y,z,angle] of [[0,-1.25,2.10,5.94,Math.PI],[1,3.85,2.12,5.94,Math.PI],[2,5.94,2.18,4.40,-Math.PI/2]]){const g=place('Antique_framed_circus_print',x,z,angle),w=.61,h=.85;g.position.y=y;box(w+.14,h+.14,.06,m.dark,g,0,0,0);box(w+.055,h+.055,.02,m.brass,g,0,0,.045);mesh(new THREE.PlaneGeometry(w,h),posters[i%posters.length]?.material||m.paper,g,0,0,.06)}
+ // Family portraits and original circus posters now share all four walls.
+ const wallArt=hangFamilyPictures(group,m,posters,familyTextures);
  // Wax candles and a small wrought brass ceiling chandelier.
  const chandelier=place('Antique_candle_chandelier',1.7,2.35);chandelier.position.y=0;
  for(let y=3.15;y<3.55;y+=.085){const ring=mesh(new THREE.TorusGeometry(.045,.011,6,12),m.iron,chandelier,0,y,0);ring.rotation.y=Math.round(y*100)%2?Math.PI/2:0}
@@ -84,7 +85,7 @@ export function prepareAntiqueRoom(root){
  for(let i=0;i<5;i++){const a=i*Math.PI*2/5,x=Math.cos(a)*.54,z=Math.sin(a)*.54;rod([0,3.18,0],[x,2.95,z],.015,m.brass,chandelier);cyl(.075,.035,m.brass,chandelier,x,2.96,z);cyl(.035,.19,m.wax,chandelier,x,3.06,z);ball(x,3.20,z,.017,.057,.017,m.flame,chandelier)}
  const positions=new Float32Array([left,.028,rear,left,.028,front,right,.028,rear,right,.028,rear,left,.028,front,right,.028,front]),nav=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(positions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Antique_room_expanded_navigation';nav.updateMatrixWorld(true);
  const bounds=new THREE.Box3(new THREE.Vector3(-3.0,-.21,-1.82),new THREE.Vector3(6.24,4.0,6.24));let lighting=null;
- return {group,nav,extraBoxes,bounds,furniture,
+ return {group,nav,extraBoxes,bounds,furniture,wallArt,
   mountLights(scene){if(lighting)return;lighting={scene,environment:scene.environmentIntensity,items:scene.children.filter(o=>o.isHemisphereLight||o.isDirectionalLight).map(light=>({light,intensity:light.intensity,color:light.color.clone()}))};scene.environmentIntensity=.35;for(const item of lighting.items){item.light.intensity*=item.light.isHemisphereLight?.64:.22;item.light.color.set(0xffdbaf)}for(const [x,y,z,intensity,color] of [[1.7,2.92,2.35,12,0xffcf8c],[4.7,2.30,-.5,4,0xffd7a0],[5.60,2.3,.5,3,0xb1bdb5]]){const light=new THREE.PointLight(color,intensity,7,2);light.position.set(x,y,z);scene.add(light);lights.push(light)}},
   dispose(){for(const light of lights){light.removeFromParent();light.dispose()}lights.length=0;if(lighting){lighting.scene.environmentIntensity=lighting.environment;for(const item of lighting.items){item.light.intensity=item.intensity;item.light.color.copy(item.color)}lighting=null}}
  };
