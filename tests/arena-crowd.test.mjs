@@ -12,7 +12,7 @@ function moduleURL(url){
  const result='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(url.href,result);return result;
 }
 const {GLTFLoader}=await import(moduleURL(new URL('../vendor/GLTFLoader.js',import.meta.url)));
-const {createArenaCrowd,loadArenaCrowd}=await import(moduleURL(new URL('../arena-crowd.js',import.meta.url)));
+const {createArenaCrowd,loadArenaCrowd,prepareArenaAudience}=await import(moduleURL(new URL('../arena-crowd.js',import.meta.url)));
 const {writeFileSync}=await import('node:fs');
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,height:1,close(){}});
 const bytes=gunzipSync(readFileSync(new URL('../models/arena.0.bin',import.meta.url)));
@@ -66,4 +66,10 @@ test('Groyper keeps the source UV seams and triangle pairing, with smooth normal
 test('Zoich keeps the original source foot proportions and vertex positions',()=>{
  const samples=[[.161042,.096023,-.072365],[-.206146,.023826,.104602],[-.222946,.00637,.090068],[.2052,.077831,.071973],[-.300743,.079161,-.124437],[-.194282,.038219,.171284],[-.215116,.067541,.090163],[-.235686,.032622,.183838],[-.203251,.055272,.103674],[-.306686,.01612,.149893],[.22269,.062879,.081712],[.180935,.022099,.18463],[.206524,.046377,.068371],[.252748,.005597,.204628],[.201697,.03234,.08519],[.2962,0,.165586]],p=data.zoich.high.positions,vertices=new Set();for(let i=0;i<p.length;i+=3)vertices.add(p.slice(i,i+3).join(','));for(const sample of samples)assert.ok(vertices.has(sample.join(',')),'original Zoich foot vertex missing: '+sample);
  assert.equal(data.zoich.seatLift,.008);
+});
+
+test('an unavailable audience cannot block entering the colosseum and a later attempt can recover',async()=>{
+ const root=new THREE.Group(),wall=new THREE.Group();wall.name='Actual arena architecture';root.add(wall);let reported;
+ const unavailable=await prepareArenaAudience(root,{load:async()=>{throw Error('Crowd asset 404')},onError:error=>reported=error});assert.equal(unavailable,null);assert.match(reported.message,/404/);assert.equal(root.children.length,1);assert.equal(root.children[0],wall);
+ const scene=gltf.scene.clone(),recovered=await prepareArenaAudience(scene,{load:async()=>data});assert.equal(recovered.count,154);recovered.dispose();
 });

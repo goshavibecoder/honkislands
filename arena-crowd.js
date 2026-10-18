@@ -8,6 +8,16 @@ export async function loadArenaCrowd(){
  data.groyper.map=new THREE.Texture(image);data.groyper.map.flipY=false;data.groyper.map.colorSpace=THREE.SRGBColorSpace;data.groyper.map.needsUpdate=true;return data;
 }
 
+// A decorative audience must never prevent entering the actual island.
+export async function prepareArenaAudience(root,{load=loadArenaCrowd,onError=error=>console.warn('Audience could not load',error)}={}){
+ let data;
+ try{data=await load();return createArenaCrowd(root,data)}catch(error){
+  const group=root.getObjectByName('Colosseum_seated_audience'),materials=new Set();
+  if(group){group.traverse(o=>{o.geometry?.dispose();o.dispose?.();if(o.material)materials.add(o.material)});for(const material of materials)material.dispose();group.removeFromParent()}
+  data?.groyper?.map?.dispose();data?.groyper?.map?.image?.close?.();onError(error);return null;
+ }
+}
+
 export function createArenaCrowd(root,characters){
  root.updateMatrixWorld(true);const seats=[];
  root.traverse(o=>{if(o.isMesh&&/^Individual_seat_red_cushion(?:_|$)/.test(o.name.replaceAll(' ','_'))){const b=new THREE.Box3().setFromObject(o),p=b.getCenter(new THREE.Vector3());p.y=b.max.y;seats.push({name:o.name,position:p})}});

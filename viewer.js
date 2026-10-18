@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {createArchitectureCollision} from './walk-architecture.js?v=77';
-import {createArenaCrowd,loadArenaCrowd} from './arena-crowd.js?v=84';
+import {prepareArenaAudience} from './arena-crowd.js?v=85';
 import {prepareGroypAir} from './groyp-air.js?v=81';
 import {prepareVisualQuality} from './visual-quality.js?v=72';
 import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=72';
@@ -65,7 +65,7 @@ export class IslandViewer {
    const manifest=await (await fetch('./models/groyp-air-v74.json')).json(),chunks=await Promise.all(manifest.parts.map(part=>this.fetchBinary('./models/'+part))),size=chunks.reduce((n,c)=>n+c.length,0),bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
    const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer(),groyper=await new GLTFLoader().parseAsync(buffer,'');this.groypAir=prepareGroypAir(this.root,this.balloonWorld,groyper.scene);
   }
-  this.arenaCrowd=slug==='arena'?createArenaCrowd(this.root,await loadArenaCrowd()):null;
+  this.arenaCrowd=slug==='arena'?await prepareArenaAudience(this.root):null;
   this.helicopterCollision=this.helicopter?createHelicopterCollision(this.root,this.helicopter.scale):null;
   this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):slug==='goat-mountain'?createMountainCollision(this.root):null;
   this.architectureCollision=createArchitectureCollision(this.root,slug);
