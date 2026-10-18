@@ -26,7 +26,7 @@ export class KartDrive{
    this.steer+=(clamp(steer,-1,1)-this.steer)*(1-Math.exp(-7*step));
    const target=brake?0:clamp(throttle,-1,1)*(throttle>=0?3.2:1.5),decay=Math.exp(-(brake?13:Math.abs(throttle)<.01?8.5:3.5)*step);
    this.speed=target+(this.speed-target)*decay;if(Math.abs(this.speed)<.004)this.speed=0;
-   this.yaw+=this.speed/1.12*Math.tan(this.steer*.27/(1+Math.abs(this.speed)*.10))*step;
+   this.yaw+=this.speed/1.12*Math.tan(this.steer*.48/(1+Math.abs(this.speed)*.06))*step;
    const distance=this.speed*step;this.position.x+=Math.sin(this.yaw)*distance;this.position.z+=Math.cos(this.yaw)*distance;
    const q=Math.hypot(this.position.x/KART_TRACK.rx,this.position.z/KART_TRACK.rz);
    // Collisions stop translation. Only the driver's steering changes heading.

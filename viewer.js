@@ -21,8 +21,9 @@ import {prepareAntiqueRoom} from './antique-room.js?v=53';
 import {prepareGalleryInterior} from './gallery-interior.js?v=36';
 import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=49';
 import {mountGalleryLift} from './gallery-lift.js?v=36';
-import {prepareIslandTransport} from './island-transport-world.js?v=56';
-import {mountIslandTransport} from './island-transport.js?v=56';
+import {prepareIslandTransport} from './island-transport-world.js?v=57';
+import {mountIslandTransport} from './island-transport.js?v=57';
+import {loadHonkKartHead} from './kart-driver.js?v=57';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
 const configPromise=fetch('./worlds.json?v=7').then(r=>{if(!r.ok)throw Error('World configuration unavailable');return r.json()});
@@ -50,7 +51,7 @@ export class IslandViewer {
   const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures()}):null;this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
   let mountainShell=null;if(slug==='goat-mountain'){const sealed=await this.fetchBinary('./models/goat-mountain-shell-v22.bin?v=22');mountainShell=await new Response(new Blob([sealed]).stream().pipeThrough(new DecompressionStream('gzip'))).json()}
   this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;
-  this.islandTransportWorld=prepareIslandTransport(this.root,slug);
+  this.islandTransportWorld=prepareIslandTransport(this.root,slug,{driverHead:slug==='arcade-district'?await loadHonkKartHead():null});
   this.helicopter=slug==='citadel'?addClownHelicopter(this.root):null;
   this.helicopterCollision=this.helicopter?createHelicopterCollision(this.root,this.helicopter.scale):null;
   this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):slug==='goat-mountain'?createMountainCollision(this.root):null;

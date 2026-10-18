@@ -6,6 +6,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import {CableTransit,KartDrive,CABLE_STATIONS,KART_TRACK,cablePosition} from '../island-transport-motion.js';
 import {createTouchStick} from '../touch-stick.js';
 import {WalkMotion} from '../walk-motion.js';
+const driverHead=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url))));
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
 function moduleURL(url){if(modules.has(url.href))return modules.get(url.href);const source=readFileSync(url,'utf8').replace(/(^import\s[\s\S]*?\sfrom\s+)(['"])([^'"]+)\2/gm,(_,prefix,q,path)=>`${prefix}'${path==='three'?threeURL:moduleURL(new URL(path,url))}'`),result='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(url.href,result);return result}
 const {prepareIslandTransport}=await import(moduleURL(new URL('../island-transport-world.js',import.meta.url)));
@@ -35,16 +36,16 @@ test('a kart can complete full circuits and the lap counter requires an entire l
 });
 
 class Element{
- constructor(){this.events={};this.nodes=new Map();this.classes=new Set();this.classList={add:(...a)=>a.forEach(s=>this.classes.add(s)),remove:(...a)=>a.forEach(s=>this.classes.delete(s)),toggle:(s,on)=>on?this.classes.add(s):this.classes.delete(s)}}
+ constructor(){this.events={};this.nodes=new Map();this.children=[];this.style={};this.ownerDocument=globalThis.document;this.captures=new Set();this.classes=new Set();this.classList={add:(...a)=>a.forEach(s=>this.classes.add(s)),remove:(...a)=>a.forEach(s=>this.classes.delete(s)),toggle:(s,on)=>on?this.classes.add(s):this.classes.delete(s)}}
  addEventListener(t,f){(this.events[t]??=[]).push(f)}removeEventListener(t,f){this.events[t]=(this.events[t]||[]).filter(x=>x!==f)}
- fire(t,e={}){for(const f of this.events[t]||[])f({preventDefault(){},...e})}click(){if(!this.disabled)this.fire('click')}append(c){this.child=c}remove(){this.removed=true}setAttribute(){}setPointerCapture(){}
+ fire(t,e={}){for(const f of this.events[t]||[])f({preventDefault(){},...e})}click(){if(!this.disabled)this.fire('click')}append(c){this.child=c;this.children.push(c)}remove(){this.removed=true}setAttribute(){}setPointerCapture(id){this.captures.add(id)}hasPointerCapture(id){return this.captures.has(id)}releasePointerCapture(id){this.captures.delete(id);this.fire('lostpointercapture',{pointerId:id})}getBoundingClientRect(){return {left:0,top:0,width:150}}
  querySelector(s){if(!this.nodes.has(s))this.nodes.set(s,new Element());return this.nodes.get(s)}
 }
 function setup(kind='cable'){
- const host=new Element(),window=new Element();globalThis.window=window;globalThis.document={createElement:()=>new Element(),getElementById:()=>host};
- const root=new THREE.Group(),world=prepareIslandTransport(root,kind==='cable'?'goat-mountain':'arcade-district'),camera=new THREE.PerspectiveCamera();camera.rotation.order='YXZ';camera.position.set(kind==='cable'?1.1:1.6,kind==='cable'?1.84:1.69,kind==='cable'?13.25:9.4);
+ const host=new Element(),window=new Element(),doc=new Element();globalThis.window=window;doc.defaultView=window;doc.createElement=()=>new Element();doc.getElementById=()=>host;globalThis.document=doc;
+ const root=new THREE.Group(),world=prepareIslandTransport(root,kind==='cable'?'goat-mountain':'arcade-district',{driverHead}),camera=new THREE.PerspectiveCamera();camera.rotation.order='YXZ';camera.position.set(kind==='cable'?1.1:1.6,kind==='cable'?1.84:1.69,kind==='cable'?13.25:9.4);
  const viewer={active:true,mode:'walk',camera,foot:kind==='cable'?.19:.04,yaw:0,pitch:0,motion:new WalkMotion(),config:{eye:1.65},keys:new Set(),stick:{x:0,y:0},boxes:[],floorAt:()=>.04,canStand:(x,z)=>world.canStand(x,z),clearWalkInput(){this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop()}};
- return {viewer,world,controller:mountIslandTransport(viewer,world),panel:host.child,window,host};
+ const controller=mountIslandTransport(viewer,world);return {viewer,world,controller,panel:host.children.find(e=>e.className==='ride-controls'),window,host};
 }
 test('cabin touch controls deliver to the summit, exit safely and summon from the other station',()=>{
  const {viewer,controller,panel}=setup();panel.querySelector('.ride-board').click();assert.equal(controller.active,true);assert.equal(panel.querySelector('.ride-exit').disabled,true);advance(controller,14);assert.equal(controller.model.station,1);assert.equal(panel.querySelector('.ride-exit').disabled,false);panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(controller.active,false);assert.equal(viewer.foot,11.14);assert.equal(viewer.camera.position.x,1.25);
@@ -72,6 +73,17 @@ test('without driver steering the kart keeps its heading and stops at a barrier 
  const stopped={...k.position};advance(k,2);assert.deepEqual(k.position,stopped);assert.equal(k.yaw,yaw);
  advance(k,1,60,{throttle:-1});assert.ok(k.position.x<stopped.x-.5);assert.equal(k.yaw,yaw);
  const right=new KartDrive(),left=new KartDrive();advance(right,1,60,{throttle:.6,steer:.6});advance(left,1,60,{throttle:.6,steer:-.6});assert.ok(right.yaw>yaw);assert.ok(left.yaw<yaw);assert.ok(Math.abs((right.yaw-yaw)+(left.yaw-yaw))<1e-10);
+});
+
+test('separate game joystick and gas pedal allow full-lock turning, show HONK at the wheel and clean up after exit',()=>{
+ const {controller,panel,window,world,host}=setup('kart'),controls=controller.gameControls,ui=controls.element,stick=ui.querySelector('.kart-game-stick'),gas=ui.querySelector('[data-kart-pedal="1"]'),reverse=ui.querySelector('[data-kart-pedal="-1"]');
+ assert.equal(ui.hidden,true);assert.equal(world.driver.group.visible,false);assert.ok(world.driver.head.children.length>5);
+ panel.querySelector('.ride-board').click();assert.equal(ui.hidden,false);assert.ok(host.classes.has('driving-kart'));assert.equal(world.driver.group.visible,true);
+ stick.fire('pointerdown',{pointerId:20,pointerType:'touch',clientX:118.5,clientY:75});gas.fire('pointerdown',{pointerId:21,pointerType:'touch'});advance(controller,1.2);
+ assert.ok(controller.model.steer>.99);assert.ok(controller.model.speed>2);assert.ok(controller.model.yaw-Math.PI/2>.55,'full joystick steering is too weak');assert.equal(stick.hasPointerCapture(20),true);assert.equal(gas.hasPointerCapture(21),true);
+ panel.querySelector('.ride-camera').click();assert.equal(world.driver.head.visible,false);assert.equal(world.driver.group.visible,true);panel.querySelector('.ride-camera').click();assert.equal(world.driver.head.visible,true);
+ window.fire('blur');assert.equal(controls.state.x,0);assert.equal(controls.state.pedal,0);advance(controller,1);assert.equal(controller.model.speed,0);
+ reverse.fire('pointerdown',{pointerId:22,pointerType:'touch'});advance(controller,.5);assert.ok(controller.model.speed< -.7);reverse.fire('pointerup',{pointerId:22});panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(ui.hidden,true);assert.equal(world.driver.group.visible,false);assert.equal(host.classes.has('driving-kart'),false);controller.dispose();assert.equal(ui.removed,true);
 });
 
 async function loadMountain(){const manifest=JSON.parse(readFileSync(new URL('../models/goat-mountain.json',import.meta.url))),bytes=gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url))))),gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');rebuildMountainStairs(gltf.scene,JSON.parse(gunzipSync(readFileSync(new URL('../models/goat-mountain-shell-v22.bin',import.meta.url)))));return gltf.scene}

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import {CABLE_STATIONS,cablePosition,KART_TRACK} from './island-transport-motion.js?v=56';
+import {CABLE_STATIONS,cablePosition,KART_TRACK} from './island-transport-motion.js?v=57';
+import {createHonkKartDriver} from './kart-driver.js?v=57';
 
-export function prepareIslandTransport(root,slug){
+export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  if(!['goat-mountain','arcade-district'].includes(slug))return null;
  root.updateMatrixWorld(true);const group=new THREE.Group();group.name='Island_transport_scenery';group.matrix.copy(root.matrixWorld.clone().invert());group.matrix.decompose(group.position,group.quaternion,group.scale);root.add(group);
  const navPositions=[],extraBoxes=[];
@@ -18,7 +19,7 @@ export function prepareIslandTransport(root,slug){
  function rail(a,b,y){rod([a[0],y+.95,a[1]],[b[0],y+.95,b[1]],.032,m.gold);rod([a[0],y+.42,a[1]],[b[0],y+.42,b[1]],.022,m.dark)}
  function dynamic(g){g.traverse(o=>{o.userData.islandRide=true})}
  function collider(o){o.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(o))}
- let vehicle,wheels=[],steering=[],kind=slug==='goat-mountain'?'cable':'kart';
+ let vehicle,driver=null,wheels=[],steering=[],kind=slug==='goat-mountain'?'cable':'kart';
  if(kind==='cable'){
   for(let i=0;i<2;i++){
    const s=CABLE_STATIONS[i];box(3.4,.22,2.4,m.stone,group,2.4,s.y-.11,s.z,'Cable_station_platform');floorRect(2.4,s.y,s.z,3.4,2.4);
@@ -72,16 +73,16 @@ export function prepareIslandTransport(root,slug){
   for(const x of [-.54,.54])for(const z of [-.57,.57]){const pivot=new THREE.Group();pivot.position.set(x,.235,z);vehicle.add(pivot);const tire=mesh(new THREE.CylinderGeometry(.235,.235,.16,20),m.rubber,pivot);tire.rotation.z=Math.PI/2;const hub=mesh(new THREE.CylinderGeometry(.12,.12,.17,16),m.gold,pivot);hub.rotation.z=Math.PI/2;wheels.push({pivot,tire,hub,front:z>0})}
   for(const x of [-.27,.27]){sphere(x,.50,.91,.105,.08,.03,m.cream,vehicle);sphere(x,.52,.94,.04,.04,.012,m.dark,vehicle)}sphere(0,.43,1.00,.13,.13,.12,m.red,vehicle);
   for(let i=0;i<5;i++)sphere(-.36+i*.18,.66,.71,.066,.045,.04,[m.red,m.gold,m.green,m.blue,m.pink][i],vehicle);
-  dynamic(vehicle);vehicle.position.set(0,KART_TRACK.y,KART_TRACK.rz);vehicle.rotation.y=Math.PI/2;
+  driver=createHonkKartDriver(vehicle,driverHead);dynamic(vehicle);vehicle.position.set(0,KART_TRACK.y,KART_TRACK.rz);vehicle.rotation.y=Math.PI/2;
  }
  group.updateWorldMatrix(true,true);
  const bounds=new THREE.Box3().setFromObject(group);
- function setPose(p,yaw=0,spin=0,steer=0){vehicle.position.set(p.x,p.y,p.z);vehicle.rotation.y=yaw;for(const w of wheels){w.pivot.rotation.y=w.front?steer*.45:0;w.tire.rotation.x=spin;w.hub.rotation.x=spin}for(const s of steering)s.rotation.z=-steer*.65}
+ function setPose(p,yaw=0,spin=0,steer=0){vehicle.position.set(p.x,p.y,p.z);vehicle.rotation.y=yaw;for(const w of wheels){w.pivot.rotation.y=w.front?steer*.45:0;w.tire.rotation.x=spin;w.hub.rotation.x=spin}for(const s of steering)s.rotation.z=-steer*.65;driver?.steer(steer)}
  function canStand(x,z){
   if(kind==='cable')return true;
   const near=(rx,rz)=>Math.abs(Math.hypot(x/rx,z/rz)-1)*Math.min(rx,rz)<.25;
   if(near(KART_TRACK.rx+1.92,KART_TRACK.rz+1.92)||near(KART_TRACK.rx-1.92,KART_TRACK.rz-1.92)&&!(z>5&&Math.abs(x)<2.1))return false;
   const dx=x-vehicle.position.x,dz=z-vehicle.position.z,c=Math.cos(vehicle.rotation.y),s=Math.sin(vehicle.rotation.y);return !(Math.abs(dx*c-dz*s)<.77&&Math.abs(dx*s+dz*c)<1.17);
  }
- return {kind,group,vehicle,navPositions,extraBoxes,bounds,setPose,canStand};
+ return {kind,group,vehicle,driver,navPositions,extraBoxes,bounds,setPose,canStand};
 }
