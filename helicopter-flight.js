@@ -1,3 +1,4 @@
+import {mountTransportPanel} from './transport-panel.js?v=61';
 const mix=(a,b,t)=>a+(b-a)*t,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),ease=t=>t*t*t*(10+t*(-15+6*t)),angle=v=>Math.atan2(Math.sin(v),Math.cos(v));
 
 // Free flight reaches the castle. Only the outer play area is clamped; solid
@@ -72,21 +73,21 @@ export class HelicopterFlight {
 export function mountHelicopterFlight(viewer,helicopter,{collision=null,effects=null}={}){
  const flight=new HelicopterFlight(helicopter.home,{collides:(p,yaw)=>collision?.hit(p,yaw)||false}),panel=document.createElement('aside');panel.className='heli-controls';panel.hidden=true;panel.setAttribute('aria-label','Вертолёт HONK AIR');
  panel.innerHTML='<button class="heli-board glass" type="button"><b aria-hidden="true">✦</b> Сесть в вертолёт</button><div class="heli-dashboard glass" hidden><div class="heli-heading"><strong>HONK AIR</strong><output class="heli-altitude" aria-live="off"></output></div><p class="heli-status" role="status" aria-live="polite"></p><p class="heli-warning" role="status" aria-live="polite" hidden></p><div class="heli-height"><button type="button" data-rise="1" aria-label="Лететь выше">↑ Выше</button><button type="button" data-rise="-1" aria-label="Лететь ниже">↓ Ниже</button></div><button class="heli-camera" type="button">Вид из кабины</button><button class="heli-land" type="button">Посадить и выйти</button></div><p class="heli-respawn-note glass" role="status" hidden></p>';
- const warning=panel.querySelector('.heli-warning'),note=panel.querySelector('.heli-respawn-note'),board=panel.querySelector('.heli-board'),dashboard=panel.querySelector('.heli-dashboard'),status=panel.querySelector('.heli-status'),altitude=panel.querySelector('.heli-altitude'),land=panel.querySelector('.heli-land'),camera=panel.querySelector('.heli-camera'),heightButtons=[...panel.querySelectorAll('[data-rise]')],world=document.getElementById('world');world.append(panel);
+ const warning=panel.querySelector('.heli-warning'),note=panel.querySelector('.heli-respawn-note'),board=panel.querySelector('.heli-board'),dashboard=panel.querySelector('.heli-dashboard'),status=panel.querySelector('.heli-status'),altitude=panel.querySelector('.heli-altitude'),land=panel.querySelector('.heli-land'),camera=panel.querySelector('.heli-camera'),heightButtons=[...panel.querySelectorAll('[data-rise]')],world=document.getElementById('world');world.append(panel);const compactPanel=mountTransportPanel(panel,'HONK AIR');
  let saved=null,rise=0,cabin=false,oldPhase='',spin=0,rotorSpeed=0,boarding=0,toastTime=0,uiTime=0;
  const pressed=new Map(),labels={spinup:'Запускаем винты…',takeoff:'Плавно взлетаем…',depart:'Выходим на круг вокруг замка…',cruise:'Джойстик — полёт · Экран — поворот',return:'Возвращаемся к площадке…',approach:'Заходим на посадку…',land:'Садимся…',exit:'Выходим из вертолёта…',climb:'Набираем высоту над замком…',overflight:'Возвращаемся к площадке…',descend:'Снижаемся перед посадкой…',crashed:'Столкновение! Возвращаемся на площадку…',respawn:'Респаун: ты упирался в границу 10 секунд…'};
  function release(){pressed.clear();rise=0;for(const b of heightButtons)b.classList.remove('pressed')}
  function restore(reason=null){
-  release();helicopter.group.visible=true;helicopter.setPose(helicopter.home,Math.PI/2);helicopter.rotate(0);rotorSpeed=0;spin=0;cabin=false;camera.textContent='Вид из кабины';world.classList.remove('flying','heli-cabin','heli-impact','heli-respawning');effects?.clear();
+  compactPanel.close();release();helicopter.group.visible=true;helicopter.setPose(helicopter.home,Math.PI/2);helicopter.rotate(0);rotorSpeed=0;spin=0;cabin=false;camera.textContent='Вид из кабины';world.classList.remove('flying','heli-cabin','heli-impact','heli-respawning');effects?.clear();
   if(reason==='collision'||reason==='boundary'){toastTime=3.5;note.textContent=reason==='collision'?'Вертолёт восстановлен на площадке':'Респаун: 10 секунд на границе зоны';const spawn=viewer.config?.spawn;if(saved&&spawn){const foot=viewer.floorAt?.(spawn[0],spawn[2],helicopter.home.y+.5,2)??helicopter.deck.max.y;saved={position:saved.position.clone().set(spawn[0],foot+viewer.config.eye,spawn[2]),foot,yaw:0,pitch:0}}}
   if(saved){viewer.camera.position.copy(saved.position);viewer.foot=saved.foot;viewer.yaw=saved.yaw;viewer.pitch=saved.pitch;viewer.motion.reset(saved.yaw,saved.pitch);viewer.camera.rotation.set(saved.pitch,saved.yaw,0,'YXZ');saved=null}viewer.clearWalkInput();
  }
  board.addEventListener('click',()=>{
   if(!viewer.active||viewer.mode!=='walk'||!nearby()||!flight.board())return;
-  toastTime=0;effects?.armSound();saved={position:viewer.camera.position.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};viewer.clearWalkInput();viewer.motion.reset(0,.12);boarding=0;world.classList.add('flying');sync();
+  compactPanel.close();toastTime=0;effects?.armSound();saved={position:viewer.camera.position.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};viewer.clearWalkInput();viewer.motion.reset(0,.12);boarding=0;world.classList.add('flying');sync();
  });
- land.addEventListener('click',()=>{if(flight.land()){release();viewer.clearWalkInput()}sync()});
- camera.addEventListener('click',()=>{cabin=!cabin;if(cabin)viewer.motion.reset(flight.yaw-Math.PI,0);helicopter.group.visible=!cabin;world.classList.toggle('heli-cabin',cabin);camera.textContent=cabin?'Вид снаружи':'Вид из кабины'});
+ land.addEventListener('click',()=>{if(flight.land()){compactPanel.close();release();viewer.clearWalkInput()}sync()});
+ camera.addEventListener('click',()=>{compactPanel.close();cabin=!cabin;if(cabin)viewer.motion.reset(flight.yaw-Math.PI,0);helicopter.group.visible=!cabin;world.classList.toggle('heli-cabin',cabin);camera.textContent=cabin?'Вид снаружи':'Вид из кабины'});
  for(const b of heightButtons){
   b.addEventListener('pointerdown',e=>{if(flight.phase!=='cruise')return;e.preventDefault();b.setPointerCapture(e.pointerId);pressed.set(e.pointerId,Number(b.dataset.rise));b.classList.add('pressed');rise=[...pressed.values()].reduce((a,b)=>a+b,0)});
   const end=e=>{pressed.delete(e.pointerId);b.classList.remove('pressed');rise=[...pressed.values()].reduce((a,b)=>a+b,0)};for(const name of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(name,end);
@@ -94,7 +95,7 @@ export function mountHelicopterFlight(viewer,helicopter,{collision=null,effects=
  const blur=()=>{release();viewer.clearWalkInput()},key=e=>{if(flight.active&&e.code==='KeyE'){e.preventDefault();land.click()}};window.addEventListener('blur',blur);window.addEventListener('keydown',key);
  function nearby(){const p=viewer.camera.position,h=helicopter.home;return Math.hypot(p.x-h.x,p.z-h.z)<3.2&&Math.abs(viewer.foot-h.y)<.65}
  function sync(){
-  panel.hidden=viewer.mode!=='walk'||(!flight.active&&!nearby());board.hidden=flight.active;dashboard.hidden=!flight.active;
+  compactPanel.setActive(flight.active);panel.hidden=viewer.mode!=='walk'||(!flight.active&&!nearby());board.hidden=flight.active;dashboard.hidden=!flight.active;
   const cruise=flight.phase==='cruise';camera.disabled=flight.phase==='crashed'||flight.phase==='respawn';land.disabled=!cruise;for(const b of heightButtons)b.disabled=!cruise;
   if(oldPhase!==flight.phase){oldPhase=flight.phase;if(flight.phase==='cruise')viewer.motion.targetYaw=-Math.PI/2}
   const label=flight.notice||labels[flight.phase]||'';if(status.textContent!==label)status.textContent=label;

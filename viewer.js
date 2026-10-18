@@ -9,7 +9,7 @@ import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physic
 import {rebuildMountainStairs} from './mountain-stairs.js?v=23';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {addClownHelicopter} from './clown-helicopter.js?v=59';
-import {mountHelicopterFlight} from './helicopter-flight.js?v=59';
+import {mountHelicopterFlight} from './helicopter-flight.js?v=61';
 import {createHelicopterCollision,createHelicopterExplosion} from './helicopter-world.js?v=40';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=21';
 import {createWorldTargets} from './world-links.js?v=32';
@@ -23,7 +23,7 @@ import {prepareGalleryInterior} from './gallery-interior.js?v=59';
 import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=49';
 import {mountGalleryLift} from './gallery-lift.js?v=59';
 import {prepareIslandTransport} from './island-transport-world.js?v=59';
-import {mountIslandTransport} from './island-transport.js?v=59';
+import {mountIslandTransport} from './island-transport.js?v=61';
 import {loadHonkKartHead} from './kart-driver.js?v=59';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;

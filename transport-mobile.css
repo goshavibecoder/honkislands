@@ -73,3 +73,21 @@
  #world .kart-pedals button{min-height:70px}
  #world.flying .heli-height button{min-height:68px}
 }
+
+/* The phone HUD occupies one small chip until its menu is opened. */
+.transport-menu-toggle{display:none}
+@media(max-width:600px),(max-width:1000px) and (max-height:600px){
+ #world.driving-kart .ride-controls,#world.flying .heli-controls{width:170px;max-height:none;overflow:visible;padding:0}
+ #world .transport-menu-toggle{display:block;width:170px;min-height:44px;padding:7px 10px;border-radius:13px;font-size:10px;font-weight:750;text-align:center;white-space:nowrap}
+ #world.driving-kart .ride-dashboard,#world.flying .heli-dashboard{position:absolute;right:0;top:50px;width:min(280px,calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-height:calc(100svh - 280px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow-y:auto}
+ #world.driving-kart .ride-controls:not(.transport-expanded) .ride-dashboard,#world.flying .heli-controls:not(.transport-expanded) .heli-dashboard{padding:0;border:0;box-shadow:none;background:none;gap:0;overflow:visible}
+ #world.driving-kart .ride-controls:not(.transport-expanded) .ride-dashboard>:not(.ride-brake):not(.ride-warning),#world.flying .heli-controls:not(.transport-expanded) .heli-dashboard>:not(.heli-height):not(.heli-warning){display:none}
+ #world.driving-kart .ride-brake{position:fixed;right:var(--control-right);bottom:calc(108px + env(safe-area-inset-bottom));width:136px;min-height:44px!important;margin:0;border-width:2px;border-radius:13px}
+ #world.driving-kart .ride-dashboard .ride-warning,#world.flying .heli-dashboard .heli-warning{position:fixed;top:calc(var(--control-top) + 54px);left:50%;translate:-50% 0;width:min(290px,calc(100vw - 24px));padding:8px;border:1px solid #bf243e;border-radius:10px;background:#ffe8d0;pointer-events:none}
+ #world.driving-kart .ride-controls.transport-expanded .ride-warning,#world.flying .heli-controls.transport-expanded .heli-warning{position:static;translate:none;width:auto}
+ #world.flying .heli-height{overflow:visible}
+}
+@media(orientation:landscape) and (max-height:600px) and (max-width:1000px){
+ #world.driving-kart .ride-dashboard,#world.flying .heli-dashboard{max-height:calc(100svh - 144px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+ #world.driving-kart .ride-dashboard{grid-template-columns:1fr 1fr}
+}
