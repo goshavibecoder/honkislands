@@ -18,9 +18,10 @@ globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,heigh
 const bytes=gunzipSync(readFileSync(new URL('../models/arena.0.bin',import.meta.url)));
 const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
 
-const manifest=JSON.parse(readFileSync(new URL('../models/arena-crowd-v84.json',import.meta.url))),data=JSON.parse(gunzipSync(Buffer.from(manifest.parts.map(p=>JSON.parse(readFileSync(new URL('../models/'+p,import.meta.url)))).join(''),'base64'))),crowd=createArenaCrowd(gltf.scene,data);
+const manifest=JSON.parse(readFileSync(new URL('../models/arena-crowd-v84.json',import.meta.url))),data=JSON.parse(gunzipSync(Buffer.from(manifest.parts.map(p=>JSON.parse(readFileSync(new URL('../models/'+p,import.meta.url)))).join(''),'base64')));
+const honkManifest=JSON.parse(readFileSync(new URL('../models/arena-honk-seated-v88.json',import.meta.url)));data.honk=JSON.parse(gunzipSync(Buffer.from(honkManifest.parts.map(p=>JSON.parse(readFileSync(new URL('../models/'+p,import.meta.url)))).join(''),'base64')));const crowd=createArenaCrowd(gltf.scene,data);
 test('the real colosseum seats are filled with all five original characters without covering the arena or aisles',()=>{
- assert.equal(crowd.count,154);assert.equal(crowd.meshes.length,12);assert.ok(crowd.triangles<1400000);assert.ok(manifest.bytes<3000000);
+ assert.equal(crowd.count,154);assert.equal(crowd.meshes.length,10);assert.ok(crowd.triangles<1400000);assert.ok(manifest.bytes<3000000);
  for(const name of ['groyper','fast','teledog','honk','zoich'])assert.ok(crowd.placements.filter(p=>p.name===name).length>=25);
  for(const p of crowd.placements){assert.ok(Math.hypot(p.position.x,p.position.z/.8)>5.3);assert.ok(p.position.y>2.8);const direction=new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0),p.yaw);const back=gltf.scene.getObjectByName(p.seat.replace('red_cushion','low_carved_back')),center=new THREE.Box3().setFromObject(back).getCenter(new THREE.Vector3()),expected=p.position.clone().sub(center);expected.y=0;assert.ok(direction.dot(expected.normalize())>.998)}
  for(const b of crowd.extraBoxes)assert.equal(b.containsPoint(new THREE.Vector3(0,1,2.5)),false);
@@ -31,7 +32,7 @@ test('instanced geometry is finite, bounded, coloured, and retained by the produ
 });
 test('the browser loader reassembles local chunks and releases crowd resources',async()=>{
  const original=globalThis.fetch;globalThis.fetch=async path=>new Response(readFileSync(new URL('../'+path.slice(2),import.meta.url)));try{const loaded=await loadArenaCrowd();assert.ok(loaded.groyper.map.isTexture);assert.equal(loaded.groyper.map.flipY,false);assert.ok(loaded.groyper.high.uv.length>10000)}finally{globalThis.fetch=original}
- const copy=createArenaCrowd(gltf.scene,data);let disposed=0;copy.meshes.forEach(m=>m.geometry.addEventListener('dispose',()=>disposed++));copy.dispose();assert.equal(disposed,12);assert.equal(copy.group.parent,null);
+ const copy=createArenaCrowd(gltf.scene,data);let disposed=0;copy.meshes.forEach(m=>m.geometry.addEventListener('dispose',()=>disposed++));copy.dispose();assert.equal(disposed,10);assert.equal(copy.group.parent,null);
 });
 
 test('both audience LODs clear the actual cushion, stone support and backrest on every seat',()=>{
@@ -88,7 +89,20 @@ test('every spectator actually touches the cushion in both levels of detail',()=
  for(const pair of Object.values(geometries))for(const geometry of Object.values(pair))geometry.dispose();material.dispose();
 });
 
-test('only HONKs in the first two rows have lower dangling feet; their seated body stays unchanged',()=>{
- const front=crowd.placements.filter(p=>p.variant==='honk-front'),back=crowd.placements.filter(p=>p.name==='honk'&&p.variant==='honk');assert.ok(front.length>0);assert.ok(back.length>0);for(const p of front)assert.ok(Math.hypot(p.position.x,p.position.z/.8)<6.8);
- for(const lod of ['high','low']){const old=data.honk[lod],next=crowd.sources['honk-front'][lod];assert.deepEqual(next.indices,old.indices);let lowered=0;for(let i=0;i<old.positions.length;i+=3){assert.equal(next.positions[i],old.positions[i]);assert.equal(next.positions[i+2],old.positions[i+2]);const drop=old.positions[i+1]-next.positions[i+1];assert.ok(drop>=0&&drop<.121);if(drop>.08)lowered++;if(old.positions[i+1]>=-.12||old.positions[i+2]<=.26||Math.abs(old.positions[i])>=.23)assert.equal(drop,0)}assert.ok(lowered>10)}
+
+test('every HONK has connected seated legs, soles on the real tread, and no chair or terrain penetration',async()=>{
+ const {Octree}=await import(moduleURL(new URL('../vendor/Octree.js',import.meta.url))),floor=new Octree(),triangle=new THREE.Triangle(),normal=new THREE.Vector3(),downRay=new THREE.Ray(new THREE.Vector3(),new THREE.Vector3(0,-1,0));
+ gltf.scene.updateMatrixWorld(true);gltf.scene.traverse(o=>{if(!o.isMesh||!/^(Wide_empty_seating_terrace|Interior_aisle_broad_stone_stair_tread|Arena_complete_sand_floor)/.test(o.name))return;const p=o.geometry.attributes.position,index=o.geometry.index;for(let i=0;i<(index?index.count:p.count);i+=3){for(const [corner,key] of [[0,'a'],[1,'b'],[2,'c']])triangle[key].fromBufferAttribute(p,index?index.getX(i+corner):i+corner).applyMatrix4(o.matrixWorld);triangle.getNormal(normal);if(normal.y>.5)floor.addTriangle(triangle.clone())}});floor.build();
+ assert.equal(crowd.legs.actors.length,crowd.placements.filter(p=>p.name==='honk').length);assert.equal(crowd.legs.meshes.length,5);
+ for(let actorIndex=0;actorIndex<crowd.legs.actors.length;actorIndex++){
+  const actor=crowd.legs.actors[actorIndex],suffix=actor.seat.slice('Individual_seat_red_cushion'.length),chairs=['Individual_seat_red_cushion','Individual_seat_solid_stone_support','Individual_seat_low_carved_back'].map(n=>gltf.scene.getObjectByName(n+suffix));
+  for(const foot of actor.feet){assert.ok(foot.knee.distanceTo(foot.ankle)>.2&&foot.knee.distanceTo(foot.ankle)<.65,'shins must reach the adjacent tread with natural lengths');assert.ok(Math.abs(foot.hip.y-foot.knee.y)<.002,'thighs must remain seated');let contact=Infinity;
+   for(let k=0;k<foot.source.positions.length;k+=3){const world=new THREE.Vector3(...foot.source.positions.slice(k,k+3)).applyMatrix4(foot.shoeMatrix);downRay.origin.set(world.x,actor.position.y-.02,world.z);const hit=floor.rayIntersect(downRay);if(!hit)continue;assert.ok(world.y>=hit.position.y-.003,`shoe enters terrain at ${actor.seat}`);contact=Math.min(contact,world.y-hit.position.y)}assert.ok(contact<.004,'the actual shoe sole must touch its tread');
+  }
+  for(const mesh of crowd.legs.meshes){const ids=mesh.name.includes('shoes')?[actorIndex]:mesh.name.includes('joints')?[actorIndex*4,actorIndex*4+1,actorIndex*4+2,actorIndex*4+3]:[actorIndex*2,actorIndex*2+1];for(const id of ids){const m=new THREE.Matrix4();mesh.getMatrixAt(id,m);for(const chair of chairs){chair.geometry.computeBoundingBox();const box=chair.geometry.boundingBox.clone().expandByScalar(-.003),local=chair.matrixWorld.clone().invert().multiply(m),points=mesh.geometry.attributes.position;for(let k=0;k<points.count;k++){const v=new THREE.Vector3().fromBufferAttribute(points,k).applyMatrix4(local);assert.equal(box.containsPoint(v),false,`${mesh.name} enters ${chair.name}`)}}}}
+ }
+ // The other characters keep their original poses; check every lower
+ // vertex in both LODs against the same real stone treads rather than guessed floor boxes.
+ for(const p of crowd.placements){if(p.name==='honk')continue;for(const lod of ['high','low']){const a=crowd.sources[p.variant][lod].positions;for(let k=0;k<a.length;k+=3){if(a[k+1]>=0)continue;const world=new THREE.Vector3(a[k],a[k+1],a[k+2]).applyMatrix4(p.matrices.low);downRay.origin.set(world.x,p.position.y+.01,world.z);const hit=floor.rayIntersect(downRay);if(hit)assert.ok(world.y>=hit.position.y-.003,`${p.name} ${lod} enters the stone tread`)}}}
+ floor.clear();
 });

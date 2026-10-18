@@ -1,9 +1,9 @@
 import * as THREE from 'three';
+import {createSeatedHonkLegs} from './arena-seated-legs.js?v=88';
 
 export async function loadArenaCrowd(){
- const read=async url=>{const r=await fetch(url);if(!r.ok)throw Error(`Crowd asset ${r.status}: ${url}`);return r.json()},manifest=await read('./models/arena-crowd-v84.json');
- const parts=await Promise.all(manifest.parts.map(name=>read('./models/'+name))),raw=atob(parts.join('')),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
- const data=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).json();
+ const read=async url=>{const r=await fetch(url);if(!r.ok)throw Error(`Crowd asset ${r.status}: ${url}`);return r.json()},packed=async url=>{const manifest=await read(url),parts=await Promise.all(manifest.parts.map(name=>read('./models/'+name))),raw=atob(parts.join('')),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).json()};
+ const [data,honk]=await Promise.all([packed('./models/arena-crowd-v84.json'),packed('./models/arena-honk-seated-v88.json')]);data.honk=honk;
  const pixels=Uint8Array.from(atob(data.texture),c=>c.charCodeAt(0)),image=await createImageBitmap(new Blob([pixels],{type:'image/webp'}));
  data.groyper.map=new THREE.Texture(image);data.groyper.map.flipY=false;data.groyper.map.colorSpace=THREE.SRGBColorSpace;data.groyper.map.needsUpdate=true;return data;
 }
@@ -26,24 +26,14 @@ function cushionClearance(source,matrix,cushion){
  return Number.isFinite(gap)?gap:0;
 }
 
-function lowerFrontHonkFeet(source){
- const positions=source.positions.slice(),smooth=(a,b,v)=>{const t=Math.max(0,Math.min(1,(v-a)/(b-a)));return t*t*(3-2*t)};
- // Only the part beyond the chair's front edge hangs lower. Keep the pelvis,
- // thighs on the cushion, and hands in their existing pose.
- for(let i=0;i<positions.length;i+=3){const x=positions[i],y=positions[i+1],z=positions[i+2];if(Math.abs(x)<.23)positions[i+1]-=.12*smooth(.12,.26,-y)*smooth(.26,.32,z)}
- return {...source,positions};
-}
-
 export function createArenaCrowd(root,characters){
  root.updateMatrixWorld(true);const seats=[];
  root.traverse(o=>{if(o.isMesh&&/^Individual_seat_red_cushion(?:_|$)/.test(o.name.replaceAll(' ','_'))){const b=new THREE.Box3().setFromObject(o),p=b.getCenter(new THREE.Vector3());p.y=b.max.y;seats.push({name:o.name,position:p,mesh:o})}});
  const group=new THREE.Group();group.name='Colosseum_seated_audience';group.matrix.copy(root.matrixWorld.clone().invert());group.matrix.decompose(group.position,group.quaternion,group.scale);root.add(group);
  const names=['groyper','fast','teledog','honk','zoich'],extraBoxes=[],placements=[],meshes=[],batches=new Map(),materials=[],sources=Object.fromEntries(names.map(name=>[name,characters[name]]));
- sources['honk-front']={...characters.honk,high:lowerFrontHonkFeet(characters.honk.high),low:lowerFrontHonkFeet(characters.honk.low)};
- const radii=[...new Set(seats.map(s=>Math.hypot(s.position.x,s.position.z/.8).toFixed(3)))].map(Number).sort((a,b)=>a-b),frontLimit=radii[Math.min(1,radii.length-1)]+.001;
  for(let i=0;i<seats.length;i++){
-  const seat=seats[i],name=names[(i*3+Math.floor(i/7))%names.length],variant=name==='honk'&&Math.hypot(seat.position.x,seat.position.z/.8)<=frontLimit?'honk-front':name,data=sources[variant],back=root.getObjectByName(seat.name.replace('red_cushion','low_carved_back')),backCenter=back?new THREE.Box3().setFromObject(back).getCenter(new THREE.Vector3()):seat.position.clone().multiplyScalar(1.1),inward=seat.position.clone().sub(backCenter);inward.y=0;inward.normalize();const p=seat.position.clone().addScaledVector(inward,data.frontOffset);
-  const yaw=Math.atan2(inward.x,inward.z)+(Math.sin(i*7.13)*.025),scale=.96+.06*(.5+.5*Math.sin(i*3.71));p.y+=data.seatLift*scale+.008;
+  const seat=seats[i],name=names[(i*3+Math.floor(i/7))%names.length],variant=name,data=sources[variant],back=root.getObjectByName(seat.name.replace('red_cushion','low_carved_back')),backCenter=back?new THREE.Box3().setFromObject(back).getCenter(new THREE.Vector3()):seat.position.clone().multiplyScalar(1.1),inward=seat.position.clone().sub(backCenter);inward.y=0;inward.normalize();const p=seat.position.clone().addScaledVector(inward,data.frontOffset);
+  const yaw=Math.atan2(inward.x,inward.z)+(name==='honk'?0:Math.sin(i*7.13)*.025),scale=.96+.06*(.5+.5*Math.sin(i*3.71));p.y+=data.seatLift*scale+.008;
   const matrix=new THREE.Matrix4().compose(p,new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),yaw),new THREE.Vector3(scale,scale,scale));
   const matrices={};for(const lod of ['high','low']){const fitted=matrix.clone();fitted.elements[13]-=cushionClearance(data[lod],fitted,seat.mesh)-.002;matrices[lod]=fitted}p.y=matrices.high.elements[13];
   placements.push({name,variant,seat:seat.name,position:p,yaw,scale,matrix:matrices.high,matrices});
@@ -60,12 +50,13 @@ export function createArenaCrowd(root,characters){
   }
   batches.set(name,pair);
  }
+ const legs=createSeatedHonkLegs(root,group,placements,characters.honk);extraBoxes.push(...legs.extraBoxes);
  let elapsed=1,triangles=0,nearCount=0;
- function update(dt,camera){elapsed+=dt;if(elapsed<.25)return;elapsed=0;const nearby=placements.map((p,i)=>({i,d:p.position.distanceToSquared(camera)})).filter(p=>p.d<36).sort((a,b)=>a.d-b.d).slice(0,10),high=new Set();let detailBudget=0;for(const item of nearby){const cost=sources[placements[item.i].variant].high.indices.length/3;if(detailBudget+cost>240000)continue;high.add(item.i);detailBudget+=cost}nearCount=high.size;triangles=0;
+ function update(dt,camera){elapsed+=dt;if(elapsed<.25)return;elapsed=0;const nearby=placements.map((p,i)=>({i,d:p.position.distanceToSquared(camera)})).filter(p=>p.d<36).sort((a,b)=>a.d-b.d).slice(0,10),high=new Set();let detailBudget=0;for(const item of nearby){const cost=sources[placements[item.i].variant].high.indices.length/3;if(detailBudget+cost>240000)continue;high.add(item.i);detailBudget+=cost}nearCount=high.size;triangles=legs.triangles;
   for(const pair of batches.values())pair.high.count=pair.low.count=0;
   for(let i=0;i<placements.length;i++){const p=placements[i],lod=high.has(i)?'high':'low',mesh=batches.get(p.variant)[lod];mesh.setMatrixAt(mesh.count++,p.matrices[lod])}
   for(const mesh of meshes){mesh.instanceMatrix.needsUpdate=true;triangles+=mesh.count*mesh.geometry.index.count/3}
  }
  update(1,new THREE.Vector3(0,2.4,2.5));
- return {group,meshes,placements,sources,extraBoxes,count:seats.length,get triangles(){return triangles},get nearCount(){return nearCount},update,dispose(){for(const mesh of meshes){mesh.dispose();mesh.geometry.dispose()}for(const m of materials)m.dispose();characters.groyper.map?.dispose();characters.groyper.map?.image?.close?.();group.removeFromParent()}};
+ return {group,meshes,placements,sources,legs,extraBoxes,count:seats.length,get triangles(){return triangles},get nearCount(){return nearCount},update,dispose(){legs.dispose();for(const mesh of meshes){mesh.dispose();mesh.geometry.dispose()}for(const m of materials)m.dispose();characters.groyper.map?.dispose();characters.groyper.map?.image?.close?.();group.removeFromParent()}};
 }
