@@ -1,4 +1,6 @@
 /* One thumb zone per side, an unobstructed view, and the same circus paint. */
+#world .heli-heading strong,#world.driving-kart .ride-heading strong{font-size:9px;font-weight:700;line-height:1.25;letter-spacing:.02em}
+#world.heli-cabin::after{font-size:9px;letter-spacing:.12em}
 #world.in-island-ride #walk-controls,#world.in-gallery-lift #walk-controls{display:none!important}
 #world.flying .reset,#world.in-island-ride .reset,#world.in-gallery-lift .reset{display:none}
 #world .heli-height button,#world .ride-brake{touch-action:none}
