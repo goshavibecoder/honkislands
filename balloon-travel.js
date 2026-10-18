@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import {BALLOON_ISLANDS,BalloonJourney} from './balloon-route.js?v=71';
+import {BALLOON_ISLANDS,BalloonJourney} from './balloon-route.js?v=72';
 
 export function mountBalloonTravel(viewer,balloon){
  const host=document.getElementById('world'),panel=document.createElement('aside');panel.className='balloon-controls';panel.hidden=true;
- panel.innerHTML='<button type="button" class="balloon-open glass">✦ Карта перелётов</button>';host.append(panel);
- const dialog=document.createElement('div');dialog.className='balloon-map-overlay';dialog.hidden=true;dialog.innerHTML='<section class="balloon-map-card glass" role="dialog" aria-modal="true" aria-label="Выбери остров для перелёта"><div class="balloon-map-title"><div><h2>Куда летим?</h2></div><button type="button" class="balloon-map-close" aria-label="Закрыть карту">×</button></div><div class="balloon-destinations"></div></section>';host.append(dialog);
+ panel.innerHTML='<button type="button" class="balloon-open glass">✦ Flight map</button>';host.append(panel);
+ const dialog=document.createElement('div');dialog.className='balloon-map-overlay';dialog.hidden=true;dialog.innerHTML='<section class="balloon-map-card glass" role="dialog" aria-modal="true" aria-label="Choose your destination"><div class="balloon-map-title"><div><h2>Where to?</h2></div><button type="button" class="balloon-map-close" aria-label="Close map">×</button></div><div class="balloon-destinations"></div></section>';host.append(dialog);
  const list=dialog.querySelector('.balloon-destinations'),open=panel.querySelector('button'),closeButton=dialog.querySelector('.balloon-map-close'),model=new BalloonJourney(balloon.home,balloon.outward),basketEye=new THREE.Vector3(),desired=new THREE.Vector3(),look=new THREE.Vector3(),rotation=new THREE.Quaternion();
  let saved=null,pending=null,disposed=false,uiTime=0,onAscent=null;
  function otherRide(){return viewer.galleryLift?.active||viewer.helicopterFlight?.active||viewer.islandTransport?.active}
  function nearby(){const p=viewer.camera.position;return viewer.mode==='walk'&&Math.hypot(p.x-balloon.mapPosition.x,p.z-balloon.mapPosition.z)<3.4&&Math.abs(viewer.foot-balloon.home.y)<.6}
  function close(){dialog.hidden=true;host.classList.remove('choosing-balloon');open.focus?.({preventScroll:true})}
  function openMap(){if(disposed||!viewer.active||model.active||otherRide()||!nearby())return false;viewer.clearWalkInput();dialog.hidden=false;host.classList.add('choosing-balloon');closeButton.focus?.({preventScroll:true});return true}
- for(const island of BALLOON_ISLANDS){const button=document.createElement('button');button.type='button';button.className='balloon-destination';button.disabled=island.slug===viewer.slug;button.setAttribute('aria-label',`${island.title}${button.disabled?' — ты здесь':' — перелететь'}`);if(button.disabled)button.setAttribute('aria-current','location');button.innerHTML=`<img src="./assets/${island.image}" alt="" draggable="false">`;list.append(button);button.addEventListener('click',()=>{if(model.active||disposed||button.disabled)return;close();viewer.onBalloonTravel?.(island.slug)})}
+ for(const island of BALLOON_ISLANDS){const button=document.createElement('button');button.type='button';button.className='balloon-destination';button.disabled=island.slug===viewer.slug;button.setAttribute('aria-label',`${island.title}${button.disabled?' — you are here':' — fly here'}`);if(button.disabled)button.setAttribute('aria-current','location');button.innerHTML=`<img src="./assets/${island.image}" alt="" draggable="false">`;list.append(button);button.addEventListener('click',()=>{if(model.active||disposed||button.disabled)return;close();viewer.onBalloonTravel?.(island.slug)})}
  open.addEventListener('click',openMap);closeButton.addEventListener('click',close);dialog.addEventListener('click',e=>{if(e.target===dialog)close()});
  const escape=e=>{if(e.key==='Escape'&&!dialog.hidden){e.preventDefault();e.stopImmediatePropagation();close()}};window.addEventListener('keydown',escape,true);
  function lock(){viewer.clearWalkInput();viewer.physics?.reset();host.classList.add('balloon-in-flight');close();panel.hidden=true}

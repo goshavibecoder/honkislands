@@ -48,7 +48,7 @@ export function prepareArenaCircus(root,environment){
  const register=(mesh,squeeze=false)=>{
   mesh.userData.honkNose=true;mesh.material=red;mesh.updateWorldMatrix(true,false);
   const hit=new THREE.Mesh(mesh.geometry.clone().applyMatrix4(mesh.matrixWorld),hitMaterial),index=noses.length;
-  hit.userData={title:'Клоунский гудок — HONK!',action:'honk',nose:index};hit.updateMatrixWorld();picker.targets.push(hit);noses.push({mesh,scale:mesh.scale.clone(),time:0,squeeze});
+  hit.userData={title:'Clown horn — HONK!',action:'honk',nose:index};hit.updateMatrixWorld();picker.targets.push(hit);noses.push({mesh,scale:mesh.scale.clone(),time:0,squeeze});
  };
  for(const mesh of existing)register(mesh);
  const sphere=new THREE.SphereGeometry(.30,24,16),plate=new THREE.CylinderGeometry(.315,.315,.055,32),ring=new THREE.TorusGeometry(.30,.025,8,40);

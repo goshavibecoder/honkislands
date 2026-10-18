@@ -69,7 +69,7 @@ test('touch boarding, height hold, cabin camera and landing restore the original
  window.fire('blur');for(let i=0;i<180;i++)controller.update(1/60);assert.ok(Math.abs(controller.flight.vy)<.001);assert.equal(viewer.stick.y,0);
  panel.querySelector('.heli-camera').click();assert.equal(helicopter.group.visible,false);controller.update(1/60);assert.ok(viewer.camera.position.toArray().every(Number.isFinite));
  panel.querySelector('.heli-land').click();for(let i=0;i<2500&&controller.active;i++)controller.update(1/60);
- assert.equal(controller.active,false);assert.equal(helicopter.group.visible,true);assert.deepEqual(viewer.camera.position,saved);assert.equal(viewer.foot,.355);assert.equal(viewer.yaw,.2);assert.equal(viewer.pitch,-.1);assert.equal(world.classes.has('flying'),false);assert.equal(panel.querySelector('.heli-camera').textContent,'Вид из кабины');
+ assert.equal(controller.active,false);assert.equal(helicopter.group.visible,true);assert.deepEqual(viewer.camera.position,saved);assert.equal(viewer.foot,.355);assert.equal(viewer.yaw,.2);assert.equal(viewer.pitch,-.1);assert.equal(world.classes.has('flying'),false);assert.equal(panel.querySelector('.heli-camera').textContent,'Cockpit view');
  controller.dispose();assert.equal(panel.removed,true);
 });
 
@@ -83,7 +83,7 @@ test('flight can approach the castle and autopilot climbs before crossing its fo
  assert.equal(f.land(),true);assert.equal(f.phase,'climb');const phases=new Set();let frames=0;
  while(f.active&&frames++<4000){phases.add(f.phase);if(f.phase==='overflight')assert.ok(f.position.y>=17.5-1e-8);f.update(1/60)}
  for(const phase of ['climb','overflight','descend','approach','land','exit'])assert.ok(phases.has(phase));assert.deepEqual(f.position,home);
- const blocked=cruise();blocked.position={x:2,y:5,z:2};blocked.collides=p=>p.y>6;assert.equal(blocked.land(),false);assert.equal(blocked.phase,'cruise');assert.match(blocked.notice,/препятствие/);
+ const blocked=cruise();blocked.position={x:2,y:5,z:2};blocked.collides=p=>p.y>6;assert.equal(blocked.land(),false);assert.equal(blocked.phase,'cruise');assert.match(blocked.notice,/Obstacle overhead/);
 });
 
 test('ten continuous seconds pinned against the outer boundary trigger respawn at every refresh rate',()=>{
@@ -111,7 +111,7 @@ test('a collision interrupts movement once and respawns after the explosion',()=
 test('the visible boundary warning counts down and disappears after respawn',()=>{
  const {viewer,controller,panel,world}=setup(),saved=viewer.camera.position.clone();panel.querySelector('.heli-board').click();for(let i=0;i<400;i++)controller.update(1/60);
  controller.flight.position={x:0,y:5.5,z:28};viewer.motion.reset(Math.PI,0);viewer.stick.y=-1;
- for(let i=0;i<120;i++)controller.update(1/60);const warning=panel.querySelector('.heli-warning');assert.equal(warning.hidden,false);assert.match(warning.textContent,/Респаун через/);
+ for(let i=0;i<120;i++)controller.update(1/60);const warning=panel.querySelector('.heli-warning');assert.equal(warning.hidden,false);assert.match(warning.textContent,/Respawn in/);
  for(let i=0;i<600&&controller.active;i++)controller.update(1/60);
  assert.equal(controller.active,false);assert.equal(warning.hidden,true);assert.equal(world.classes.has('heli-respawning'),false);assert.deepEqual(viewer.camera.position,saved);assert.equal(panel.querySelector('.heli-respawn-note').hidden,false);controller.dispose();
 });

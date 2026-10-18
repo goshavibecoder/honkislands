@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
 export const HONK_FAMILY_PICTURES=[
- {id:'grandma',title:'Бабушка HONK',file:'honk-grandma-v51.webp',w:.80,h:1.00,x:-2.775,y:2.20,z:3.50,angle:Math.PI/2},
- {id:'grandpa',title:'Дедушка HONK',file:'honk-grandpa-v51.webp',w:.80,h:1.00,x:-2.775,y:2.20,z:4.85,angle:Math.PI/2},
- {id:'family',title:'Семья HONK',file:'honk-family-v51.webp',w:1.60,h:1.20,x:-1.05,y:2.20,z:5.975,angle:Math.PI}
+ {id:'grandma',title:'Grandma HONK',file:'honk-grandma-v51.webp',w:.80,h:1.00,x:-2.775,y:2.20,z:3.50,angle:Math.PI/2},
+ {id:'grandpa',title:'Grandpa HONK',file:'honk-grandpa-v51.webp',w:.80,h:1.00,x:-2.775,y:2.20,z:4.85,angle:Math.PI/2},
+ {id:'family',title:'The HONK family',file:'honk-family-v51.webp',w:1.60,h:1.20,x:-1.05,y:2.20,z:5.975,angle:Math.PI}
 ];
 export async function loadHonkFamilyPictures(){
  const loader=new THREE.TextureLoader();return Promise.all(HONK_FAMILY_PICTURES.map(async picture=>{const texture=await loader.loadAsync(`./assets/${picture.file}`);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;return texture}));

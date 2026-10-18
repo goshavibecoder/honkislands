@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {hangFamilyPictures} from './family-wall.js?v=53';
+import {hangFamilyPictures} from './family-wall.js?v=72';
 import {addClownTeaCabinet,rearrangeWorkshopNotes} from './antique-details.js?v=53';
 
 export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false}={}){

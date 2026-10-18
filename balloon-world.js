@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {BALLOON_ISLANDS,balloonIsland} from './balloon-route.js?v=71';
+import {BALLOON_ISLANDS,balloonIsland} from './balloon-route.js?v=72';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
 let mapPictures;
@@ -38,14 +38,14 @@ export function prepareBalloonWorld(root,slug,{mapImages=[]}={}){
  const flame=mesh(new THREE.ConeGeometry(.13,.48,12),m.flame,vehicle,0,3.02,0,'Balloon_burner_flame');
  // Twelve fabric gores meet into one closed envelope; no transparent passes.
  for(let i=0;i<12;i++){const g=new THREE.SphereGeometry(1,4,22,i*Math.PI/6,Math.PI/6,0,Math.PI),p=g.attributes.position;
-  for(let n=0;n<p.count;n++){const y=p.getY(n),taper=.78+.22*(y+1)/2;p.setXYZ(n,p.getX(n)*2.55*taper,6.25+y*3.0,p.getZ(n)*2.55*taper)}g.computeVertexNormals();mesh(g,m.colors[i%6],vehicle,0,0,0,'Balloon_colour_fabric_gore');
+  for(let n=0;n<p.count;n++){const x=p.getX(n),y=p.getY(n),z=p.getZ(n),taper=.78+.22*(y+1)/2,normal=new THREE.Vector3(x/(2.55*taper),(y-.11*(1-y*y)/taper)/3,z/(2.55*taper)).normalize();g.attributes.normal.setXYZ(n,normal.x,normal.y,normal.z);p.setXYZ(n,p.getX(n)*2.55*taper,6.25+y*3.0,p.getZ(n)*2.55*taper)}mesh(g,m.colors[i%6],vehicle,0,0,0,'Balloon_colour_fabric_gore');
  }
  const collar=mesh(new THREE.TorusGeometry(.48,.08,8,24),m.gold,vehicle,0,3.45,0);collar.rotation.x=Math.PI/2;
  batchRideMeshes(vehicle,{keep:o=>o===flame});vehicle.traverse(o=>o.userData.islandRide=true);
  // The map is a physical framed board before the basket, with its own hit mesh.
  const stand=new THREE.Group();stand.name='Balloon_island_map_stand';stand.position.copy(local(1.65,0,-1.0));stand.rotation.y=yaw;group.add(stand);
  box(.13,1.25,.13,m.dark,stand,0,.625,0);box(1.16,.83,.10,m.gold,stand,0,1.50,0);box(1.06,.73,.018,m.cream,stand,0,1.50,-.061);
- const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=704;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff3d4';ctx.fillRect(0,0,1024,704);ctx.fillStyle='#922c44';ctx.font='bold 64px system-ui';ctx.textAlign='center';ctx.fillText('КУДА ЛЕТИМ?',512,88);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+ const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=704;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff3d4';ctx.fillRect(0,0,1024,704);ctx.fillStyle='#922c44';ctx.font='bold 64px system-ui';ctx.textAlign='center';ctx.fillText('WHERE TO?',512,88);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
  for(let i=0;i<6;i++){const picture=mapImages[i];if(!picture)continue;const scale=Math.min(300/picture.naturalWidth,245/picture.naturalHeight),w=picture.naturalWidth*scale,h=picture.naturalHeight*scale,x=177+(i%3)*335,y=246+Math.floor(i/3)*275;ctx.drawImage(picture,x-w/2,y-h/2,w,h)}
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;const board=mesh(new THREE.PlaneGeometry(1.04,.71),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}),stand,0,1.50,-.075,'Balloon_clickable_island_map');board.rotation.y=Math.PI;
  group.updateWorldMatrix(true,true);extraBoxes.push(new THREE.Box3().setFromObject(stand));const hitMaterial=new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),hitMesh=new THREE.Mesh(board.geometry.clone().applyMatrix4(board.matrixWorld),hitMaterial);hitMesh.updateMatrixWorld();

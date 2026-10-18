@@ -12,13 +12,13 @@ export function prepareGalleryInterior(root){
  root.traverse(o=>{if(o.isMesh&&/^(Continuous_walkable_spiral_ramp|Upper_supported_gallery_end_landing)/.test(o.name))surfaces.push(o)});
  const ray=new THREE.Raycaster(),point=new THREE.Vector3();
  function sample(x,z,top){ray.set(point.set(x,top,z),DOWN);ray.near=0;ray.far=30;return ray.intersectObjects(surfaces,false)[0]?.point.y??null}
- const floors=[{y:.018,title:'Атриум'},{y:sample(-5.2,-1.8,3.1),title:'Мемы и оригиналы'},{y:sample(-5.2,-1.8,6.4),title:'Коллекция HONK'},{y:sample(-5.2,-1.8,9.2),title:'Верхняя галерея'}];
+ const floors=[{y:.018,title:'Atrium'},{y:sample(-5.2,-1.8,3.1),title:'Memes & Originals'},{y:sample(-5.2,-1.8,6.4),title:'HONK Collection'},{y:sample(-5.2,-1.8,9.2),title:'Upper Gallery'}];
  if(floors.some(f=>!Number.isFinite(f.y)))throw Error('Gallery lift landing is unavailable');
  const group=new THREE.Group();group.name='Gallery_interior';root.add(group);
  const extraBoxes=[],bridgePositions=[],seating=[],flowerDisplays=[],floorExhibits=[];
  const exhibits=createGalleryExhibits();
  const material=(color,roughness=.55,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
- const m={ivory:material(0xf0e4cb),stone:material(0x343a49),dark:material(0x1b2232),gold:material(0xd8aa50,.28,.75),red:material(0xe64258,.3,.15),white:material(0xfff4dd,.4),black:material(0x11131d),green:material(0x477d64),leaf:material(0x6aab83),wood:material(0x9e654b,.55),soil:material(0x342c2a),light:new THREE.MeshBasicMaterial({color:0xffdf99}),glass:new THREE.MeshStandardMaterial({color:0xa2d8e3,transparent:true,opacity:.14,roughness:.22,metalness:.15,depthWrite:false,side:THREE.DoubleSide}),rainbow:colors.map(c=>material(c,.32,.12))};
+ const m={ivory:material(0xf0e4cb),stone:material(0x343a49),dark:material(0x1b2232),gold:material(0xd8aa50,.28,.75),red:material(0xe64258,.3,.15),white:material(0xfff4dd,.4),black:material(0x11131d),green:material(0x477d64),leaf:material(0x6aab83),wood:material(0x9e654b,.55),soil:material(0x342c2a),light:new THREE.MeshBasicMaterial({color:0xffdf99}),glass:new THREE.MeshStandardMaterial({name:'Gallery clear glass',color:0xa2d8e3,transparent:true,opacity:.14,roughness:.22,metalness:.15,depthWrite:false,side:THREE.DoubleSide}),rainbow:colors.map(c=>material(c,.32,.12))};
  m.fabric=[0x94394b,0x375776,0x40817b,0xbb954d].map(c=>material(c,.96));
  function mesh(geometry,mat,parent=group,x=0,y=0,z=0,name='Gallery_detail'){const o=new THREE.Mesh(geometry,mat);o.name=name;o.position.set(x,y,z);parent.add(o);return o}
  const box=(w,h,d,mat,parent,x,y,z)=>mesh(new THREE.BoxGeometry(w,h,d),mat,parent,x,y,z);
@@ -84,7 +84,7 @@ export function prepareGalleryInterior(root){
   cylinder(.25,.065,m.dark,g,0,.033,0);cylinder(.21,.61,m.ivory,g,0,.365,0);clownFlowers(g,.67,.55);
   sign(`BOTANICA / 0${index+1}`,'PORCELAIN / MIXED MEDIA',.4,.07,g,0,.42,.214);solid(g);flowerDisplays.push({x,y,z,group:g});
  }
- function plinth(x,z,title,subtitle){const g=placement(x,.018,z);mesh(new THREE.CylinderGeometry(.74,.74,.12,64),m.dark,g,0,.06,0);mesh(new THREE.CylinderGeometry(.58,.58,.66,64),m.ivory,g,0,.44,0);mesh(new THREE.CylinderGeometry(.61,.61,.05,64),m.gold,g,0,.79,0);sign(title,subtitle,1.04,.14,g,0,.5,.585);solid(g);return g}
+ function plinth(x,z,title,subtitle){const g=placement(x,.018,z);g.name='Gallery_exhibit_plinth';mesh(new THREE.CylinderGeometry(.74,.74,.12,64),m.dark,g,0,.06,0);mesh(new THREE.CylinderGeometry(.58,.58,.66,64),m.ivory,g,0,.44,0);mesh(new THREE.CylinderGeometry(.61,.61,.05,64),m.gold,g,0,.79,0);sign(title,subtitle,1.04,.14,g,0,.5,.585);solid(g);return g}
  for(const [x,z,title,subtitle,build] of [
   [2.65,.25,'LE CARROUSEL','001 / ENAMEL & BRASS',exhibits.carousel],
   [1.25,-3.1,'COMMEDIA','002 / PORCELAIN MASK',exhibits.mask],
@@ -93,9 +93,9 @@ export function prepareGalleryInterior(root){
  ]){const pedestal=plinth(x,z,title,subtitle),object=build(pedestal);object.position.y=.815;floorExhibits.push({title,group:object})}
 
  // A reception island, exhibition guides and a small collector's cabinet.
- const desk=placement(-.65,.018,-3.3,-.1);box(1.8,.93,.62,m.ivory,desk,0,.465,0);box(1.9,.07,.72,m.wood,desk,0,.965,0);box(1.5,.025,.015,m.gold,desk,0,.66,.318);sign('HONK GALLERY','MEMES / OBJECTS / CULTURE',1.45,.18,desk,0,.45,.321);
+ const desk=placement(-.65,.018,-3.3,-.1);desk.name='Gallery_reception_desk';box(1.8,.93,.62,m.ivory,desk,0,.465,0);box(1.9,.07,.72,m.wood,desk,0,.965,0);box(1.5,.025,.015,m.gold,desk,0,.66,.318);sign('HONK GALLERY','MEMES / OBJECTS / CULTURE',1.45,.18,desk,0,.45,.321);
  for(let i=0;i<3;i++){const guide=box(.3,.025,.4,m.rainbow[i*2],desk,-.55+i*.4,1.0125,.08);guide.rotation.y=i*.2-.2}solid(desk);
- const cabinet=placement(3.9,.018,-.55,Math.PI/2);box(1.65,.7,.58,m.dark,cabinet,0,.35,0);box(1.7,.04,.65,m.gold,cabinet,0,.72,0);
+ const cabinet=placement(3.9,.018,-.55,Math.PI/2);cabinet.name='Gallery_display_cabinet';box(1.65,.7,.58,m.dark,cabinet,0,.35,0);box(1.7,.04,.65,m.gold,cabinet,0,.72,0);
  [exhibits.mask,exhibits.kaleidoscope,exhibits.magic].forEach((build,i)=>{const g=build(cabinet);g.position.set(-.5+i*.5,.74,0);g.scale.setScalar(.28)});
  box(1.7,.8,.015,m.glass,cabinet,0,1.14,.32);box(1.7,.8,.015,m.glass,cabinet,0,1.14,-.32);box(.015,.8,.65,m.glass,cabinet,-.85,1.14,0);box(.015,.8,.65,m.glass,cabinet,.85,1.14,0);box(1.7,.025,.65,m.glass,cabinet,0,1.55,0);solid(cabinet);
  sign('CABINET OF CURIOSITIES','PORCELAIN / OPTICS / MAGIC',1.4,.17,cabinet,0,.4,.302);

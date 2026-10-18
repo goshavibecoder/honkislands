@@ -37,10 +37,10 @@ export class LiftJourney {
 }
 
 export function mountGalleryLift(viewer,gallery){
- const journey=new LiftJourney(gallery.floors),panel=document.createElement('aside');panel.className='gallery-lift';panel.hidden=true;panel.setAttribute('aria-label','Лифт галереи');
- panel.innerHTML='<button class="lift-toggle glass" type="button" aria-expanded="false"><span aria-hidden="true">↕</span> Лифт <small>Выбрать этаж</small></button><div class="lift-menu glass" hidden><p>HONK GALLERY <span>ЛИФТ</span></p><div class="lift-floors"></div><button class="lift-close" type="button">Закрыть</button></div><p class="lift-status glass" role="status" aria-live="polite" hidden></p>';
+ const journey=new LiftJourney(gallery.floors),panel=document.createElement('aside');panel.className='gallery-lift';panel.hidden=true;panel.setAttribute('aria-label','Gallery elevator');
+ panel.innerHTML='<button class="lift-toggle glass" type="button" aria-expanded="false"><span aria-hidden="true">↕</span> Elevator <small>Choose floor</small></button><div class="lift-menu glass" hidden><p>HONK GALLERY <span>ELEVATOR</span></p><div class="lift-floors"></div><button class="lift-close" type="button">Close</button></div><p class="lift-status glass" role="status" aria-live="polite" hidden></p>';
  const toggle=panel.querySelector('.lift-toggle'),menu=panel.querySelector('.lift-menu'),status=panel.querySelector('.lift-status'),list=panel.querySelector('.lift-floors');
- const buttons=gallery.floors.map((floor,index)=>{const b=document.createElement('button');b.type='button';b.innerHTML=`<strong>${index+1}</strong><span>${floor.title}</span>`;b.setAttribute('aria-label',`Этаж ${index+1}: ${floor.title}`);list.append(b);b.addEventListener('click',()=>{
+ const buttons=gallery.floors.map((floor,index)=>{const b=document.createElement('button');b.type='button';b.innerHTML=`<strong>${index+1}</strong><span>${floor.title}</span>`;b.setAttribute('aria-label',`Floor ${index+1}: ${floor.title}`);list.append(b);b.addEventListener('click',()=>{
   const foot={x:viewer.camera.position.x,y:viewer.foot,z:viewer.camera.position.z};
   if(!viewer.active||viewer.mode!=='walk'||!journey.start(index,foot))return;
   viewer.clearWalkInput();viewer.physics?.reset();host.classList.add('in-gallery-lift');close();sync();
@@ -60,7 +60,7 @@ export function mountGalleryLift(viewer,gallery){
    const nearby=journey.nearby({x:viewer.camera.position.x,y:viewer.foot,z:viewer.camera.position.z});
    panel.hidden=viewer.mode!=='walk'||(!journey.active&&nearby<0);
    if(panel.hidden)close();
-   if(oldPhase!==journey.phase){oldPhase=journey.phase;status.textContent=journey.phase==='summon'?'Лифт подъезжает…':journey.phase==='board'?'Заходим в кабину…':journey.phase==='exit'?`Этаж ${journey.target+1} · ${gallery.floors[journey.target].title}`:journey.phase==='close'?'Двери закрываются…':`Поднимаемся на этаж ${journey.target+1}…`;if(journey.phase==='ride'&&journey.target<journey.origin)status.textContent=`Спускаемся на этаж ${journey.target+1}…`}
+   if(oldPhase!==journey.phase){oldPhase=journey.phase;status.textContent=journey.phase==='summon'?'Elevator arriving…':journey.phase==='board'?'Boarding the elevator…':journey.phase==='exit'?`Floor ${journey.target+1} · ${gallery.floors[journey.target].title}`:journey.phase==='close'?'Doors closing…':`Going up to floor ${journey.target+1}…`;if(journey.phase==='ride'&&journey.target<journey.origin)status.textContent=`Going down to floor ${journey.target+1}…`}
    if(nearby!==oldNearby||journey.active!==oldActive){oldNearby=nearby;oldActive=journey.active;toggle.hidden=journey.active;status.hidden=!journey.active;buttons.forEach((b,i)=>{b.disabled=journey.active||i===nearby;b.setAttribute('aria-current',String(i===nearby))})}
   },
   get active(){return journey.active},

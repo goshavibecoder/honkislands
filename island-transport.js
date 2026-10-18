@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import {mountTransportPanel} from './transport-panel.js?v=61';
+import {mountTransportPanel} from './transport-panel.js?v=72';
 import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=71';
-import {mountKartControls} from './kart-controls.js?v=57';
+import {mountKartControls} from './kart-controls.js?v=72';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
 export function mountIslandTransport(viewer,world){
- const cable=world.kind==='cable',model=cable?new CableTransit():new KartDrive({obstacles:viewer.boxes}),panel=document.createElement('aside');panel.className='ride-controls';panel.hidden=true;panel.setAttribute('aria-label',cable?'Канатная дорога HONK':'Клоунский карт');
- panel.innerHTML='<button class="ride-board glass" type="button"></button><div class="ride-dashboard glass" hidden><div class="ride-heading"><strong></strong><output aria-live="off"></output></div><p class="ride-status" role="status" aria-live="polite"></p><button class="ride-trip" type="button"></button><button class="ride-brake" type="button">Тормоз</button><button class="ride-camera" type="button"></button><button class="ride-exit" type="button">Выйти</button></div>';
- const board=panel.querySelector('.ride-board'),dashboard=panel.querySelector('.ride-dashboard'),title=panel.querySelector('strong'),output=panel.querySelector('output'),status=panel.querySelector('.ride-status'),trip=panel.querySelector('.ride-trip'),brake=panel.querySelector('.ride-brake'),camera=panel.querySelector('.ride-camera'),exit=panel.querySelector('.ride-exit'),host=document.getElementById('world');host.append(panel);const compactPanel=mountTransportPanel(panel,cable?'ФУНИКУЛЁР':'HONK • КАРТОДРОМ');
- title.textContent=cable?'HONK • КАНАТНАЯ ДОРОГА':'HONK • КАРТОДРОМ';trip.hidden=!cable;brake.hidden=cable;
+ const cable=world.kind==='cable',model=cable?new CableTransit():new KartDrive({obstacles:viewer.boxes}),panel=document.createElement('aside');panel.className='ride-controls';panel.hidden=true;panel.setAttribute('aria-label',cable?'HONK cable car':'Clown kart');
+ panel.innerHTML='<button class="ride-board glass" type="button"></button><div class="ride-dashboard glass" hidden><div class="ride-heading"><strong></strong><output aria-live="off"></output></div><p class="ride-status" role="status" aria-live="polite"></p><button class="ride-trip" type="button"></button><button class="ride-brake" type="button">Brake</button><button class="ride-camera" type="button"></button><button class="ride-exit" type="button">Exit</button></div>';
+ const board=panel.querySelector('.ride-board'),dashboard=panel.querySelector('.ride-dashboard'),title=panel.querySelector('strong'),output=panel.querySelector('output'),status=panel.querySelector('.ride-status'),trip=panel.querySelector('.ride-trip'),brake=panel.querySelector('.ride-brake'),camera=panel.querySelector('.ride-camera'),exit=panel.querySelector('.ride-exit'),host=document.getElementById('world');host.append(panel);const compactPanel=mountTransportPanel(panel,cable?'CABLE CAR':'HONK • KART CIRCUIT');
+ title.textContent=cable?'HONK • CABLE CAR':'HONK • KART CIRCUIT';trip.hidden=!cable;brake.hidden=cable;
  const gameControls=cable?null:mountKartControls(host);
  let saved=null,inside=cable,braking=false,boarding=0,exiting=null,near=-1,uiTime=0,disposed=false,boardStation=0,cameraCheck=0,cameraClearance=Infinity;
  const ray=new THREE.Raycaster(),from=new THREE.Vector3(),desired=new THREE.Vector3(),target=new THREE.Vector3(),hit=new THREE.Vector3(),targetRotation=new THREE.Quaternion();
@@ -42,13 +42,13 @@ export function mountIslandTransport(viewer,world){
  const blur=()=>{braking=false;brake.classList.remove('pressed');viewer.clearWalkInput()},key=e=>{if(saved&&e.code==='KeyE'){e.preventDefault();exit.click()}};window.addEventListener('blur',blur);window.addEventListener('keydown',key);
  function sync(){
   compactPanel.setActive(!!saved);near=nearby();panel.hidden=viewer.mode!=='walk'||!saved&&near<0;board.hidden=!!saved;dashboard.hidden=!saved;
-  board.disabled=cable&&model.moving;board.textContent=cable?(model.moving?'Кабинка едет на станцию…':model.station!==near?'✦ Вызвать кабинку':near===0?'✦ Подняться в кабинке':'✦ Спуститься в кабинке'):'✦ Сесть в машинку';
+  board.disabled=cable&&model.moving;board.textContent=cable?(model.moving?'Cabin approaching the station…':model.station!==near?'✦ Call cabin':near===0?'✦ Ride to the summit':'✦ Ride downhill'):'✦ Drive the kart';
   exit.disabled=!!exiting||cable&&model.moving;trip.disabled=!!exiting||model.moving;camera.disabled=!!exiting;
-  trip.textContent=model.station===0?'Ехать к вершине':'Ехать вниз';exit.textContent=cable?(model.station===1?'Выйти на вершине':'Выйти на нижней станции'):'Остановиться и выйти';
-  camera.textContent=inside?'Вид снаружи':cable?'Вид из кабинки':'Вид с водительского места';
-  const label=exiting?'Выходим…':cable?(model.moving?(model.destination?'Поднимаемся к вершине · Проведи по экрану, чтобы осмотреться':'Спускаемся · Проведи по экрану, чтобы осмотреться'):'Прибыли! Можно выйти или поехать обратно'):model.warning>0?'Бортик — удерживай НАЗАД и поверни':'Слева — руль · Справа удерживай ГАЗ или НАЗАД';
+  trip.textContent=model.station===0?'Ride to the summit':'Ride downhill';exit.textContent=cable?(model.station===1?'Exit at the summit':'Exit at the lower station'):'Stop and exit';
+  camera.textContent=inside?'Outside view':cable?'Cabin view':'Driver view';
+  const label=exiting?'Stepping out…':cable?(model.moving?(model.destination?'Heading to the summit · Swipe to look around':'Heading downhill · Swipe to look around'):'Arrived! Step out or ride back'):model.warning>0?'Barrier — hold REVERSE and steer away':'Steer on the left · Hold GAS or REVERSE on the right';
   if(status.textContent!==label)status.textContent=label;status.classList.toggle('ride-warning',!cable&&model.warning>0);
-  output.textContent=cable?`${Math.round(model.t*100)}%`:`${Math.round(Math.abs(model.speed)*3.6)} км/ч · Круги: ${model.laps}`;
+  output.textContent=cable?`${Math.round(model.t*100)}%`:`${Math.round(Math.abs(model.speed)*3.6)} km/h · Laps: ${model.laps}`;
  }
  function updateCamera(dt){
   viewer.motion.update(dt,0,0,0);const p=model.position,yaw=viewer.motion.yaw,pitch=Math.max(-.7,Math.min(.8,viewer.motion.pitch));viewer.yaw=yaw;viewer.pitch=pitch;

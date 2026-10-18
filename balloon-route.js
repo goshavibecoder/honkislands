@@ -1,10 +1,10 @@
 export const BALLOON_ISLANDS=[
  {slug:'honkhub',title:'HonkHub',image:'map-citadel-v18.webp',anchor:[1.65,.065,5.8],home:[1.65,.065,10]},
- {slug:'carnival',title:'Галерея мемов',image:'map-carnival-v18.webp',anchor:[0,.24,8.5],home:[0,.24,12.8]},
- {slug:'arena',title:'Колизей',image:'map-arena-v18.webp',anchor:[8,.72,6.2],home:[13,.72,12.2]},
- {slug:'arcade-district',title:'Аркадный остров',image:'map-arcade-district-v18.webp',anchor:[0,.075,11.5],home:[0,.075,15.5]},
- {slug:'goat-mountain',title:'Гора козла',image:'map-goat-mountain-v18.webp',anchor:[0,.24,13.25],home:[-4.8,.24,16.3]},
- {slug:'citadel',title:'Неоновый замок',image:'map-honkhub-v18.webp',anchor:[0,.23,9],home:[-5,.23,12.5]}
+ {slug:'carnival',title:'Meme Gallery',image:'map-carnival-v18.webp',anchor:[0,.24,8.5],home:[0,.24,12.8]},
+ {slug:'arena',title:'Colosseum',image:'map-arena-v18.webp',anchor:[8,.72,6.2],home:[13,.72,12.2]},
+ {slug:'arcade-district',title:'Arcade Island',image:'map-arcade-district-v18.webp',anchor:[0,.075,11.5],home:[0,.075,15.5]},
+ {slug:'goat-mountain',title:'Goat Mountain',image:'map-goat-mountain-v18.webp',anchor:[0,.24,13.25],home:[-4.8,.24,16.3]},
+ {slug:'citadel',title:'Neon Castle',image:'map-honkhub-v18.webp',anchor:[0,.23,9],home:[-5,.23,12.5]}
 ];
 export const balloonIsland=slug=>BALLOON_ISLANDS.find(i=>i.slug===slug);
 const ease=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
