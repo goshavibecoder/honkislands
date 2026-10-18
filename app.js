@@ -13,15 +13,15 @@ async function enter(slug,button){if(busy)return;entryIntro?.finish();busy=true;
  viewer.setActive(true);history.replaceState(null,'',`#${slug}`);await reveal();busy=false;$('viewport').focus({preventScroll:true});showHint();
  }catch(e){console.error(e);await curtain;if(current!==epoch)return;await reveal();busy=false;$('error-message').textContent='Не удалось открыть 3D-остров. Проверьте соединение и попробуйте ещё раз.';$('error').hidden=false;}}
 async function balloonCurtain(covered){
- if(covered){transition.className='active balloon-transfer';transition.setAttribute('aria-hidden','false');void transition.offsetWidth;transition.classList.add('covered');await wait(reduced?180:650);transition.classList.add('loading')}
- else{transition.classList.remove('covered','loading');await wait(reduced?180:650);transition.className='';transition.setAttribute('aria-hidden','true')}
+ if(covered){transition.className='active balloon-transfer';transition.setAttribute('aria-hidden','true');void transition.offsetWidth;transition.classList.add('covered');await wait(reduced?180:900);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))}
+ else{transition.classList.remove('covered');await wait(reduced?180:900);transition.className='';transition.setAttribute('aria-hidden','true')}
 }
 async function flyByBalloon(slug){
  if(busy||!viewer?.balloonTravel||slug===activeWorld)return;busy=true;const current=++epoch;clearTimeout(hintTimer);$('error').hidden=true;
  try{
   const tookOff=await viewer.balloonTravel.depart();if(!tookOff||current!==epoch){busy=false;return}
-  progress(0,'Перелетаем на другой остров…');await balloonCurtain(true);activeWorld=slug;
-  await viewer.open(slug,progress);if(current!==epoch)return;
+  await balloonCurtain(true);activeWorld=slug;
+  await viewer.open(slug,()=>{});if(current!==epoch)return;
   world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');
   const landing=viewer.balloonTravel.arrive();viewer.setActive(true);history.replaceState(null,'',`#${slug}`);await balloonCurtain(false);await landing;
   if(current!==epoch)return;busy=false;$('viewport').focus({preventScroll:true});showHint();
