@@ -1,8 +1,17 @@
 import * as THREE from 'three';
-import {balloonIsland} from './balloon-route.js?v=68';
+import {BALLOON_ISLANDS,balloonIsland} from './balloon-route.js?v=68';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
-export function prepareBalloonWorld(root,slug){
+let mapPictures;
+export function loadBalloonMapImages(){
+ return mapPictures??=Promise.all(BALLOON_ISLANDS.map(island=>new Promise(resolve=>{
+  const existing=document.querySelector(`[data-world="${island.slug}"] img`);
+  if(existing?.complete&&existing.naturalWidth){resolve(existing);return}
+  const picture=new Image();picture.onload=()=>resolve(picture);picture.onerror=()=>resolve(null);picture.src=`./assets/${island.image}`;
+ })));
+}
+
+export function prepareBalloonWorld(root,slug,{mapImages=[]}={}){
  const island=balloonIsland(slug);if(!island)return null;
  root.updateMatrixWorld(true);const group=new THREE.Group();group.name='Honk_balloon_harbour';group.matrix.copy(root.matrixWorld.clone().invert());group.matrix.decompose(group.position,group.quaternion,group.scale);root.add(group);
  const home=new THREE.Vector3(...island.home),anchor=new THREE.Vector3(...island.anchor),outward=home.clone().sub(anchor);outward.y=0;outward.normalize();const yaw=Math.atan2(outward.x,outward.z),basis=new THREE.Matrix4().makeRotationY(yaw),navPositions=[],extraBoxes=[];
@@ -36,8 +45,8 @@ export function prepareBalloonWorld(root,slug){
  // The map is a physical framed board before the basket, with its own hit mesh.
  const stand=new THREE.Group();stand.name='Balloon_island_map_stand';stand.position.copy(local(1.65,0,-1.0));stand.rotation.y=yaw;group.add(stand);
  box(.13,1.25,.13,m.dark,stand,0,.625,0);box(1.16,.83,.10,m.gold,stand,0,1.50,0);box(1.06,.73,.018,m.cream,stand,0,1.50,-.061);
- const canvas=document.createElement('canvas');canvas.width=512;canvas.height=352;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff3d4';ctx.fillRect(0,0,512,352);ctx.fillStyle='#922c44';ctx.font='bold 33px system-ui';ctx.textAlign='center';ctx.fillText('КУДА ЛЕТИМ?',256,49);ctx.font='20px system-ui';
- const labels=['HONKHUB','ГАЛЕРЕЯ','КОЛИЗЕЙ','АРКАДА','ГОРА','ЗАМОК'];for(let i=0;i<6;i++){const x=92+(i%3)*164,y=122+Math.floor(i/3)*143;ctx.fillStyle=['#d9848b','#ba9edb','#ddb064','#65b8b3','#89b48c','#9b81c9'][i];ctx.beginPath();ctx.ellipse(x,y,52,26,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#62412f';ctx.fillText(labels[i],x,y+58)}
+ const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=704;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff3d4';ctx.fillRect(0,0,1024,704);ctx.fillStyle='#922c44';ctx.font='bold 64px system-ui';ctx.textAlign='center';ctx.fillText('КУДА ЛЕТИМ?',512,88);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+ for(let i=0;i<6;i++){const picture=mapImages[i];if(!picture)continue;const scale=Math.min(300/picture.naturalWidth,245/picture.naturalHeight),w=picture.naturalWidth*scale,h=picture.naturalHeight*scale,x=177+(i%3)*335,y=246+Math.floor(i/3)*275;ctx.drawImage(picture,x-w/2,y-h/2,w,h)}
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;const board=mesh(new THREE.PlaneGeometry(1.04,.71),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}),stand,0,1.50,-.075,'Balloon_clickable_island_map');board.rotation.y=Math.PI;
  group.updateWorldMatrix(true,true);extraBoxes.push(new THREE.Box3().setFromObject(stand));const hitMaterial=new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),hitMesh=new THREE.Mesh(board.geometry.clone().applyMatrix4(board.matrixWorld),hitMaterial);hitMesh.updateMatrixWorld();
  const mapPosition=stand.getWorldPosition(new THREE.Vector3()),exit=local(0,.013,-1.95),bounds=new THREE.Box3().setFromObject(group),ray=new THREE.Raycaster();

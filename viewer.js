@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import {prepareBalloonWorld} from './balloon-world.js?v=68';
-import {mountBalloonTravel} from './balloon-travel.js?v=68';
+import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=69';
+import {mountBalloonTravel} from './balloon-travel.js?v=69';
 import {MobileRenderQuality} from './mobile-render-quality.js?v=59';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
@@ -56,7 +56,7 @@ export class IslandViewer {
   this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;
   this.islandTransportWorld=prepareIslandTransport(this.root,slug,{driverHead:slug==='arcade-district'?await loadHonkKartHead():null});
   this.helicopter=slug==='citadel'?addClownHelicopter(this.root):null;
-  this.balloonWorld=prepareBalloonWorld(this.root,slug);
+  this.balloonWorld=prepareBalloonWorld(this.root,slug,{mapImages:await loadBalloonMapImages()});
   this.helicopterCollision=this.helicopter?createHelicopterCollision(this.root,this.helicopter.scale):null;
   this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):slug==='goat-mountain'?createMountainCollision(this.root):null;
   if(slug==='goat-mountain')this.nav=createMountainNavigation(this.root);if(this.antiqueRoom)this.nav=this.antiqueRoom.nav;
