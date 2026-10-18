@@ -1,7 +1,7 @@
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const smooth=t=>t*t*t*(10+t*(-15+6*t));
-export const CABLE_STATIONS=[{x:2.8,y:.24,z:13.25},{x:2.8,y:11.19,z:4.8}];
-export function cablePosition(t){if(t===0||t===1)return {...CABLE_STATIONS[t]};const a=CABLE_STATIONS[0],b=CABLE_STATIONS[1];return {x:a.x,y:a.y+(b.y-a.y)*t-.22*Math.sin(Math.PI*t),z:a.z+(b.z-a.z)*t}}
+export const CABLE_STATIONS=[{x:6.8,y:.24,z:13.25},{x:6.8,y:11.19,z:4.8}];
+export function cablePosition(t){if(t===0||t===1)return {...CABLE_STATIONS[t]};const a=CABLE_STATIONS[0],b=CABLE_STATIONS[1];return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t-.22*Math.sin(Math.PI*t),z:a.z+(b.z-a.z)*t}}
 
 export class CableTransit{
  constructor(){this.reset()}

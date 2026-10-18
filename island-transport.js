@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {mountTransportPanel} from './transport-panel.js?v=61';
-import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=62';
+import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=63';
 import {mountKartControls} from './kart-controls.js?v=57';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
@@ -26,7 +26,7 @@ export function mountIslandTransport(viewer,world){
   saved=null;exiting=null;braking=false;viewer.clearWalkInput();gameControls?.show(false);world.driver?.setSeated(false);host.classList.remove('in-island-ride','driving-kart');brake.classList.remove('pressed');
  }
  function exitPose(){
-  if(cable){const s=CABLE_STATIONS[model.station],x=model.station?1.25:1.15,z=s.z;return {position:new THREE.Vector3(x,s.y+viewer.config.eye,z),foot:s.y,yaw:model.station?.36:Math.PI/2,pitch:0}}
+  if(cable){const s=CABLE_STATIONS[model.station],x=s.x-(model.station?1.55:1.65),z=s.z;return {position:new THREE.Vector3(x,s.y+viewer.config.eye,z),foot:s.y,yaw:model.station?.36:Math.PI/2,pitch:0}}
   const p=model.position;for(const radius of [1.5,1.9,2.3])for(let i=0;i<8;i++){const a=model.yaw+Math.PI/2+i*Math.PI/4,x=p.x+Math.sin(a)*radius,z=p.z+Math.cos(a)*radius,floor=viewer.floorAt(x,z,p.y+.5,1);if(floor!==null&&viewer.canStand(x,z,floor))return {position:new THREE.Vector3(x,floor+viewer.config.eye,z),foot:floor,yaw:model.yaw+Math.PI,pitch:0}}
   return saved;
  }
