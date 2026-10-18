@@ -20,7 +20,7 @@ const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset
 
 const manifest=JSON.parse(readFileSync(new URL('../models/arena-crowd-v84.json',import.meta.url))),data=JSON.parse(gunzipSync(Buffer.from(manifest.parts.map(p=>JSON.parse(readFileSync(new URL('../models/'+p,import.meta.url)))).join(''),'base64'))),crowd=createArenaCrowd(gltf.scene,data);
 test('the real colosseum seats are filled with all five original characters without covering the arena or aisles',()=>{
- assert.equal(crowd.count,154);assert.equal(crowd.meshes.length,10);assert.ok(crowd.triangles<1400000);assert.ok(manifest.bytes<3000000);
+ assert.equal(crowd.count,154);assert.equal(crowd.meshes.length,12);assert.ok(crowd.triangles<1400000);assert.ok(manifest.bytes<3000000);
  for(const name of ['groyper','fast','teledog','honk','zoich'])assert.ok(crowd.placements.filter(p=>p.name===name).length>=25);
  for(const p of crowd.placements){assert.ok(Math.hypot(p.position.x,p.position.z/.8)>5.3);assert.ok(p.position.y>2.8);const direction=new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0),p.yaw);const back=gltf.scene.getObjectByName(p.seat.replace('red_cushion','low_carved_back')),center=new THREE.Box3().setFromObject(back).getCenter(new THREE.Vector3()),expected=p.position.clone().sub(center);expected.y=0;assert.ok(direction.dot(expected.normalize())>.998)}
  for(const b of crowd.extraBoxes)assert.equal(b.containsPoint(new THREE.Vector3(0,1,2.5)),false);
@@ -31,7 +31,7 @@ test('instanced geometry is finite, bounded, coloured, and retained by the produ
 });
 test('the browser loader reassembles local chunks and releases crowd resources',async()=>{
  const original=globalThis.fetch;globalThis.fetch=async path=>new Response(readFileSync(new URL('../'+path.slice(2),import.meta.url)));try{const loaded=await loadArenaCrowd();assert.ok(loaded.groyper.map.isTexture);assert.equal(loaded.groyper.map.flipY,false);assert.ok(loaded.groyper.high.uv.length>10000)}finally{globalThis.fetch=original}
- const copy=createArenaCrowd(gltf.scene,data);let disposed=0;copy.meshes.forEach(m=>m.geometry.addEventListener('dispose',()=>disposed++));copy.dispose();assert.equal(disposed,10);assert.equal(copy.group.parent,null);
+ const copy=createArenaCrowd(gltf.scene,data);let disposed=0;copy.meshes.forEach(m=>m.geometry.addEventListener('dispose',()=>disposed++));copy.dispose();assert.equal(disposed,12);assert.equal(copy.group.parent,null);
 });
 
 test('both audience LODs clear the actual cushion, stone support and backrest on every seat',()=>{
@@ -40,7 +40,7 @@ test('both audience LODs clear the actual cushion, stone support and backrest on
   const suffix=p.seat.slice('Individual_seat_red_cushion'.length);
   for(const prefix of ['Individual_seat_red_cushion','Individual_seat_solid_stone_support','Individual_seat_low_carved_back']){
    const chair=gltf.scene.getObjectByName(prefix+suffix);chair.geometry.computeBoundingBox();const box=chair.geometry.boundingBox.clone().expandByScalar(-.003);
-   for(const lod of ['high','low']){const matrix=chair.matrixWorld.clone().invert().multiply(p.matrices[lod]),points=data[p.name][lod].positions;for(let i=0;i<points.length;i+=3){const v=new THREE.Vector3(points[i],points[i+1],points[i+2]).applyMatrix4(matrix);assert.equal(box.containsPoint(v),false,`${p.name} ${lod} intersects ${chair.name}`)}}
+   for(const lod of ['high','low']){const matrix=chair.matrixWorld.clone().invert().multiply(p.matrices[lod]),points=crowd.sources[p.variant][lod].positions;for(let i=0;i<points.length;i+=3){const v=new THREE.Vector3(points[i],points[i+1],points[i+2]).applyMatrix4(matrix);assert.equal(box.containsPoint(v),false,`${p.name} ${lod} intersects ${chair.name}`)}}
   }
  }
 });
@@ -75,10 +75,10 @@ test('an unavailable audience cannot block entering the colosseum and a later at
 });
 
 test('every spectator actually touches the cushion in both levels of detail',()=>{
- const geometries={};for(const name of manifest.characters){geometries[name]={};for(const lod of ['high','low']){const source=data[name][lod],g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(source.positions,3));g.setIndex(source.indices);geometries[name][lod]=g}}
+ const geometries={};for(const name of Object.keys(crowd.sources)){geometries[name]={};for(const lod of ['high','low']){const source=crowd.sources[name][lod],g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(source.positions,3));g.setIndex(source.indices);geometries[name][lod]=g}}
  const material=new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),ray=new THREE.Raycaster();
  for(const p of crowd.placements){const cushion=gltf.scene.getObjectByName(p.seat),top=new THREE.Box3().setFromObject(cushion).max.y;for(const lod of ['high','low']){
-  const mesh=new THREE.Mesh(geometries[p.name][lod],material);mesh.matrixAutoUpdate=false;mesh.matrix.copy(p.matrices[lod]);mesh.updateMatrixWorld(true);
+  const mesh=new THREE.Mesh(geometries[p.variant][lod],material);mesh.matrixAutoUpdate=false;mesh.matrix.copy(p.matrices[lod]);mesh.updateMatrixWorld(true);
   const inverse=cushion.matrixWorld.clone().invert(),box=cushion.geometry.boundingBox,up=new THREE.Vector3(0,1,0).transformDirection(inverse),axis=['x','y','z'].sort((a,b)=>Math.abs(up[b])-Math.abs(up[a]))[0],horizontal=['x','y','z'].filter(k=>k!==axis);let closest=null;
   const positions=mesh.geometry.attributes.position;for(let i=0;i<positions.count;i++){const world=new THREE.Vector3().fromBufferAttribute(positions,i).applyMatrix4(mesh.matrixWorld),local=world.clone().applyMatrix4(inverse);if(horizontal.every(k=>local[k]>box.min[k]+.0001&&local[k]<box.max[k]-.0001)&&(!closest||world.y<closest.y))closest=world}
   assert.ok(closest,`${p.name} has no seat contact`);assert.ok(closest.y-top>=-.001&&closest.y-top<.004,`${p.name} ${lod} floats ${(closest.y-top).toFixed(3)}m above cushion`);
@@ -86,4 +86,9 @@ test('every spectator actually touches the cushion in both levels of detail',()=
   ray.set(new THREE.Vector3(closest.x,top-.01,closest.z),new THREE.Vector3(0,1,0));ray.far=.02;assert.ok(ray.intersectObject(mesh,false).length>0,`${p.name} ${lod} has no visible cushion contact`);
  }}
  for(const pair of Object.values(geometries))for(const geometry of Object.values(pair))geometry.dispose();material.dispose();
+});
+
+test('only HONKs in the first two rows have lower dangling feet; their seated body stays unchanged',()=>{
+ const front=crowd.placements.filter(p=>p.variant==='honk-front'),back=crowd.placements.filter(p=>p.name==='honk'&&p.variant==='honk');assert.ok(front.length>0);assert.ok(back.length>0);for(const p of front)assert.ok(Math.hypot(p.position.x,p.position.z/.8)<6.8);
+ for(const lod of ['high','low']){const old=data.honk[lod],next=crowd.sources['honk-front'][lod];assert.deepEqual(next.indices,old.indices);let lowered=0;for(let i=0;i<old.positions.length;i+=3){assert.equal(next.positions[i],old.positions[i]);assert.equal(next.positions[i+2],old.positions[i+2]);const drop=old.positions[i+1]-next.positions[i+1];assert.ok(drop>=0&&drop<.121);if(drop>.08)lowered++;if(old.positions[i+1]>=-.12||old.positions[i+2]<=.26||Math.abs(old.positions[i])>=.23)assert.equal(drop,0)}assert.ok(lowered>10)}
 });
