@@ -5,6 +5,7 @@ import {createPickSet} from './arcade-links.js?v=8';
 export const NOTE_LINKS=Object.freeze({
  X:'https://x.com/HonklerX',
  TG:'https://t.me/HonkHonkler',
+ Gram:'https://gram.org/jetton/EQAmWanX8ohlsG6qBpfL2ritCQ7tr7MlJpEK64Khm-O4742K',
  GroypFi:'https://groypfi.io/swap/ton/EQAmWanX8ohlsG6qBpfL2ritCQ7tr7MlJpEK64Khm-O4742K?amount=100',
  NFT:'https://getgems.io/honklicense',
  IG:'https://www.instagram.com/honkhonkler',
@@ -24,6 +25,11 @@ export function createWorldTargets(root,slug){
  const targets=[],material=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});
  root.traverse(o=>{
   if(!o.isMesh)return;let title,url;
+  if(slug==='citadel'){
+   if(/^(Violet_GRAM_hanging_flag|GRAM_(diamond|star)_flag_face|GRAM_flag_cyan_hem)/.test(o.name)){title='Gram';url=NOTE_LINKS.Gram}
+   else if(/^(Telegram_plane_plaque_ornament|Curved_Telegram_banner)/.test(o.name)){title='Telegram';url=NOTE_LINKS.TG}
+   else if(/^Curved_X_(banner|white_insignia)/.test(o.name)){title='X';url=NOTE_LINKS.X}
+  }
   if(slug==='goat-mountain'&&(/^Goat_/.test(o.name)||/^Rider_Museum_HONK_/.test(o.name)||/^(Purple_saddle|Saddle_side|Gold_saddle|Rider_(stirrup|closed))/.test(o.name))){title='Goat Trending';url=NOTE_LINKS.Goat}
   if(slug==='carnival'&&/^(Original_HONK_framed_meme_|Picture_frame_|Gallery_picture_label_|Upper_gallery_neon_picture|Upper_neon_picture_sun)/.test(o.name)){title='HONK Memes';url='https://t.me/honklermemes'}
   if(slug==='honkhub'){
