@@ -79,3 +79,12 @@ test('helicopter flight owns the camera and walking resumes at the pad after ove
  v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.z,6.9);assert.equal(v.foot,.355);
  v.setActive(false);assert.equal(cancelled,2);
 });
+
+test('island rides own the camera and restore walking before overview and deactivation',()=>{
+ const {v}=setup();let cancelled=0;
+ v.islandTransport={active:true,update(){v.camera.position.set(2.8,8,8)},cancel(){cancelled++;this.active=false;v.camera.position.set(1.15,1.84,13.25);v.foot=.19}};
+ v.keys.add('KeyW');v.physics={fall(){throw Error('Walking gravity must not run inside island transport')}};
+ v.tick(1016);assert.equal(v.camera.position.y,8);assert.equal(v.camera.position.x,2.8);
+ v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.z,13.25);assert.equal(v.foot,.19);
+ v.setActive(false);assert.equal(cancelled,2);
+});
