@@ -6,7 +6,7 @@ export function mountBalloonTravel(viewer,balloon){
  panel.innerHTML='<button type="button" class="balloon-open glass">✦ Карта перелётов</button>';host.append(panel);
  const dialog=document.createElement('div');dialog.className='balloon-map-overlay';dialog.hidden=true;dialog.innerHTML='<section class="balloon-map-card glass" role="dialog" aria-modal="true" aria-label="Выбери остров для перелёта"><div class="balloon-map-title"><div><small>HONK BALLOON LINES</small><h2>Куда полетим?</h2></div><button type="button" class="balloon-map-close" aria-label="Закрыть карту">×</button></div><div class="balloon-destinations"></div><p>Выбери остров — шар доставит тебя к его площадке.</p></section>';host.append(dialog);
  const list=dialog.querySelector('.balloon-destinations'),open=panel.querySelector('button'),closeButton=dialog.querySelector('.balloon-map-close'),model=new BalloonJourney(balloon.home,balloon.outward),basketEye=new THREE.Vector3(),desired=new THREE.Vector3(),look=new THREE.Vector3(),rotation=new THREE.Quaternion();
- let saved=null,pending=null,disposed=false,uiTime=0;
+ let saved=null,pending=null,disposed=false,uiTime=0,onAscent=null;
  function otherRide(){return viewer.galleryLift?.active||viewer.helicopterFlight?.active||viewer.islandTransport?.active}
  function nearby(){const p=viewer.camera.position;return viewer.mode==='walk'&&Math.hypot(p.x-balloon.mapPosition.x,p.z-balloon.mapPosition.z)<3.4&&Math.abs(viewer.foot-balloon.home.y)<.6}
  function close(){dialog.hidden=true;host.classList.remove('choosing-balloon');open.focus?.({preventScroll:true})}
@@ -19,13 +19,13 @@ export function mountBalloonTravel(viewer,balloon){
  function restorePose(p){viewer.camera.position.copy(p.position);viewer.foot=p.foot;viewer.yaw=p.yaw;viewer.pitch=p.pitch;viewer.motion.reset(p.yaw,p.pitch);viewer.camera.rotation.set(p.pitch,p.yaw,0,'YXZ');viewer.physics?.reset();viewer.clearWalkInput()}
  function end(landed){if(landed)restorePose({position:balloon.exit.clone().add(new THREE.Vector3(0,viewer.config.eye,0)),foot:balloon.exit.y,yaw:balloon.yaw,pitch:0});host.classList.remove('balloon-in-flight');saved=null;finish(true)}
  const control={model,get active(){return model.active||model.phase==='departed'},get mapOpen(){return !dialog.hidden},openMap,
-  depart(){if(disposed||model.active||otherRide()||viewer.mode!=='walk')return Promise.resolve(false);saved={position:viewer.camera.position.clone(),quaternion:viewer.camera.quaternion.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};model.depart();lock();return new Promise(resolve=>pending=resolve)},
+  depart(startFade){if(disposed||model.active||otherRide()||viewer.mode!=='walk')return Promise.resolve(false);saved={position:viewer.camera.position.clone(),quaternion:viewer.camera.quaternion.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};onAscent=startFade;model.depart();lock();return new Promise(resolve=>pending=resolve)},
   arrive(){if(disposed)return Promise.resolve(false);saved=null;model.arrive();lock();balloon.setPose(model.position,true);placeCamera();return new Promise(resolve=>pending=resolve)},
   update(dt){if(disposed)return;
-   if(model.active){model.update(dt);balloon.setPose(model.position,model.phase==='ascending'||model.phase==='descending');placeCamera();if(!model.active){if(model.phase==='landed')end(true);else finish(true)}}
+   if(model.active){model.update(dt);if(model.phase==='ascending'&&onAscent){const callback=onAscent;onAscent=null;callback()}balloon.setPose(model.position,model.phase==='ascending'||model.phase==='descending');placeCamera();if(!model.active){if(model.phase==='landed')end(true);else finish(true)}}
    uiTime-=dt;if(uiTime<=0){uiTime=.15;panel.hidden=control.active||otherRide()||!nearby()||!dialog.hidden;host.classList.toggle('near-balloon',!panel.hidden);if(!dialog.hidden&&(!nearby()||viewer.mode!=='walk'))close()}
   },
-  cancel(){if(disposed)return;if(saved)restorePose(saved);model.cancel();balloon.setPose(model.position,false);host.classList.remove('balloon-in-flight','near-balloon');saved=null;close();finish(false)},
+  cancel(){if(disposed)return;if(saved)restorePose(saved);onAscent=null;model.cancel();balloon.setPose(model.position,false);host.classList.remove('balloon-in-flight','near-balloon');saved=null;close();finish(false)},
   dispose(){if(disposed)return;this.cancel();disposed=true;window.removeEventListener('keydown',escape,true);panel.remove();dialog.remove()}
  };
  function placeCamera(){const p=model.position;basketEye.set(p.x,p.y+.13+viewer.config.eye,p.z);desired.copy(basketEye);look.set(p.x-balloon.outward.x*8,p.y+1.7,p.z-balloon.outward.z*8);
