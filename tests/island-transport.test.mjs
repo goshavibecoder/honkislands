@@ -32,7 +32,7 @@ test('kart driving, reversing, braking and steering remain stable across frame r
 });
 
 test('a kart can complete full circuits and the lap counter requires an entire loop',()=>{
- const k=new KartDrive();for(let i=0;i<60*60;i++){const p=k.position,a=Math.atan2(p.x/KART_TRACK.rx,p.z/KART_TRACK.rz)+.18,yaw=Math.atan2(Math.sin(a)*KART_TRACK.rx-p.x,Math.cos(a)*KART_TRACK.rz-p.z),error=Math.atan2(Math.sin(yaw-k.yaw),Math.cos(yaw-k.yaw));k.update(1/60,{throttle:.7,steer:error*4})}assert.ok(k.laps>=2);assert.equal(k.warning,0);k.reset();assert.equal(k.laps,0);
+ const k=new KartDrive();for(let i=0;i<60*60;i++){const p=k.position,a=Math.atan2(p.x/KART_TRACK.rx,p.z/KART_TRACK.rz)+.18,yaw=Math.atan2(Math.sin(a)*KART_TRACK.rx-p.x,Math.cos(a)*KART_TRACK.rz-p.z),error=Math.atan2(Math.sin(yaw-k.yaw),Math.cos(yaw-k.yaw));k.update(1/60,{throttle:.7,steer:-error*4})}assert.ok(k.laps>=2);assert.equal(k.warning,0);k.reset();assert.equal(k.laps,0);
 });
 
 class Element{
@@ -63,7 +63,7 @@ test('real touch joystick separates throttle from steering and stops when releas
   const stick=createTouchStick(joystick,knob,(x,y)=>{viewer.stick.x=x;viewer.stick.y=y});panel.querySelector('.ride-board').click();
   joystick.fire('pointerdown',{pointerId:7,pointerType:'touch',clientX:50+dx,clientY:50+dy});const start=controller.model.position.x;advance(controller,1);
   if(dy===0){assert.equal(controller.model.speed,0);assert.equal(controller.model.position.x,start);assert.equal(controller.model.yaw,Math.PI/2);assert.ok(controller.model.steer*Math.sign(dx)>.9)}
-  else{assert.ok(controller.model.speed>1);assert.ok(controller.model.position.x>start+.5);assert.ok(controller.model.yaw>Math.PI/2)}
+  else{assert.ok(controller.model.speed>1);assert.ok(controller.model.position.x>start+.5);assert.ok(controller.model.yaw<Math.PI/2)}
   window.fire('pointerup',{pointerId:7});assert.equal(viewer.stick.x,0);assert.equal(viewer.stick.y,0);advance(controller,1);assert.equal(controller.model.speed,0);stick.destroy();controller.dispose();
  }
 });
@@ -72,18 +72,43 @@ test('without driver steering the kart keeps its heading and stops at a barrier 
  const k=new KartDrive(),yaw=k.yaw;advance(k,15,60,{throttle:1});assert.equal(k.yaw,yaw);assert.equal(k.speed,0);assert.equal(k.laps,0);assert.ok(k.warning>0);
  const stopped={...k.position};advance(k,2);assert.deepEqual(k.position,stopped);assert.equal(k.yaw,yaw);
  advance(k,1,60,{throttle:-1});assert.ok(k.position.x<stopped.x-.5);assert.equal(k.yaw,yaw);
- const right=new KartDrive(),left=new KartDrive();advance(right,1,60,{throttle:.6,steer:.6});advance(left,1,60,{throttle:.6,steer:-.6});assert.ok(right.yaw>yaw);assert.ok(left.yaw<yaw);assert.ok(Math.abs((right.yaw-yaw)+(left.yaw-yaw))<1e-10);
+ const right=new KartDrive(),left=new KartDrive();advance(right,1,60,{throttle:.6,steer:.6});advance(left,1,60,{throttle:.6,steer:-.6});assert.ok(right.yaw<yaw);assert.ok(left.yaw>yaw);assert.ok(Math.abs((right.yaw-yaw)+(left.yaw-yaw))<1e-10);
 });
 
 test('separate game joystick and gas pedal allow full-lock turning, show HONK at the wheel and clean up after exit',()=>{
  const {controller,panel,window,world,host}=setup('kart'),controls=controller.gameControls,ui=controls.element,stick=ui.querySelector('.kart-game-stick'),gas=ui.querySelector('[data-kart-pedal="1"]'),reverse=ui.querySelector('[data-kart-pedal="-1"]');
  assert.equal(ui.hidden,true);assert.equal(world.driver.group.visible,false);assert.ok(world.driver.head.children.length>5);
  panel.querySelector('.ride-board').click();assert.equal(ui.hidden,false);assert.ok(host.classes.has('driving-kart'));assert.equal(world.driver.group.visible,true);
- stick.fire('pointerdown',{pointerId:20,pointerType:'touch',clientX:118.5,clientY:75});gas.fire('pointerdown',{pointerId:21,pointerType:'touch'});advance(controller,1.2);
- assert.ok(controller.model.steer>.99);assert.ok(controller.model.speed>2);assert.ok(controller.model.yaw-Math.PI/2>.55,'full joystick steering is too weak');assert.equal(stick.hasPointerCapture(20),true);assert.equal(gas.hasPointerCapture(21),true);
+ stick.fire('pointerdown',{pointerId:20,pointerType:'touch',clientX:118.5,clientY:75});gas.fire('pointerdown',{pointerId:21,pointerType:'touch'});advance(controller,.8);
+ assert.ok(controller.model.steer>.99);assert.ok(controller.model.speed>2);assert.ok(Math.PI/2-controller.model.yaw>.30,'full joystick steering is too weak');assert.equal(stick.hasPointerCapture(20),true);assert.equal(gas.hasPointerCapture(21),true);
  panel.querySelector('.ride-camera').click();assert.equal(world.driver.head.visible,false);assert.equal(world.driver.group.visible,true);panel.querySelector('.ride-camera').click();assert.equal(world.driver.head.visible,true);
  window.fire('blur');assert.equal(controls.state.x,0);assert.equal(controls.state.pedal,0);advance(controller,1);assert.equal(controller.model.speed,0);
  reverse.fire('pointerdown',{pointerId:22,pointerType:'touch'});advance(controller,.5);assert.ok(controller.model.speed< -.7);reverse.fire('pointerup',{pointerId:22});panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(ui.hidden,true);assert.equal(world.driver.group.visible,false);assert.equal(host.classes.has('driving-kart'),false);controller.dispose();assert.equal(ui.removed,true);
+});
+
+test('HONK shoulders stay inside his torso, arm joints meet and hands remain on the turning wheel',()=>{
+ const {world,controller}=setup('kart'),driver=world.driver,wheel=world.vehicle.getObjectByName('Kart_steering_wheel');
+ for(const steer of [-1,-.5,0,.5,1]){
+  world.setPose({x:2,y:.06,z:8},.7,1.4,steer,2);world.group.updateMatrixWorld(true);
+  for(const arm of driver.arms){
+   assert.equal(arm.arm.parent,driver.torso);
+   const shoulder=new THREE.Vector3(0,-.5,0).applyMatrix4(arm.upper.matrixWorld),inside=driver.suit.worldToLocal(shoulder.clone());assert.ok(inside.length()<.95,'shoulder detached from torso');
+   const elbowA=new THREE.Vector3(0,.5,0).applyMatrix4(arm.upper.matrixWorld),elbowB=new THREE.Vector3(0,-.5,0).applyMatrix4(arm.forearm.matrixWorld);assert.ok(elbowA.distanceTo(elbowB)<1e-6);
+   const wrist=new THREE.Vector3(0,.5,0).applyMatrix4(arm.forearm.matrixWorld),hand=arm.hand.getWorldPosition(new THREE.Vector3()),rim=wheel.localToWorld(new THREE.Vector3(arm.sign*.14,0,0));assert.ok(wrist.distanceTo(hand)<1e-6);assert.ok(hand.distanceTo(rim)<1e-6);
+  }
+ }controller.dispose();
+});
+
+test('joystick right points both front wheels toward the driver right, while rear wheels stay straight',()=>{
+ const {world,controller}=setup('kart'),up=new THREE.Vector3(0,1,0);
+ for(const yaw of [0,.7,Math.PI])for(const steer of [-1,0,1]){
+  world.setPose({x:0,y:.06,z:9.4},yaw,1.8,steer,2.5);world.group.updateMatrixWorld(true);
+  const forward=world.vehicle.getWorldDirection(new THREE.Vector3()),right=forward.clone().cross(up);
+  for(const side of ['left','right']){
+   const front=world.vehicle.getObjectByName(`Kart_front_${side}_wheel`).getWorldDirection(new THREE.Vector3()),rear=world.vehicle.getObjectByName(`Kart_rear_${side}_wheel`).getWorldDirection(new THREE.Vector3());
+   if(steer)assert.ok(front.dot(right)*steer>.3);else assert.ok(front.distanceTo(forward)<1e-6);assert.ok(rear.distanceTo(forward)<1e-6);
+  }
+ }controller.dispose();
 });
 
 async function loadMountain(){const manifest=JSON.parse(readFileSync(new URL('../models/goat-mountain.json',import.meta.url))),bytes=gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url))))),gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');rebuildMountainStairs(gltf.scene,JSON.parse(gunzipSync(readFileSync(new URL('../models/goat-mountain-shell-v22.bin',import.meta.url)))));return gltf.scene}

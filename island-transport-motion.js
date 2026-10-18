@@ -12,6 +12,8 @@ export class CableTransit{
 }
 
 export const KART_TRACK={rx:7.2,rz:9.4,y:.06,margin:.70};
+// The kart faces local +Z, so the driver's right is local -X.
+export const kartSteeringAngle=(steer,speed=0)=>-clamp(steer,-1,1)*.48/(1+Math.abs(speed)*.06);
 export function kartJoystickInput(x,y){
  const axis=v=>{v=clamp(v,-1,1);return Math.abs(v)<.10?0:Math.sign(v)*(Math.abs(v)-.10)/.90};
  return {throttle:-axis(y),steer:axis(x)};
@@ -26,7 +28,7 @@ export class KartDrive{
    this.steer+=(clamp(steer,-1,1)-this.steer)*(1-Math.exp(-7*step));
    const target=brake?0:clamp(throttle,-1,1)*(throttle>=0?3.2:1.5),decay=Math.exp(-(brake?13:Math.abs(throttle)<.01?8.5:3.5)*step);
    this.speed=target+(this.speed-target)*decay;if(Math.abs(this.speed)<.004)this.speed=0;
-   this.yaw+=this.speed/1.12*Math.tan(this.steer*.48/(1+Math.abs(this.speed)*.06))*step;
+   this.yaw+=this.speed/1.12*Math.tan(kartSteeringAngle(this.steer,this.speed))*step;
    const distance=this.speed*step;this.position.x+=Math.sin(this.yaw)*distance;this.position.z+=Math.cos(this.yaw)*distance;
    const q=Math.hypot(this.position.x/KART_TRACK.rx,this.position.z/KART_TRACK.rz);
    // Collisions stop translation. Only the driver's steering changes heading.

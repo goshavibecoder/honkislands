@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=57';
+import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=58';
 import {mountKartControls} from './kart-controls.js?v=57';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
@@ -11,7 +11,7 @@ export function mountIslandTransport(viewer,world){
  const gameControls=cable?null:mountKartControls(host);
  let saved=null,inside=cable,braking=false,boarding=0,exiting=null,near=-1,uiTime=0,disposed=false,boardStation=0;
  const ray=new THREE.Raycaster(),from=new THREE.Vector3(),desired=new THREE.Vector3(),target=new THREE.Vector3(),hit=new THREE.Vector3(),targetRotation=new THREE.Quaternion();
- function pose(){if(cable)world.setPose(model.position);else world.setPose(model.position,model.yaw,model.wheelSpin,model.steer)}
+ function pose(){if(cable)world.setPose(model.position);else world.setPose(model.position,model.yaw,model.wheelSpin,model.steer,model.speed)}
  function nearby(){
   if(viewer.mode!=='walk')return -1;const p=viewer.camera.position;
   if(cable){let side=-1;for(let i=0;i<2;i++){const s=CABLE_STATIONS[i];if(Math.hypot(p.x-s.x,p.z-s.z)<3&&Math.abs(viewer.foot-s.y)<.65)side=i}return side}
