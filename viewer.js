@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {createArchitectureCollision} from './walk-architecture.js?v=77';
-import {prepareGroypAir} from './groyp-air.js?v=74';
+import {prepareGroypAir} from './groyp-air.js?v=78';
 import {prepareVisualQuality} from './visual-quality.js?v=72';
 import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=72';
-import {mountBalloonTravel} from './balloon-travel.js?v=74';
+import {mountBalloonTravel} from './balloon-travel.js?v=78';
 import {MobileRenderQuality} from './mobile-render-quality.js?v=59';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';

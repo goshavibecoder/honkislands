@@ -9,7 +9,7 @@ async function cover(){transition.className='active';transition.setAttribute('ar
 async function reveal(){transition.classList.add('depart');await wait(reduced?220:1000);transition.className='';transition.setAttribute('aria-hidden','true')}
 function progress(value,label){$('progress').style.width=`${Math.round(value*100)}%`;$('load-label').textContent=label||'Flying to the island…'}
 async function enter(slug,button){if(busy)return;entryIntro?.finish();busy=true;lastButton=button||lastButton;activeWorld=slug;const current=++epoch;$('error').hidden=true;progress(0);const curtain=cover();try{
- const module=await import('./viewer.js?v=77');viewer??=new module.IslandViewer($('viewport'));viewer.onBalloonTravel=flyByBalloon;await curtain;
+ const module=await import('./viewer.js?v=78');viewer??=new module.IslandViewer($('viewport'));viewer.onBalloonTravel=flyByBalloon;await curtain;
  world.hidden=false;map.hidden=true;world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');
  await viewer.open(slug,progress);if(current!==epoch)return;
  viewer.setActive(true);history.replaceState(null,'',`#${slug}`);await reveal();busy=false;$('viewport').focus({preventScroll:true});showHint();
@@ -25,7 +25,7 @@ async function balloonCurtain(covered,durationMs=900){
 async function flyByBalloon(slug){
  if(busy||!viewer?.balloonTravel||slug===activeWorld)return;busy=true;const current=++epoch;clearTimeout(hintTimer);$('error').hidden=true;
  try{
-  let curtain;const tookOff=await viewer.balloonTravel.depart(()=>{curtain=balloonCurtain(true,2800)});
+  let curtain;const tookOff=await viewer.balloonTravel.depart(()=>{curtain=balloonCurtain(true,2800)},slug);
   if(!tookOff||current!==epoch){if(curtain){await curtain;await balloonCurtain(false)}busy=false;return}
   await (curtain||balloonCurtain(true));activeWorld=slug;
   await viewer.open(slug,()=>{});if(current!==epoch)return;

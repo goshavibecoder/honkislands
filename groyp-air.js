@@ -30,25 +30,74 @@ export function prepareGroypAir(root,balloon,actorScene){
  const actor=new THREE.Group();actor.name='Groyper_dispatcher';actor.position.set(0,0,.10);actor.rotation.y=Math.PI;booth.add(actor);actor.add(actorScene);
  actorScene.traverse(o=>{o.userData.islandRide=true;if(o.isSkinnedMesh){o.frustumCulled=false;for(const mat of Array.isArray(o.material)?o.material:[o.material]){mat.roughness=Math.max(.8,mat.roughness);mat.envMapIntensity=.45}}});
  root.updateMatrixWorld(true);
- const bones=Object.fromEntries(['head','upperarm_l','lowerarm_l','hand_l','upperarm_r'].map(name=>[name,actorScene.getObjectByName(name)]));
+ const bones=Object.fromEntries(['head','upperarm_l','lowerarm_l','hand_l','upperarm_r','lowerarm_r','hand_r','thigh_l','thigh_r','calf_l','calf_r'].map(name=>[name,actorScene.getObjectByName(name)]));
  const rest=Object.fromEntries(Object.entries(bones).filter(([,bone])=>bone).map(([name,bone])=>[name,bone.quaternion.clone()])),axis=new THREE.Vector3(),parentQ=new THREE.Quaternion(),actorQ=actor.getWorldQuaternion(new THREE.Quaternion());
- function worldPose(name,localAxis,angle){const bone=bones[name];if(!bone)return null;bone.parent.getWorldQuaternion(parentQ);axis.copy(localAxis).applyQuaternion(actorQ).applyQuaternion(parentQ.invert());bone.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(axis,angle).multiply(rest[name]));bone.updateWorldMatrix(false,true);return bone.quaternion.clone()}
- const zAxis=new THREE.Vector3(0,0,1),yAxis=new THREE.Vector3(0,1,0),leftDown=worldPose('upperarm_l',zAxis,-1.16),rightDown=worldPose('upperarm_r',zAxis,1.16),headLeft=worldPose('head',yAxis,-.12),headRight=worldPose('head',yAxis,.12);
+ function worldPose(name,localAxis,angle,initial=rest[name]){const bone=bones[name];if(!bone)return null;bone.parent.getWorldQuaternion(parentQ);axis.copy(localAxis).applyQuaternion(actorQ).applyQuaternion(parentQ.invert());bone.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(axis,angle).multiply(initial));bone.updateWorldMatrix(false,true);return bone.quaternion.clone()}
+ const xAxis=new THREE.Vector3(1,0,0),zAxis=new THREE.Vector3(0,0,1),yAxis=new THREE.Vector3(0,1,0),leftDown=worldPose('upperarm_l',zAxis,-1.16),rightDown=worldPose('upperarm_r',zAxis,1.16),headLeft=worldPose('head',yAxis,-.12),headRight=worldPose('head',yAxis,.12),headSleep=worldPose('head',xAxis,.28);
  const leftWave=worldPose('upperarm_l',zAxis,.26),elbowWave=worldPose('lowerarm_l',zAxis,1.12);
+ const rightPresent=worldPose('upperarm_r',yAxis,.95,worldPose('upperarm_r',zAxis,.50)),elbowPresent=worldPose('lowerarm_r',yAxis,.35),rightStamp=worldPose('upperarm_r',yAxis,1.45,worldPose('upperarm_r',zAxis,.50));
+ const legs={};for(const name of ['thigh_l','thigh_r','calf_l','calf_r']){legs[name]=[worldPose(name,xAxis,-.25),worldPose(name,xAxis,.25)];bones[name].quaternion.copy(rest[name])}
  if(bones.upperarm_l)bones.upperarm_l.quaternion.copy(leftDown);if(bones.lowerarm_l)bones.lowerarm_l.quaternion.copy(rest.lowerarm_l);if(bones.head)bones.head.quaternion.copy(rest.head);
+
+ const ticketCanvas=document.createElement('canvas');ticketCanvas.width=1024;ticketCanvas.height=512;const ticketContext=ticketCanvas.getContext('2d'),ticketTexture=new THREE.CanvasTexture(ticketCanvas);ticketTexture.colorSpace=THREE.SRGBColorSpace;
+ function printTicket(title,stamped=false){const c=ticketContext;c.fillStyle='#fff1ce';c.fillRect(0,0,1024,512);c.fillStyle='#bd304c';c.fillRect(0,0,38,512);c.fillRect(986,0,38,512);c.textAlign='center';c.font='900 95px system-ui';c.fillText('GROYP AIR',512,122);c.fillStyle='#493447';c.font='700 65px system-ui';c.fillText(title.toUpperCase(),512,235,880);c.font='35px system-ui';c.fillText('ONE HONK / ONE FLIGHT',512,310);c.fillStyle='#bd304c';c.font='900 63px system-ui';if(stamped)c.fillText('HONK APPROVED',512,430);ticketTexture.needsUpdate=true}
+ printTicket('ISLAND TICKET');
+ const ticketFace=new THREE.MeshBasicMaterial({map:ticketTexture}),deskTicket=new THREE.Mesh(new THREE.PlaneGeometry(.50,.25),ticketFace);deskTicket.name='GROYP_AIR_ticket_to_stamp';deskTicket.rotation.x=-Math.PI/2;deskTicket.position.set(.28,.912,-.77);deskTicket.visible=false;booth.add(deskTicket);
+ const ticket=new THREE.Group();ticket.name='GROYP_AIR_ticket_in_hand';const paper=new THREE.Mesh(new THREE.BoxGeometry(.50,.25,.008),m.cream),printed=new THREE.Mesh(new THREE.PlaneGeometry(.49,.24),ticketFace);printed.position.z=.005;ticket.add(paper,printed);ticket.visible=false;
+ const stamp=new THREE.Group();stamp.name='GROYP_AIR_hand_stamp';const ink=new THREE.Mesh(new THREE.BoxGeometry(.17,.035,.10),m.red),grip=new THREE.Mesh(new THREE.CylinderGeometry(.035,.045,.20,12),m.dark);ink.position.y=-.08;stamp.add(ink,grip);stamp.visible=false;
+ function handProp(prop,offset,worldRotation){root.updateMatrixWorld(true);const hand=bones.hand_r,p=hand.getWorldPosition(new THREE.Vector3()).add(offset),q=hand.getWorldQuaternion(new THREE.Quaternion());hand.add(prop);prop.position.copy(hand.worldToLocal(p));prop.quaternion.copy(q.invert().multiply(worldRotation))}
+ handProp(stamp,new THREE.Vector3(0,-.11,-.10),new THREE.Quaternion());
+ bones.upperarm_r.quaternion.copy(rightPresent);handProp(ticket,new THREE.Vector3(0,0,-.10),new THREE.Quaternion().setFromAxisAngle(yAxis,Math.PI));
+ bones.upperarm_r.quaternion.copy(rightDown);bones.lowerarm_r.quaternion.copy(rest.lowerarm_r);
+ actor.traverse(o=>o.userData.islandRide=true);deskTicket.userData.islandRide=true;
+ const emoteCanvas=document.createElement('canvas');emoteCanvas.width=128;emoteCanvas.height=128;const emoteContext=emoteCanvas.getContext('2d'),emoteTexture=new THREE.CanvasTexture(emoteCanvas);emoteTexture.colorSpace=THREE.SRGBColorSpace;
+ const emote=new THREE.Sprite(new THREE.SpriteMaterial({map:emoteTexture,depthWrite:false}));emote.scale.set(.34,.34,1);emote.position.set(0,1.98,-.22);actor.add(emote);emote.visible=false;let symbol='';
+ function setEmote(value){emote.visible=!!value;if(!value||value===symbol)return;symbol=value;emoteCanvas.width=128;const c=emoteContext;c.textAlign='center';c.fillStyle='#fff1ce';c.font='900 110px system-ui';c.fillText(value,64,110);emoteTexture.needsUpdate=true}
  root.updateMatrixWorld(true);
  const actorBox=new THREE.Box3(new THREE.Vector3(base.x-.62,base.y,base.z-.40),new THREE.Vector3(base.x+.62,base.y+1.85,base.z+.55));extraBoxes.push(actorBox);
  const hit=new THREE.Mesh(new THREE.BoxGeometry(2.72,2.55,1.9),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));hit.position.copy(base).add(new THREE.Vector3(0,1.275,-.05));hit.updateMatrixWorld();
  const ray=new THREE.Raycaster(),interactionPosition=base.clone().add(new THREE.Vector3(0,0,-1.4));balloon.mapPositions=[balloon.mapPosition,interactionPosition];
- const bounds=new THREE.Box3().setFromObject(group);let time=0,presence=0;
- return {group,booth,actor,bones,navPositions,extraBoxes,bounds,interactionPosition,
-  update(dt,player){dt=Math.min(.1,Math.max(0,dt));time+=dt;const near=player&&Math.hypot(player.x-base.x,player.z-base.z)<6;presence=THREE.MathUtils.damp(presence,near?1:0,5,dt);const phase=time%12,wave=presence*ease(phase/.6)*(1-ease((phase-2.6)/.6));
-   if(bones.head)bones.head.quaternion.slerpQuaternions(headLeft,headRight,(Math.sin(time*.55)+1)*.5);
+ const bounds=new THREE.Box3().setFromObject(group),ticketView=base.clone().add(new THREE.Vector3(.15,1.55,-1.80)),ticketLook=base.clone().add(new THREE.Vector3(.12,1.13,-.15)),farewellLook=new THREE.Vector3();let time=0,presence=0,phase='idle',elapsed=0,idleTime=0,greeting=0,startle=0,lastDistance=Infinity,cooldown=0,stamped=false,destination='ISLAND TICKET',farewellFrom=.10;
+ const path=[new THREE.Vector3(0,0,.10),new THREE.Vector3(2.2,0,.10),new THREE.Vector3(2.2,0,-1.35)],pathLength=3.65;
+ function actorBounds(){actorBox.min.set(base.x+actor.position.x-.62,base.y,base.z+actor.position.z-.40);actorBox.max.set(base.x+actor.position.x+.62,base.y+1.85,base.z+actor.position.z+.55);farewellLook.set(base.x+actor.position.x,base.y+1.3,base.z+actor.position.z)}
+ function resetService(){phase='idle';elapsed=0;actor.position.copy(path[0]);actor.rotation.y=Math.PI;ticket.visible=stamp.visible=deskTicket.visible=false;for(const [name,bone] of Object.entries(bones))bone.quaternion.copy(rest[name]);bones.upperarm_l.quaternion.copy(leftDown);bones.upperarm_r.quaternion.copy(rightDown);actorBounds()}
+ actorBounds();
+ return {group,booth,actor,bones,navPositions,extraBoxes,bounds,interactionPosition,ticketView,ticketLook,farewellLook,ticket,deskTicket,stamp,
+  get phase(){return phase},get ticketReady(){return phase==='ticket'&&elapsed>=2.6},
+  beginTicket(title){if(phase!=='idle')return false;phase='ticket';elapsed=0;stamped=false;greeting=startle=0;destination=title;printTicket(title);deskTicket.visible=true;return true},
+  beginFarewell(){farewellFrom=actor.position.z;phase='farewell';elapsed=0;ticket.visible=stamp.visible=deskTicket.visible=false},
+  cancelService:resetService,
+  update(dt,player){dt=Math.min(.1,Math.max(0,dt));time+=dt;elapsed+=dt;cooldown=Math.max(0,cooldown-dt);const distance=player?Math.hypot(player.x-base.x,player.z-base.z):Infinity,near=distance<6;
+   if(phase==='idle'&&near&&lastDistance>=6)greeting=2.8;
+   if(phase==='idle'&&distance<1.75&&lastDistance>=1.75&&lastDistance<6&&cooldown===0){startle=.75;cooldown=8}
+   lastDistance=distance;greeting=Math.max(0,greeting-dt);startle=Math.max(0,startle-dt);idleTime=near?0:idleTime+dt;presence=THREE.MathUtils.damp(presence,near?1:0,5,dt);
+   const sleepy=phase==='idle'?ease((idleTime-12)/4):0;
+   let wave=phase==='idle'?presence*ease(greeting/.5)*ease((2.8-greeting)/.5):0;
+   actor.position.set(0,startle>0?Math.sin(startle/.75*Math.PI)*.045:0,.10);actor.rotation.y=Math.PI;
+   if(phase==='farewell'){
+    const walking=Math.max(0,elapsed-.35),distance=pathLength*ease(walking/2.15),first=Math.min(1,distance/2.2);actor.position.lerpVectors(path[0],path[1],first);if(distance>2.2)actor.position.lerpVectors(path[1],path[2],(distance-2.2)/1.45);if(elapsed<.35)actor.position.z=THREE.MathUtils.lerp(farewellFrom,path[0].z,ease(elapsed/.35));
+    let heading=distance<2.2?Math.PI/2:Math.PI;
+    if(distance>1.9&&distance<2.5){const t=(distance-1.9)/.6;actor.position.set(1.9+.6*t-.3*t*t,0,.10-.3*t*t);heading=Math.atan2(1-t,-t)}
+    const turn=ease((walking-1.7)/.65),facing=Math.atan2(balloon.home.x-base.x-path[2].x,balloon.home.z-base.z-path[2].z);actor.rotation.y=THREE.MathUtils.lerp(THREE.MathUtils.lerp(Math.PI,heading,ease(walking/.35)),facing,turn);
+    const walk=ease(walking/.25)*(1-ease((walking-1.85)/.3)),stride=Math.sin(walking*12)*walk;actor.position.y=Math.abs(Math.sin(walking*12))*.012*walk;
+    for(const [name,sign] of [['thigh_l',1],['thigh_r',-1],['calf_l',-1],['calf_r',1]])bones[name].quaternion.copy(rest[name]).slerp(legs[name][stride*sign>0?1:0],Math.abs(stride)*(name.startsWith('calf')?.5:1));
+    wave=ease((walking-1.65)/.6);
+   }else for(const name of Object.keys(legs))bones[name].quaternion.copy(rest[name]);
+   if(bones.head){bones.head.quaternion.slerpQuaternions(headLeft,headRight,near?THREE.MathUtils.clamp(.5-(player.x-base.x)*.10,0,1):(Math.sin(time*.55)+1)*.5);bones.head.quaternion.slerp(headSleep,sleepy)}
+   if(startle>0)wave=Math.max(wave,Math.sin(startle/.75*Math.PI)*.8);
    if(bones.upperarm_l)bones.upperarm_l.quaternion.slerpQuaternions(leftDown,leftWave,wave);
    if(bones.lowerarm_l)bones.lowerarm_l.quaternion.slerpQuaternions(rest.lowerarm_l,elbowWave,wave);
    if(bones.hand_l){bones.hand_l.quaternion.copy(rest.hand_l);bones.hand_l.rotateX(Math.sin(time*8)*.16*wave)}
+   bones.upperarm_r.quaternion.copy(rightDown);bones.lowerarm_r.quaternion.copy(rest.lowerarm_r);
+   if(phase==='ticket'){
+    const reach=ease((elapsed-.45)/.45),press=ease((elapsed-1)/.18)*(1-ease((elapsed-1.25)/.24));bones.upperarm_r.quaternion.slerpQuaternions(rightDown,rightPresent,reach).slerp(rightStamp,press);bones.lowerarm_r.quaternion.slerpQuaternions(rest.lowerarm_r,elbowPresent,reach);
+    stamp.visible=elapsed>.55&&elapsed<1.55;deskTicket.visible=elapsed<1.65;ticket.visible=elapsed>=1.65;
+    if(elapsed>=1.22&&!stamped){stamped=true;printTicket(destination,true)}
+    bones.head.quaternion.slerp(headSleep,press*.6);actor.position.z=.10-ease(elapsed/.6)*.28;
+   }
+   setEmote(phase==='idle'?(startle>0?'!':sleepy>.4?'Z':greeting>2.1?'!':''):'');actorBounds();
   },
   pick(camera,point){camera.updateMatrixWorld();ray.setFromCamera(point,camera);ray.far=4.5;return !!ray.intersectObject(hit,false).length},
-  dispose(){hit.geometry.dispose();hit.material.dispose();balloon.mapPositions=null}
+  dispose(){resetService();hit.geometry.dispose();hit.material.dispose();emote.material.dispose();emoteTexture.dispose();balloon.mapPositions=null}
  };
 }
