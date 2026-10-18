@@ -39,8 +39,8 @@ test('both audience LODs clear the actual cushion, stone support and backrest on
  for(const p of crowd.placements){
   const suffix=p.seat.slice('Individual_seat_red_cushion'.length);
   for(const prefix of ['Individual_seat_red_cushion','Individual_seat_solid_stone_support','Individual_seat_low_carved_back']){
-   const chair=gltf.scene.getObjectByName(prefix+suffix);chair.geometry.computeBoundingBox();const box=chair.geometry.boundingBox.clone().expandByScalar(-.003),matrix=chair.matrixWorld.clone().invert().multiply(p.matrix);
-   for(const lod of ['high','low']){const points=data[p.name][lod].positions;for(let i=0;i<points.length;i+=3){const v=new THREE.Vector3(points[i],points[i+1],points[i+2]).applyMatrix4(matrix);assert.equal(box.containsPoint(v),false,`${p.name} ${lod} intersects ${chair.name}`)}}
+   const chair=gltf.scene.getObjectByName(prefix+suffix);chair.geometry.computeBoundingBox();const box=chair.geometry.boundingBox.clone().expandByScalar(-.003);
+   for(const lod of ['high','low']){const matrix=chair.matrixWorld.clone().invert().multiply(p.matrices[lod]),points=data[p.name][lod].positions;for(let i=0;i<points.length;i+=3){const v=new THREE.Vector3(points[i],points[i+1],points[i+2]).applyMatrix4(matrix);assert.equal(box.containsPoint(v),false,`${p.name} ${lod} intersects ${chair.name}`)}}
   }
  }
 });
@@ -72,4 +72,18 @@ test('an unavailable audience cannot block entering the colosseum and a later at
  const root=new THREE.Group(),wall=new THREE.Group();wall.name='Actual arena architecture';root.add(wall);let reported;
  const unavailable=await prepareArenaAudience(root,{load:async()=>{throw Error('Crowd asset 404')},onError:error=>reported=error});assert.equal(unavailable,null);assert.match(reported.message,/404/);assert.equal(root.children.length,1);assert.equal(root.children[0],wall);
  const scene=gltf.scene.clone(),recovered=await prepareArenaAudience(scene,{load:async()=>data});assert.equal(recovered.count,154);recovered.dispose();
+});
+
+test('every spectator actually touches the cushion in both levels of detail',()=>{
+ const geometries={};for(const name of manifest.characters){geometries[name]={};for(const lod of ['high','low']){const source=data[name][lod],g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(source.positions,3));g.setIndex(source.indices);geometries[name][lod]=g}}
+ const material=new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),ray=new THREE.Raycaster();
+ for(const p of crowd.placements){const cushion=gltf.scene.getObjectByName(p.seat),top=new THREE.Box3().setFromObject(cushion).max.y;for(const lod of ['high','low']){
+  const mesh=new THREE.Mesh(geometries[p.name][lod],material);mesh.matrixAutoUpdate=false;mesh.matrix.copy(p.matrices[lod]);mesh.updateMatrixWorld(true);
+  const inverse=cushion.matrixWorld.clone().invert(),box=cushion.geometry.boundingBox,up=new THREE.Vector3(0,1,0).transformDirection(inverse),axis=['x','y','z'].sort((a,b)=>Math.abs(up[b])-Math.abs(up[a]))[0],horizontal=['x','y','z'].filter(k=>k!==axis);let closest=null;
+  const positions=mesh.geometry.attributes.position;for(let i=0;i<positions.count;i++){const world=new THREE.Vector3().fromBufferAttribute(positions,i).applyMatrix4(mesh.matrixWorld),local=world.clone().applyMatrix4(inverse);if(horizontal.every(k=>local[k]>box.min[k]+.0001&&local[k]<box.max[k]-.0001)&&(!closest||world.y<closest.y))closest=world}
+  assert.ok(closest,`${p.name} has no seat contact`);assert.ok(closest.y-top>=-.001&&closest.y-top<.004,`${p.name} ${lod} floats ${(closest.y-top).toFixed(3)}m above cushion`);
+  // An upward ray checks the real triangles, independently of the fitting pass.
+  ray.set(new THREE.Vector3(closest.x,top-.01,closest.z),new THREE.Vector3(0,1,0));ray.far=.02;assert.ok(ray.intersectObject(mesh,false).length>0,`${p.name} ${lod} has no visible cushion contact`);
+ }}
+ for(const pair of Object.values(geometries))for(const geometry of Object.values(pair))geometry.dispose();material.dispose();
 });

@@ -18,16 +18,25 @@ export async function prepareArenaAudience(root,{load=loadArenaCrowd,onError=err
  }
 }
 
+// Return the vertical clearance above the cushion, in world metres. The GLB
+// chairs are Z-up and scaled, so a normalised local direction loses the scale.
+function cushionClearance(source,matrix,cushion){
+ cushion.geometry.computeBoundingBox();const box=cushion.geometry.boundingBox,inverse=cushion.matrixWorld.clone().invert(),worldUp=[inverse.elements[4],inverse.elements[5],inverse.elements[6]],axis=worldUp.reduce((best,v,i)=>Math.abs(v)>Math.abs(worldUp[best])?i:best,0),horizontal=[0,1,2].filter(i=>i!==axis),lo=box.min.toArray(),hi=box.max.toArray(),e=inverse.multiply(matrix).elements,positions=source.positions,top=worldUp[axis]>0?hi[axis]:lo[axis];let gap=Infinity;
+ const a=horizontal[0],b=horizontal[1];for(let i=0;i<positions.length;i+=3){const x=positions[i],y=positions[i+1],z=positions[i+2],u=e[a]*x+e[4+a]*y+e[8+a]*z+e[12+a];if(u<lo[a]||u>hi[a])continue;const v=e[b]*x+e[4+b]*y+e[8+b]*z+e[12+b];if(v<lo[b]||v>hi[b])continue;const height=e[axis]*x+e[4+axis]*y+e[8+axis]*z+e[12+axis];gap=Math.min(gap,(height-top)/worldUp[axis])}
+ return Number.isFinite(gap)?gap:0;
+}
+
 export function createArenaCrowd(root,characters){
  root.updateMatrixWorld(true);const seats=[];
- root.traverse(o=>{if(o.isMesh&&/^Individual_seat_red_cushion(?:_|$)/.test(o.name.replaceAll(' ','_'))){const b=new THREE.Box3().setFromObject(o),p=b.getCenter(new THREE.Vector3());p.y=b.max.y;seats.push({name:o.name,position:p})}});
+ root.traverse(o=>{if(o.isMesh&&/^Individual_seat_red_cushion(?:_|$)/.test(o.name.replaceAll(' ','_'))){const b=new THREE.Box3().setFromObject(o),p=b.getCenter(new THREE.Vector3());p.y=b.max.y;seats.push({name:o.name,position:p,mesh:o})}});
  const group=new THREE.Group();group.name='Colosseum_seated_audience';group.matrix.copy(root.matrixWorld.clone().invert());group.matrix.decompose(group.position,group.quaternion,group.scale);root.add(group);
  const names=['groyper','fast','teledog','honk','zoich'],extraBoxes=[],placements=[],meshes=[],batches=new Map(),materials=[];
  for(let i=0;i<seats.length;i++){
   const seat=seats[i],name=names[(i*3+Math.floor(i/7))%names.length],data=characters[name],back=root.getObjectByName(seat.name.replace('red_cushion','low_carved_back')),backCenter=back?new THREE.Box3().setFromObject(back).getCenter(new THREE.Vector3()):seat.position.clone().multiplyScalar(1.1),inward=seat.position.clone().sub(backCenter);inward.y=0;inward.normalize();const p=seat.position.clone().addScaledVector(inward,data.frontOffset);
   const yaw=Math.atan2(inward.x,inward.z)+(Math.sin(i*7.13)*.025),scale=.96+.06*(.5+.5*Math.sin(i*3.71));p.y+=data.seatLift*scale+.008;
   const matrix=new THREE.Matrix4().compose(p,new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),yaw),new THREE.Vector3(scale,scale,scale));
-  placements.push({name,seat:seat.name,position:p,yaw,scale,matrix});
+  const matrices={};for(const lod of ['high','low']){const fitted=matrix.clone();fitted.elements[13]-=cushionClearance(data[lod],fitted,seat.mesh)-.002;matrices[lod]=fitted}p.y=matrices.high.elements[13];
+  placements.push({name,seat:seat.name,position:p,yaw,scale,matrix:matrices.high,matrices});
   extraBoxes.push(new THREE.Box3(new THREE.Vector3(p.x-.25,p.y-.12,p.z-.25),new THREE.Vector3(p.x+.25,p.y+.65,p.z+.25)));
  }
  for(const name of names){
@@ -44,7 +53,7 @@ export function createArenaCrowd(root,characters){
  let elapsed=1,triangles=0,nearCount=0;
  function update(dt,camera){elapsed+=dt;if(elapsed<.25)return;elapsed=0;const nearby=placements.map((p,i)=>({i,d:p.position.distanceToSquared(camera)})).filter(p=>p.d<36).sort((a,b)=>a.d-b.d).slice(0,10),high=new Set();let detailBudget=0;for(const item of nearby){const cost=characters[placements[item.i].name].high.indices.length/3;if(detailBudget+cost>240000)continue;high.add(item.i);detailBudget+=cost}nearCount=high.size;triangles=0;
   for(const pair of batches.values())pair.high.count=pair.low.count=0;
-  for(let i=0;i<placements.length;i++){const p=placements[i],mesh=batches.get(p.name)[high.has(i)?'high':'low'];mesh.setMatrixAt(mesh.count++,p.matrix)}
+  for(let i=0;i<placements.length;i++){const p=placements[i],lod=high.has(i)?'high':'low',mesh=batches.get(p.name)[lod];mesh.setMatrixAt(mesh.count++,p.matrices[lod])}
   for(const mesh of meshes){mesh.instanceMatrix.needsUpdate=true;triangles+=mesh.count*mesh.geometry.index.count/3}
  }
  update(1,new THREE.Vector3(0,2.4,2.5));
