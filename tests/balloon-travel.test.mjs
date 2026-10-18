@@ -63,9 +63,9 @@ test('all six real islands have supported, unobstructed approaches to their ball
   const Physics=island.slug==='goat-mountain'?MountainWalkPhysics:WalkPhysics,physics=collision?new Physics({floorAt,canStand,eye:1.65,collision}):null;
   const start=new THREE.Vector3(...island.anchor),end=world.exit;
   for(let n=0;n<=100;n++){const p=start.clone().lerp(end,n/100),floor=floorAt(p.x,p.z,island.home[1]+.35,.8);assert.notEqual(floor,null,`${island.slug}: no boarding floor ${p.toArray()}`);assert.ok(canStand(p.x,p.z,floor),`${island.slug}: blocked boarding approach ${p.toArray()} ${JSON.stringify(boxes.filter(b=>floor+1.5>b.min.y&&floor+.22<b.max.y&&p.x>b.min.x-.17&&p.x<b.max.x+.17&&p.z>b.min.z-.17&&p.z<b.max.z+.17).map(b=>[b.min.toArray(),b.max.toArray()]))}`);if(physics)assert.ok(physics.clearAt?.(p.x,p.z,floor)??true,`${island.slug}: solid scenery blocks boarding ${p.toArray()} at floor ${floor}`)}
-  if(island.slug==='arena'){
+  if(island.slug==='arena'||island.slug==='arcade-district'){
    // Walk from the actual disembarkation point through the gateway to the sand.
-   const path=[end,new THREE.Vector3(...island.anchor),...[[7,5],[6.1,4],[5.8,3.6],[5.4,3.1],[5,2.65],[4.6,2.15],[4.35,1.85],[3.6,1.7],[2.5,1.8],[0,2.5]].map(([x,z])=>new THREE.Vector3(x,0,z))];
+   const path=island.slug==='arcade-district'?[end,new THREE.Vector3(...island.anchor),...[[0,10.6],[1.6,10.4],[1.6,7.7],[0,5.5],[0,4.2]].map(([x,z])=>new THREE.Vector3(x,0,z))]:[end,new THREE.Vector3(...island.anchor),...[[7,5],[6.1,4],[5.8,3.6],[5.4,3.1],[5,2.65],[4.6,2.15],[4.35,1.85],[3.6,1.7],[2.5,1.8],[0,2.5]].map(([x,z])=>new THREE.Vector3(x,0,z))];
    let foot=end.y;
    for(let segment=1;segment<path.length;segment++){const a=path[segment-1],b=path[segment],steps=Math.ceil(a.distanceTo(b)/.025);for(let n=1;n<=steps;n++){const p=a.clone().lerp(b,n/steps),floor=floorAt(p.x,p.z,foot+.49,1.2);assert.notEqual(floor,null,`arena entrance has no floor at ${p.toArray()}`);assert.ok(floor-foot<=.48&&foot-floor<=.65,`arena entrance has an impassable step ${foot} -> ${floor}`);assert.ok(canStand(p.x,p.z,floor),`arena entrance blocks walking at ${p.toArray()}`);foot=floor}}
   }

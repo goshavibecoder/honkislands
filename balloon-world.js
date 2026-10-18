@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {BALLOON_ISLANDS,balloonIsland} from './balloon-route.js?v=68';
+import {BALLOON_ISLANDS,balloonIsland} from './balloon-route.js?v=71';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
 let mapPictures;

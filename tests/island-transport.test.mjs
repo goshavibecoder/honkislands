@@ -157,6 +157,6 @@ test('the complete cabin clears the actual mountain and both station exits conne
 
 test('the track has continuous floors, an open entrance and solid edge barriers',()=>{
  const world=prepareIslandTransport(new THREE.Group(),'arcade-district'),nav=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(world.navPositions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide})),ray=new THREE.Raycaster();
- for(let i=0;i<128;i++){const a=i*Math.PI/64,x=Math.sin(a)*KART_TRACK.rx,z=Math.cos(a)*KART_TRACK.rz;ray.set(new THREE.Vector3(x,1,z),new THREE.Vector3(0,-1,0));assert.ok(ray.intersectObject(nav).length);assert.equal(world.canStand(Math.sin(a)*(KART_TRACK.rx+1.92),Math.cos(a)*(KART_TRACK.rz+1.92)),false)}
- for(let z=5.2;z<8;z+=.1)assert.ok(world.canStand(0,z));let dynamic=0;world.vehicle.traverse(o=>{if(o.isMesh){dynamic++;assert.equal(o.userData.islandRide,true)}});assert.ok(dynamic>5&&dynamic<45);
+ for(let i=0;i<128;i++){const a=i*Math.PI/64,x=Math.sin(a)*KART_TRACK.rx,z=Math.cos(a)*KART_TRACK.rz;ray.set(new THREE.Vector3(x,1,z),new THREE.Vector3(0,-1,0));assert.ok(ray.intersectObject(nav).length);assert.equal(world.canStand(Math.sin(a)*(KART_TRACK.rx+1.92),Math.cos(a)*(KART_TRACK.rz+1.92)),i===0)}
+ for(let z=5.2;z<8;z+=.1)assert.ok(world.canStand(0,z));for(let x=-1.2;x<=1.2;x+=.05)assert.equal(kartCanDrive(x,KART_TRACK.rz+KART_TRACK.railOffset,0,world.extraBoxes),false,'visible bollards must keep the kart on the circuit');let dynamic=0;world.vehicle.traverse(o=>{if(o.isMesh){dynamic++;assert.equal(o.userData.islandRide,true)}});assert.ok(dynamic>5&&dynamic<45);
 });

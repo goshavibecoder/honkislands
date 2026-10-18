@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {mountTransportPanel} from './transport-panel.js?v=61';
-import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=63';
+import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=71';
 import {mountKartControls} from './kart-controls.js?v=57';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};

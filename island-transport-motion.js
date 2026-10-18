@@ -19,6 +19,8 @@ for(const side of [-1,1])for(let i=0;i<96;i++){
  const t=i*Math.PI*2/96,n=(i+1)*Math.PI*2/96;
  if(side<0&&Math.abs(Math.sin((t+n)/2))<.36&&Math.cos(t)>0)continue;
  const rx=KART_TRACK.rx+side*KART_TRACK.railOffset,rz=KART_TRACK.rz+side*KART_TRACK.railOffset;
+ // A narrow foot exit reaches the balloon dock beyond the outside rail.
+ if(side>0&&Math.cos((t+n)/2)>0&&Math.abs(Math.sin((t+n)/2)*rx)<1.1)continue;
  KART_RAILS.push({ax:Math.sin(t)*rx,az:Math.cos(t)*rz,bx:Math.sin(n)*rx,bz:Math.cos(n)*rz,index:i});
 }
 export function kartCanDrive(x,z,yaw,obstacles=[]){

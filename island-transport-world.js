@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,kartSteeringAngle} from './island-transport-motion.js?v=63';
+import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,kartSteeringAngle} from './island-transport-motion.js?v=71';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createHonkKartDriver} from './kart-driver.js?v=59';
 
@@ -86,6 +86,8 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
    const start=[r.ax,r.az],end=[r.bx,r.bz];rod([r.ax,.22,r.az],[r.bx,.22,r.bz],.075,r.index%2?m.red:m.cream);
    rod([r.ax,.67,r.az],[r.bx,.67,r.bz],.028,m.cyan);if(r.index%4===0)post(start[0],.04,start[1],.64);
   }
+  // Visible bollards allow a walker through the foot exit, while stopping karts.
+  for(const x of [-.62,.62]){const z=KART_TRACK.rz+KART_TRACK.railOffset,p=box(.14,.90,.14,m.cream,group,x,.49,z,'Arcade_balloon_pedestrian_bollard');collider(p);sphere(x,.98,z,.10,.10,.10,m.red);box(.18,.10,.18,m.gold,group,x,.10,z)}
   for(let i=0;i<64;i++){const t=i*Math.PI*2/64;const o=box(.075,.008,.42,m.cream,group,Math.sin(t)*KART_TRACK.rx,.06,Math.cos(t)*KART_TRACK.rz);o.rotation.y=Math.atan2(KART_TRACK.rx*Math.cos(t),-KART_TRACK.rz*Math.sin(t))}
   for(let i=0;i<8;i++)for(let j=0;j<2;j++)box(.20,.008,.45,(i+j)%2?m.white:m.dark,group,-.1+j*.20,.064,KART_TRACK.rz-1.575+i*.45);
   // A cheerful, compact open kart: visible seat, steering wheel and real wheels.
@@ -106,7 +108,7 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  function canStand(x,z){
   if(kind==='cable')return true;
   const near=(rx,rz)=>Math.abs(Math.hypot(x/rx,z/rz)-1)*Math.min(rx,rz)<.25;
-  if(near(KART_TRACK.rx+KART_TRACK.railOffset,KART_TRACK.rz+KART_TRACK.railOffset)||near(KART_TRACK.rx-KART_TRACK.railOffset,KART_TRACK.rz-KART_TRACK.railOffset)&&!(z>5&&Math.abs(x)<2.1))return false;
+  if(near(KART_TRACK.rx+KART_TRACK.railOffset,KART_TRACK.rz+KART_TRACK.railOffset)&&!(z>10&&Math.abs(x)<.4)||near(KART_TRACK.rx-KART_TRACK.railOffset,KART_TRACK.rz-KART_TRACK.railOffset)&&!(z>5&&Math.abs(x)<2.1))return false;
   const dx=x-vehicle.position.x,dz=z-vehicle.position.z,c=Math.cos(vehicle.rotation.y),s=Math.sin(vehicle.rotation.y);return !(Math.abs(dx*c-dz*s)<.77&&Math.abs(dx*s+dz*c)<1.17);
  }
  return {kind,group,vehicle,driver,navPositions,extraBoxes,bounds,setPose,canStand};
