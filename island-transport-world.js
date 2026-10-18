@@ -28,12 +28,20 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
    // Side docks leave the inclined cabin approach completely open. A slab
    // across this lane used to cut through the roof before reaching the stop.
    for(const [a,b] of [[left,s.x-.88],[s.x+.88,right]]){const center=(a+b)/2,width=b-a;box(width,.22,2.4,m.stone,group,center,s.y-.11,s.z,'Cable_station_platform');floorRect(center,s.y,s.z,width,2.4)}
-   for(const x of [s.x-1.2,s.x+1.2]){const p=box(.13,3.35,.13,m.red,group,x,s.y+1.675,s.z);collider(p);box(.20,.15,.20,m.gold,group,x,s.y+.075,s.z)}
+   for(const x of [s.x-1.2,s.x+1.2]){const p=box(.13,4.45,.13,m.red,group,x,s.y+2.225,s.z);collider(p);box(.20,.15,.20,m.gold,group,x,s.y+.075,s.z)}
    // Split awnings leave a real opening for the moving hanger and cables.
    for(const x of [s.x-1.4,s.x+1.4]){rounded(.62,.32,2.1,.12,m.red,group,x,s.y+3.27,s.z);box(.58,.05,2.0,m.cream,group,x,s.y+3.47,s.z)}
    for(const z of [s.z-1.1,s.z+1.1]){for(const x of [s.x-1.2,s.x+1.2])post(x,s.y,z);rail([s.x-1.2,z],[s.x-.98,z],s.y);rail([s.x+.98,z],[s.x+1.2,z],s.y)}
    for(const x of [s.x-1.4,s.x+1.4])rod([x,s.y+3.28,s.z-.65],[x,s.y+3.28,s.z+.65],.08,m.dark);
-   const wheel=mesh(new THREE.TorusGeometry(.28,.05,8,24),m.gold,group,s.x,s.y+3.54,s.z,'Cable_station_pulley');wheel.rotation.y=Math.PI/2;
+   // The guide wheels hang from a real crosshead and forked axle mounts.
+   // Their lower rims meet the two cables; all bearings sit above the hanger.
+   box(2.55,.16,.20,m.dark,group,s.x,s.y+4.45,s.z,'Cable_station_crosshead');
+   for(const x of [s.x-.58,s.x+.58]){
+    const wheel=mesh(new THREE.TorusGeometry(.28,.05,8,24),m.gold,group,x,s.y+3.88,s.z,'Cable_station_pulley');wheel.rotation.y=Math.PI/2;
+    for(const side of [-1,1])rod([x+side*.11,s.y+4.45,s.z],[x+side*.11,s.y+3.88,s.z],.035,m.dark);
+    rod([x-.16,s.y+3.88,s.z],[x+.16,s.y+3.88,s.z],.05,m.gold);
+    const hub=mesh(new THREE.CylinderGeometry(.085,.085,.28,12),m.red,group,x,s.y+3.88,s.z,'Cable_station_pulley_hub');hub.rotation.z=Math.PI/2;
+   }
    if(i===1)for(const x of [s.x-1.3,s.x+1])rod([x,6.0,s.z],[x,s.y-.22,s.z],.13,m.stone);
   }
   // Both stations sit outside the mountain; separate bridges connect them
