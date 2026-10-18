@@ -1,3 +1,5 @@
+import {mountTouchViewport} from './touch-viewport.js?v=73';
+mountTouchViewport(document);
 import {mountEntryIntro} from './entry-intro.js?v=30';
 const $=id=>document.getElementById(id),map=$('map'),world=$('world'),transition=$('transition');
 let viewer,activeWorld=null,busy=false,lastButton=null,epoch=0;

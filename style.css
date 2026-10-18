@@ -20,3 +20,7 @@
  .map-bridge{display:block}
 .map-backdrop>img{left:-0.07422609%;top:-0.15923923%;width:103.02678438%;height:122.10492374%}
 }
+
+/* Game-wide tap behavior also covers empty space between controls. */
+html,body,#map,#world,#transition,#error{touch-action:manipulation;overscroll-behavior:none}
+#map,#world{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
