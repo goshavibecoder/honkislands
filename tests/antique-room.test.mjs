@@ -40,10 +40,31 @@ test('new floor navigation and furniture leave connected approaches to the origi
  for(const item of room.furniture){assert.ok(item.bounds.min.x>-2.8&&item.bounds.max.x<6);assert.ok(item.bounds.min.z>-1.6&&item.bounds.max.z<6);assert.ok(item.bounds.max.y<3.3)}
 });
 
-test('original circus art keeps its image and every clown and linked note keeps its placement',()=>{
- let count=0;gltf.scene.traverse(o=>{const old=preserved.get(o.uuid);if(!old)return;count++;assert.equal(o.geometry,old.geometry);assert.equal(o.material,old.material);if(!/^Poster_artwork_/.test(o.name))assert.ok(o.matrixWorld.equals(old.matrix))});assert.equal(count,preserved.size);
+test('original artwork and notes keep their images while desks and clowns retain their placement',()=>{
+ let count=0;gltf.scene.traverse(o=>{const old=preserved.get(o.uuid);if(!old)return;count++;assert.equal(o.geometry,old.geometry);assert.equal(o.material,old.material);if(!/^(Poster_artwork_|Highlighted_)/.test(o.name))assert.ok(o.matrixWorld.equals(old.matrix))});assert.equal(count,preserved.size);
  const targets=createWorldTargets(gltf.scene,'honkhub');assert.ok(targets.targets.length>=30);assert.ok(targets.targets.some(o=>o.userData.title==='Lore'));targets.dispose();
  for(const name of ['Antique_worn_sofa','Antique_full_bookcase','Antique_leather_travelling_trunk','Antique_grandfather_clock','Antique_gramophone_cabinet'])assert.ok(room.group.getObjectByName(name));
+});
+
+test('relocated sticky notes stay readable, clear the picture frames, and keep paired link targets',()=>{
+ const linked=room.notes.filter(n=>!n.name.startsWith('sketch_'));assert.equal(linked.length,15);
+ const art=[...room.wallArt.pictures,...room.wallArt.posters].map(p=>new THREE.Box3().setFromObject(p.group));
+ for(const note of room.notes){
+  const paper=new THREE.Box3().setFromObject(note.paper),image=new THREE.Box3().setFromObject(note.image),p=paper.getCenter(new THREE.Vector3()),q=image.getCenter(new THREE.Vector3());
+  assert.ok(p.distanceTo(q)<.005,'text detached from its paper');
+  const localNormal=new THREE.Vector3().fromBufferAttribute(note.image.geometry.attributes.normal,0).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(note.image.matrixWorld));
+  if(p.z< -1.5)assert.ok(localNormal.z>.99);else assert.ok(localNormal.x>.99);
+  assert.ok(art.every(a=>!a.intersectsBox(paper)),`note ${note.name} overlaps a picture frame`);
+ }
+ for(let i=0;i<linked.length;i++)for(let j=i+1;j<linked.length;j++)assert.ok(!new THREE.Box3().setFromObject(linked[i].paper).intersectsBox(new THREE.Box3().setFromObject(linked[j].paper)),'linked notes overlap');
+ const targets=createWorldTargets(gltf.scene,'honkhub');assert.equal(targets.targets.length,30);
+ for(const note of linked){const target=targets.targets.find(t=>t.name===note.paper.name);assert.ok(target);const a=new THREE.Box3().setFromObject(target),b=new THREE.Box3().setFromObject(note.paper);assert.ok(a.min.distanceTo(b.min)<1e-6&&a.max.distanceTo(b.max)<1e-6);assert.ok(target.userData.url.startsWith('https://'))}targets.dispose();
+});
+
+test('a closed glass cabinet holds hollow porcelain cups, a teapot and open crystal goblets',()=>{
+ const counts={};room.teaCabinet.traverse(o=>{counts[o.name]=(counts[o.name]||0)+1;if(o.name.includes('glass_door')){assert.ok(o.material.transparent&&o.material.opacity<.2);assert.equal(o.material.depthWrite,false)}});
+ assert.equal(counts.Antique_cabinet_glass_door,2);assert.equal(counts.Antique_hollow_teacup,4);assert.equal(counts.Antique_open_teapot_spout,1);assert.equal(counts.Antique_open_crystal_bowl,4);
+ assert.ok(room.furniture.some(f=>f.name===room.teaCabinet.name));
 });
 
 test('indoor lighting is warm and restores the shared scene when leaving the room',()=>{
@@ -63,7 +84,7 @@ test('three cartoon family pictures and five original posters are framed around 
  const normal=new THREE.Vector3();for(const p of [...room.wallArt.pictures,...room.wallArt.posters]){
   const image=p.image||p.poster;image.updateWorldMatrix(true,false);const size=new THREE.Box3().setFromObject(image).getSize(new THREE.Vector3());assert.ok(Math.abs(size.y-p.h)<.001);normal.fromBufferAttribute(image.geometry.attributes.normal,0).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(image.matrixWorld));
   if(p.x< -2)assert.ok(normal.x>.99);else if(p.x>5)assert.ok(normal.x<-.99);else if(p.z>5)assert.ok(normal.z<-.99);else assert.ok(normal.z>.99);
-  const center=new THREE.Box3().setFromObject(image).getCenter(new THREE.Vector3());assert.ok(center.y-p.h/2>1.5);assert.ok(center.y+p.h/2<3.3);
+  const center=new THREE.Box3().setFromObject(image).getCenter(new THREE.Vector3());assert.ok(center.y-p.h/2>1.5);assert.ok(center.y+p.h/2<3.49);
  }
  for(const picture of room.wallArt.pictures){assert.ok(picture.image.material.map);assert.ok(picture.image.material.emissiveIntensity<=.1)}
 });

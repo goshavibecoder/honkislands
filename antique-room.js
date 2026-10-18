@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import {hangFamilyPictures} from './family-wall.js?v=51';
+import {hangFamilyPictures} from './family-wall.js?v=53';
+import {addClownTeaCabinet,rearrangeWorkshopNotes} from './antique-details.js?v=53';
 
 export function prepareAntiqueRoom(root,{familyTextures=[]}={}){
  root.updateMatrixWorld(true);const sources=new Map(),posters=[],original=[];
@@ -17,7 +18,7 @@ export function prepareAntiqueRoom(root,{familyTextures=[]}={}){
  function place(name,x,z,angle=0){const g=new THREE.Group();g.name=name;g.position.set(x,.028,z);g.rotation.y=angle;group.add(g);return g}
  function solid(g){g.updateWorldMatrix(true,true);const b=new THREE.Box3().setFromObject(g);extraBoxes.push(b);furniture.push({name:g.name,bounds:b.clone()})}
  function cushion(w,h,d,mat,parent,x,y,z){const r=Math.min(.055,w/6,h/3,d/6),shape=new THREE.Shape();shape.moveTo(-w/2+r,-h/2+r);shape.lineTo(w/2-r,-h/2+r);shape.lineTo(w/2-r,h/2-r);shape.lineTo(-w/2+r,h/2-r);shape.closePath();const g=new THREE.ExtrudeGeometry(shape,{depth:d-2*r,bevelEnabled:true,bevelSize:r,bevelThickness:r,bevelSegments:3,steps:1});g.center();return mesh(g,mat,parent,x,y,z)}
- // Preserve the original desks, circus artwork, toys and all linked notes.
+ // Preserve the original desks, circus artwork and toys; relocate linked notes in pairs.
  // The old paper backings are separate meshes from the relocated poster images.
  const retired=new Set();for(const o of original)if(/^(Rear_ceiling_board|Left_ceiling_board|Poster_paper_)/.test(o.name)){retired.add(o.geometry);o.removeFromParent()}
  const retained=new Set();root.traverse(o=>{if(o.geometry)retained.add(o.geometry)});for(const g of retired)if(!retained.has(g))g.dispose();
@@ -79,6 +80,8 @@ export function prepareAntiqueRoom(root,{familyTextures=[]}={}){
  const horn=mesh(new THREE.LatheGeometry([new THREE.Vector2(.04,0),new THREE.Vector2(.055,.20),new THREE.Vector2(.10,.36),new THREE.Vector2(.22,.50),new THREE.Vector2(.37,.60)],24),m.brass,music,.23,1.10,-.12);horn.rotation.z=-.65;horn.material=m.brass.clone();horn.material.side=THREE.DoubleSide;rod([.58,.75,.0],[.76,.75,.0],.018,m.iron,music);rod([.76,.75,.0],[.76,.66,.0],.018,m.iron,music);solid(music);
  // Family portraits and original circus posters now share all four walls.
  const wallArt=hangFamilyPictures(group,m,posters,familyTextures);
+ const teaCabinet=addClownTeaCabinet(group,m);solid(teaCabinet);
+ const notes=rearrangeWorkshopNotes(group,original);
  // Wax candles and a small wrought brass ceiling chandelier.
  const chandelier=place('Antique_candle_chandelier',1.7,2.35);chandelier.position.y=0;
  for(let y=3.15;y<3.55;y+=.085){const ring=mesh(new THREE.TorusGeometry(.045,.011,6,12),m.iron,chandelier,0,y,0);ring.rotation.y=Math.round(y*100)%2?Math.PI/2:0}
@@ -86,7 +89,7 @@ export function prepareAntiqueRoom(root,{familyTextures=[]}={}){
  for(let i=0;i<5;i++){const a=i*Math.PI*2/5,x=Math.cos(a)*.54,z=Math.sin(a)*.54;rod([0,3.18,0],[x,2.95,z],.015,m.brass,chandelier);cyl(.075,.035,m.brass,chandelier,x,2.96,z);cyl(.035,.19,m.wax,chandelier,x,3.06,z);ball(x,3.20,z,.017,.057,.017,m.flame,chandelier)}
  const positions=new Float32Array([left,.028,rear,left,.028,front,right,.028,rear,right,.028,rear,left,.028,front,right,.028,front]),nav=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(positions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Antique_room_expanded_navigation';nav.updateMatrixWorld(true);
  const bounds=new THREE.Box3(new THREE.Vector3(-3.0,-.21,-1.82),new THREE.Vector3(6.24,4.0,6.24));let lighting=null;
- return {group,nav,extraBoxes,bounds,furniture,wallArt,
+ return {group,nav,extraBoxes,bounds,furniture,wallArt,teaCabinet,notes,
   mountLights(scene){if(lighting)return;lighting={scene,environment:scene.environmentIntensity,items:scene.children.filter(o=>o.isHemisphereLight||o.isDirectionalLight).map(light=>({light,intensity:light.intensity,color:light.color.clone()}))};scene.environmentIntensity=.35;for(const item of lighting.items){item.light.intensity*=item.light.isHemisphereLight?.64:.22;item.light.color.set(0xffdbaf)}for(const [x,y,z,intensity,color] of [[1.7,2.92,2.35,12,0xffcf8c],[4.7,2.30,-.5,4,0xffd7a0],[5.60,2.3,.5,3,0xb1bdb5]]){const light=new THREE.PointLight(color,intensity,7,2);light.position.set(x,y,z);scene.add(light);lights.push(light)}},
   dispose(){for(const light of lights){light.removeFromParent();light.dispose()}lights.length=0;if(lighting){lighting.scene.environmentIntensity=lighting.environment;for(const item of lighting.items){item.light.intensity=item.intensity;item.light.color.copy(item.color)}lighting=null}}
  };

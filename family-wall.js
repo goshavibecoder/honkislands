@@ -28,7 +28,7 @@ export function hangFamilyPictures(parent,materials,posters,familyTextures=[]){
  const layout=[
   {match:'Freak_Show',x:.45,y:2.20,z:5.975,angle:Math.PI,scale:1,wall:'front'},
   {match:'Stupendous_Strongman',x:3.25,y:2.65,z:5.975,angle:Math.PI,scale:1,wall:'front'},
-  {match:'Super_Circus',x:5.975,y:2.18,z:4.40,angle:-Math.PI/2,scale:1,wall:'right'},
+  {match:'Super_Circus',x:5.975,y:3.10,z:4.45,angle:-Math.PI/2,scale:.60,wall:'right'},
   {match:'Mustache_of_Might',x:2.75,y:2.65,z:-1.575,angle:0,scale:1,wall:'rear'},
   {match:'Clown_Carnival',x:-2.775,y:2.70,z:.90,angle:Math.PI/2,scale:.8,wall:'left'}
  ];
