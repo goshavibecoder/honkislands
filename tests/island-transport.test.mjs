@@ -56,14 +56,22 @@ test('kart touch driving, brake hold, camera change, exit and cancellation relea
  advance(controller,.2);panel.querySelector('.ride-board').click();assert.equal(controller.active,true);advance(controller,.5);controller.cancel();assert.equal(controller.active,false);assert.deepEqual(controller.model.position,{x:0,y:.06,z:9.4});controller.dispose();assert.equal(window.events.blur.length,0);
 });
 
-test('real touch joystick drives with sideways and diagonal drags and stops when released',()=>{
+test('real touch joystick separates throttle from steering and stops when released',()=>{
  for(const [dx,dy] of [[29,0],[20,-20],[-29,0]]){
   const {viewer,controller,panel,window}=setup('kart'),joystick=new Element(),doc=new Element(),knob={style:{}};doc.defaultView=window;joystick.ownerDocument=doc;joystick.getBoundingClientRect=()=>({left:0,top:0,width:100});let captured=null;joystick.setPointerCapture=id=>{captured=id};joystick.hasPointerCapture=id=>captured===id;joystick.releasePointerCapture=()=>{captured=null};
   const stick=createTouchStick(joystick,knob,(x,y)=>{viewer.stick.x=x;viewer.stick.y=y});panel.querySelector('.ride-board').click();
-  joystick.fire('pointerdown',{pointerId:7,pointerType:'touch',clientX:50+dx,clientY:50+dy});const start=controller.model.position.x;advance(controller,1);assert.ok(controller.model.speed>2);assert.ok(controller.model.position.x>start+1,'sideways joystick did not accelerate');
-  advance(controller,29);assert.ok(controller.model.laps>=1,'a sustained thumb drag got stuck at a barrier');assert.equal(controller.model.warning,0);
+  joystick.fire('pointerdown',{pointerId:7,pointerType:'touch',clientX:50+dx,clientY:50+dy});const start=controller.model.position.x;advance(controller,1);
+  if(dy===0){assert.equal(controller.model.speed,0);assert.equal(controller.model.position.x,start);assert.equal(controller.model.yaw,Math.PI/2);assert.ok(controller.model.steer*Math.sign(dx)>.9)}
+  else{assert.ok(controller.model.speed>1);assert.ok(controller.model.position.x>start+.5);assert.ok(controller.model.yaw>Math.PI/2)}
   window.fire('pointerup',{pointerId:7});assert.equal(viewer.stick.x,0);assert.equal(viewer.stick.y,0);advance(controller,1);assert.equal(controller.model.speed,0);stick.destroy();controller.dispose();
  }
+});
+
+test('without driver steering the kart keeps its heading and stops at a barrier instead of following the track',()=>{
+ const k=new KartDrive(),yaw=k.yaw;advance(k,15,60,{throttle:1});assert.equal(k.yaw,yaw);assert.equal(k.speed,0);assert.equal(k.laps,0);assert.ok(k.warning>0);
+ const stopped={...k.position};advance(k,2);assert.deepEqual(k.position,stopped);assert.equal(k.yaw,yaw);
+ advance(k,1,60,{throttle:-1});assert.ok(k.position.x<stopped.x-.5);assert.equal(k.yaw,yaw);
+ const right=new KartDrive(),left=new KartDrive();advance(right,1,60,{throttle:.6,steer:.6});advance(left,1,60,{throttle:.6,steer:-.6});assert.ok(right.yaw>yaw);assert.ok(left.yaw<yaw);assert.ok(Math.abs((right.yaw-yaw)+(left.yaw-yaw))<1e-10);
 });
 
 async function loadMountain(){const manifest=JSON.parse(readFileSync(new URL('../models/goat-mountain.json',import.meta.url))),bytes=gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url))))),gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');rebuildMountainStairs(gltf.scene,JSON.parse(gunzipSync(readFileSync(new URL('../models/goat-mountain-shell-v22.bin',import.meta.url)))));return gltf.scene}

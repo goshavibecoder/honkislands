@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=55';
+import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=56';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
 export function mountIslandTransport(viewer,world){
@@ -43,7 +43,7 @@ export function mountIslandTransport(viewer,world){
   exit.disabled=!!exiting||cable&&model.moving;trip.disabled=!!exiting||model.moving;camera.disabled=!!exiting;
   trip.textContent=model.station===0?'Ехать к вершине':'Ехать вниз';exit.textContent=cable?(model.station===1?'Выйти на вершине':'Выйти на нижней станции'):'Остановиться и выйти';
   camera.textContent=inside?'Вид снаружи':cable?'Вид из кабинки':'Вид с водительского места';
-  const label=exiting?'Выходим…':cable?(model.moving?(model.destination?'Поднимаемся к вершине · Проведи по экрану, чтобы осмотреться':'Спускаемся · Проведи по экрану, чтобы осмотреться'):'Прибыли! Можно выйти или поехать обратно'):model.warning>0?'Помогаем выровняться вдоль трассы':'Джойстик — ехать и поворачивать · Отпусти — стоп · Вниз — задний ход';
+  const label=exiting?'Выходим…':cable?(model.moving?(model.destination?'Поднимаемся к вершине · Проведи по экрану, чтобы осмотреться':'Спускаемся · Проведи по экрану, чтобы осмотреться'):'Прибыли! Можно выйти или поехать обратно'):model.warning>0?'Бортик — отъедь назад и поверни':'Вверх — газ · Вниз — задний ход · Влево / вправо — руль · Отпусти — стоп';
   if(status.textContent!==label)status.textContent=label;status.classList.toggle('ride-warning',!cable&&model.warning>0);
   output.textContent=cable?`${Math.round(model.t*100)}%`:`${Math.round(Math.abs(model.speed)*3.6)} км/ч · Круги: ${model.laps}`;
  }
