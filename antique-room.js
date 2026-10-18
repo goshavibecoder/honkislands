@@ -18,7 +18,8 @@ export function prepareAntiqueRoom(root,{familyTextures=[]}={}){
  function solid(g){g.updateWorldMatrix(true,true);const b=new THREE.Box3().setFromObject(g);extraBoxes.push(b);furniture.push({name:g.name,bounds:b.clone()})}
  function cushion(w,h,d,mat,parent,x,y,z){const r=Math.min(.055,w/6,h/3,d/6),shape=new THREE.Shape();shape.moveTo(-w/2+r,-h/2+r);shape.lineTo(w/2-r,-h/2+r);shape.lineTo(w/2-r,h/2-r);shape.lineTo(-w/2+r,h/2-r);shape.closePath();const g=new THREE.ExtrudeGeometry(shape,{depth:d-2*r,bevelEnabled:true,bevelSize:r,bevelThickness:r,bevelSegments:3,steps:1});g.center();return mesh(g,mat,parent,x,y,z)}
  // Preserve the original desks, circus artwork, toys and all linked notes.
- const retired=new Set();for(const o of original)if(/^(Rear_ceiling_board|Left_ceiling_board)/.test(o.name)){retired.add(o.geometry);o.removeFromParent()}
+ // The old paper backings are separate meshes from the relocated poster images.
+ const retired=new Set();for(const o of original)if(/^(Rear_ceiling_board|Left_ceiling_board|Poster_paper_)/.test(o.name)){retired.add(o.geometry);o.removeFromParent()}
  const retained=new Set();root.traverse(o=>{if(o.geometry)retained.add(o.geometry)});for(const g of retired)if(!retained.has(g))g.dispose();
  const left=-2.8,right=6,rear=-1.6,front=6,roof=3.78;
  box(right-left+.36,.18,front-rear+.36,m.dark,group,(left+right)/2,-.11,(front+rear)/2,'Antique_floor_foundation');
