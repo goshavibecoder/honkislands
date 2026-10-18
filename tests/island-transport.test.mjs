@@ -58,8 +58,15 @@ function setup(kind='cable'){
  const controller=mountIslandTransport(viewer,world);return {viewer,world,controller,panel:host.children.find(e=>e.className==='ride-controls'),window,host};
 }
 test('cabin touch controls deliver to the summit, exit safely and summon from the other station',()=>{
- const {viewer,controller,panel}=setup();panel.querySelector('.ride-board').click();assert.equal(controller.active,true);assert.equal(panel.querySelector('.ride-exit').disabled,true);advance(controller,14);assert.equal(controller.model.station,1);assert.equal(panel.querySelector('.ride-exit').disabled,false);panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(controller.active,false);assert.equal(viewer.foot,11.14);assert.equal(viewer.camera.position.x,1.25);
+ const {viewer,controller,panel}=setup();panel.querySelector('.ride-board').click();assert.equal(controller.active,true);assert.equal(panel.querySelector('.ride-exit').disabled,true);advance(controller,14);assert.equal(controller.model.station,1);assert.equal(panel.querySelector('.ride-exit').disabled,false);panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(controller.active,false);assert.equal(viewer.foot,CABLE_STATIONS[1].y);assert.equal(viewer.camera.position.x,1.25);
  viewer.foot=.19;viewer.camera.position.set(1.1,1.84,13.25);advance(controller,.2);panel.querySelector('.ride-board').click();assert.equal(controller.active,false);assert.equal(controller.model.moving,true);advance(controller,14);assert.equal(controller.model.station,0);panel.querySelector('.ride-board').click();assert.equal(controller.active,true);advance(controller,3);controller.cancel();assert.equal(controller.active,false);assert.equal(viewer.foot,.19);assert.equal(controller.model.station,0);controller.dispose();assert.equal(panel.removed,true);
+});
+test('outside cable camera uses the spatial collision index without scanning the whole mountain',()=>{
+ const {viewer,controller,panel}=setup();let indexed=0;
+ viewer.walkCollision={rayIntersect(){indexed++;return {distance:3}}};
+ viewer.staticGroup=new THREE.Group();viewer.staticGroup.raycast=()=>{throw Error('full mountain raycast')};
+ panel.querySelector('.ride-board').click();panel.querySelector('.ride-camera').click();advance(controller,2);
+ assert.ok(indexed>5&&indexed<25);assert.ok(viewer.camera.position.toArray().every(Number.isFinite));controller.dispose();
 });
 test('kart touch driving, brake hold, camera change, exit and cancellation release controls',()=>{
  const {viewer,controller,panel,world,window,host}=setup('kart');panel.querySelector('.ride-board').click();assert.equal(controller.active,true);viewer.stick.y=-1;viewer.stick.x=.2;advance(controller,1);assert.ok(controller.model.speed>2);panel.querySelector('.ride-camera').click();advance(controller,.5);assert.ok(viewer.camera.position.toArray().every(Number.isFinite));
@@ -124,10 +131,17 @@ test('joystick right points both front wheels toward the driver right, while rea
 async function loadMountain(){const manifest=JSON.parse(readFileSync(new URL('../models/goat-mountain.json',import.meta.url))),bytes=gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url))))),gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');rebuildMountainStairs(gltf.scene,JSON.parse(gunzipSync(readFileSync(new URL('../models/goat-mountain-shell-v22.bin',import.meta.url)))));return gltf.scene}
 test('the complete cabin clears the actual mountain and both station exits connect to walking surfaces',async()=>{
  const root=await loadMountain(),world=prepareIslandTransport(root,'goat-mountain'),nav=createMountainNavigation(root),extra=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(world.navPositions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide})),rocks=[];root.updateMatrixWorld(true);extra.updateMatrixWorld(true);root.traverse(o=>{if(o.isMesh&&/^(Faceted_mountain_(?!cloud)|Angular_flank_rock|Shrine_rock_support)/.test(o.name))rocks.push(o)});
+ const deck=root.getObjectByName('Cable_summit_bridge'),vertices=deck.geometry.attributes.position;
+ for(let i=0;i<vertices.count;i++)assert.ok(vertices.getZ(i)<=CABLE_STATIONS[1].z-1.2+1e-5,'bridge overlaps the station floor');
+ const surfaces=[];root.traverse(o=>{if(o.isMesh&&!o.userData.islandRide)surfaces.push(o)});const surfaceRay=new THREE.Raycaster();
+ for(const [x,z,y] of [[1,13.25,CABLE_STATIONS[0].y],[1.3,4.3,CABLE_STATIONS[1].y],[0,1.5,CABLE_STATIONS[1].y]]){
+  surfaceRay.set(new THREE.Vector3(x,y+.1,z),new THREE.Vector3(0,-1,0));surfaceRay.far=.2;const hits=surfaceRay.intersectObjects(surfaces,false),tops=[...new Set(hits.map(h=>h.point.y.toFixed(5)))].map(Number);
+  assert.ok(Math.abs(tops[0]-y)<1e-5);if(tops.length>1)assert.ok(tops[0]-tops[1]>.025,'station or bridge floor fights with the mountain surface');
+ }
  const ray=new THREE.Raycaster(),floorAt=(x,z,top,far)=>{ray.set(new THREE.Vector3(x,top,z),new THREE.Vector3(0,-1,0));ray.far=far;return ray.intersectObjects([nav,extra])[0]?.point.y??null};
  for(let i=0;i<=100;i++){const p=cablePosition(i/100);for(const x of [p.x-.76,p.x,p.x+.76])for(const z of [p.z-.76,p.z,p.z+.76]){ray.set(new THREE.Vector3(x,30,z),new THREE.Vector3(0,-1,0));ray.far=40;const rock=ray.intersectObjects(rocks)[0];assert.ok(!rock||rock.point.y<p.y+.04,'cabin enters the mountain')}}
  const boxes=world.extraBoxes,physics=new MountainWalkPhysics({eye:1.65,floorAt,canStand:(x,z,f)=>!boxes.some(b=>x>b.min.x-.17&&x<b.max.x+.17&&z>b.min.z-.17&&z<b.max.z+.17&&f+1.5>b.min.y&&f+.22<b.max.y),collision:createMountainCollision(root)});
- for(const [from,to,y] of [[[1.15,13.25],[0,13.25],.19],[[1.25,4.8],[0,1.5],11.14]]){assert.ok(Math.abs(floorAt(...from,y+.3,.6)-y)<1e-5);for(let i=0;i<=100;i++){const x=from[0]+(to[0]-from[0])*i/100,z=from[1]+(to[1]-from[1])*i/100;assert.ok(physics.clearAt(x,z,y),`blocked station path at ${x},${z}`)}}physics.dispose();
+ for(const [from,to,y] of [[[1.15,13.25],[0,13.25],CABLE_STATIONS[0].y],[[1.25,4.8],[0,1.5],CABLE_STATIONS[1].y]]){assert.ok(Math.abs(floorAt(...from,y+.3,.6)-y)<1e-5);for(let i=0;i<=100;i++){const x=from[0]+(to[0]-from[0])*i/100,z=from[1]+(to[1]-from[1])*i/100;assert.ok(physics.clearAt(x,z,y),`blocked station path at ${x},${z}`)}}physics.dispose();
 });
 
 test('the track has continuous floors, an open entrance and solid edge barriers',()=>{

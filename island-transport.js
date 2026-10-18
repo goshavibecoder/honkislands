@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import {mountTransportPanel} from './transport-panel.js?v=61';
-import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=59';
+import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=62';
 import {mountKartControls} from './kart-controls.js?v=57';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
 export function mountIslandTransport(viewer,world){
  const cable=world.kind==='cable',model=cable?new CableTransit():new KartDrive({obstacles:viewer.boxes}),panel=document.createElement('aside');panel.className='ride-controls';panel.hidden=true;panel.setAttribute('aria-label',cable?'Канатная дорога HONK':'Клоунский карт');
  panel.innerHTML='<button class="ride-board glass" type="button"></button><div class="ride-dashboard glass" hidden><div class="ride-heading"><strong></strong><output aria-live="off"></output></div><p class="ride-status" role="status" aria-live="polite"></p><button class="ride-trip" type="button"></button><button class="ride-brake" type="button">Тормоз</button><button class="ride-camera" type="button"></button><button class="ride-exit" type="button">Выйти</button></div>';
- const board=panel.querySelector('.ride-board'),dashboard=panel.querySelector('.ride-dashboard'),title=panel.querySelector('strong'),output=panel.querySelector('output'),status=panel.querySelector('.ride-status'),trip=panel.querySelector('.ride-trip'),brake=panel.querySelector('.ride-brake'),camera=panel.querySelector('.ride-camera'),exit=panel.querySelector('.ride-exit'),host=document.getElementById('world');host.append(panel);const compactPanel=mountTransportPanel(panel,'HONK • КАРТОДРОМ');
+ const board=panel.querySelector('.ride-board'),dashboard=panel.querySelector('.ride-dashboard'),title=panel.querySelector('strong'),output=panel.querySelector('output'),status=panel.querySelector('.ride-status'),trip=panel.querySelector('.ride-trip'),brake=panel.querySelector('.ride-brake'),camera=panel.querySelector('.ride-camera'),exit=panel.querySelector('.ride-exit'),host=document.getElementById('world');host.append(panel);const compactPanel=mountTransportPanel(panel,cable?'ФУНИКУЛЁР':'HONK • КАРТОДРОМ');
  title.textContent=cable?'HONK • КАНАТНАЯ ДОРОГА':'HONK • КАРТОДРОМ';trip.hidden=!cable;brake.hidden=cable;
  const gameControls=cable?null:mountKartControls(host);
  let saved=null,inside=cable,braking=false,boarding=0,exiting=null,near=-1,uiTime=0,disposed=false,boardStation=0,cameraCheck=0,cameraClearance=Infinity;
@@ -41,7 +41,7 @@ export function mountIslandTransport(viewer,world){
  for(const name of ['pointerup','pointercancel','lostpointercapture'])brake.addEventListener(name,()=>{braking=false;brake.classList.remove('pressed')});
  const blur=()=>{braking=false;brake.classList.remove('pressed');viewer.clearWalkInput()},key=e=>{if(saved&&e.code==='KeyE'){e.preventDefault();exit.click()}};window.addEventListener('blur',blur);window.addEventListener('keydown',key);
  function sync(){
-  compactPanel.setActive(!!saved&&!cable);near=nearby();panel.hidden=viewer.mode!=='walk'||!saved&&near<0;board.hidden=!!saved;dashboard.hidden=!saved;
+  compactPanel.setActive(!!saved);near=nearby();panel.hidden=viewer.mode!=='walk'||!saved&&near<0;board.hidden=!!saved;dashboard.hidden=!saved;
   board.disabled=cable&&model.moving;board.textContent=cable?(model.moving?'Кабинка едет на станцию…':model.station!==near?'✦ Вызвать кабинку':near===0?'✦ Подняться в кабинке':'✦ Спуститься в кабинке'):'✦ Сесть в машинку';
   exit.disabled=!!exiting||cable&&model.moving;trip.disabled=!!exiting||model.moving;camera.disabled=!!exiting;
   trip.textContent=model.station===0?'Ехать к вершине':'Ехать вниз';exit.textContent=cable?(model.station===1?'Выйти на вершине':'Выйти на нижней станции'):'Остановиться и выйти';
@@ -56,7 +56,7 @@ export function mountIslandTransport(viewer,world){
    if(cable)desired.set(p.x,p.y+1.35,p.z-.10);else desired.set(p.x+Math.sin(model.yaw)*.08,p.y+1.30,p.z+Math.cos(model.yaw)*.08);
   }else{
    const angle=(cable?Math.PI:model.yaw+Math.PI)+yaw,distance=cable?4.5:3.3;desired.set(p.x+Math.sin(angle)*distance,p.y+2.10+pitch*2.0,p.z+Math.cos(angle)*distance);target.set(p.x,p.y+.90,p.z);
-   const delta=from.copy(desired).sub(target),length=delta.length();delta.normalize();cameraCheck-=dt;if(cameraCheck<=0){cameraCheck=.10;ray.set(target,delta);ray.far=length;const obstacle=viewer.staticGroup?ray.intersectObject(viewer.staticGroup,true)[0]:null;cameraClearance=obstacle?Math.max(.6,obstacle.distance-.20):Infinity}if(cameraClearance<length)desired.copy(target).addScaledVector(delta,cameraClearance);
+   const delta=from.copy(desired).sub(target),length=delta.length();delta.normalize();cameraCheck-=dt;if(cameraCheck<=0){cameraCheck=.10;ray.set(target,delta);ray.far=length;const obstacle=cable?(viewer.walkCollision?.rayIntersect(ray.ray)||null):(viewer.staticGroup?ray.intersectObject(viewer.staticGroup,true)[0]:null);cameraClearance=obstacle?Math.max(.6,obstacle.distance-.20):Infinity}if(cameraClearance<length)desired.copy(target).addScaledVector(delta,cameraClearance);
   }
   boarding=Math.min(1,boarding+dt/.8);const k=boarding<1?smooth(boarding):1-Math.exp(-10*dt);viewer.camera.position.lerpVectors(boarding<1?saved.position:viewer.camera.position,desired,k);
   if(inside)viewer.camera.rotation.set(pitch,(cable?0:model.yaw+Math.PI)+yaw,0,'YXZ');else viewer.camera.lookAt(p.x,p.y+.85,p.z);

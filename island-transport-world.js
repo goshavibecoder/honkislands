@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,kartSteeringAngle} from './island-transport-motion.js?v=59';
+import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,kartSteeringAngle} from './island-transport-motion.js?v=62';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createHonkKartDriver} from './kart-driver.js?v=59';
 
@@ -9,6 +9,7 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  const navPositions=[],extraBoxes=[];
  const mat=(name,color,roughness=.6,metalness=.1)=>new THREE.MeshStandardMaterial({name,color,roughness,metalness});
  const m={red:mat('Transport lacquer red',0xb82d48,.3),cream:mat('Transport ivory',0xffe9bb,.4),gold:mat('Transport old brass',0xba914a,.36,.65),dark:mat('Transport dark frame',0x292b43,.52),blue:mat('Transport circus blue',0x466fbd,.35),rubber:mat('Transport rubber',0x222131,.9),stone:mat('Transport platform stone',0x977f86,.9),road:mat('Transport track asphalt',0x343249,.95),white:mat('Transport warm white',0xfff6df,.6),green:mat('Transport green',0x699b51,.55),pink:mat('Transport pink',0xd96694,.48),cyan:mat('Transport neon cyan',0x62d1dc,.3),glass:new THREE.MeshStandardMaterial({name:'Cable cabin glass',color:0xb5e5e5,transparent:true,opacity:.22,roughness:.16,metalness:.12,depthWrite:false,side:THREE.DoubleSide})};
+ m.glass.forceSinglePass=true;
  m.cyan.emissive.set(0x2c8cba);m.cyan.emissiveIntensity=.4;
  function mesh(geometry,material,parent=group,x=0,y=0,z=0,name='Transport_detail'){const o=new THREE.Mesh(geometry,material);o.name=name;o.position.set(x,y,z);parent.add(o);return o}
  const box=(w,h,d,material,parent,x,y,z,name)=>mesh(new THREE.BoxGeometry(w,h,d),material,parent,x,y,z,name);
@@ -23,7 +24,7 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  let vehicle,driver=null,wheels=[],steering=[],kind=slug==='goat-mountain'?'cable':'kart';
  if(kind==='cable'){
   for(let i=0;i<2;i++){
-   const s=CABLE_STATIONS[i];box(3.4,.22,2.4,m.stone,group,2.4,s.y-.11,s.z,'Cable_station_platform');floorRect(2.4,s.y,s.z,3.4,2.4);
+   const s=CABLE_STATIONS[i],platformX=i===1?2.25:2.4,platformWidth=i===1?3.7:3.4;box(platformWidth,.22,2.4,m.stone,group,platformX,s.y-.11,s.z,'Cable_station_platform');floorRect(platformX,s.y,s.z,platformWidth,2.4);
    for(const x of [1.88,4.0]){const p=box(.13,3.35,.13,m.red,group,x,s.y+1.675,s.z);collider(p);box(.20,.15,.20,m.gold,group,x,s.y+.075,s.z)}
    // Split awnings leave a real opening for the moving hanger and cables.
    for(const x of [1.65,3.95]){rounded(.62,.32,2.1,.12,m.red,group,x,s.y+3.27,s.z);box(.58,.05,2.0,m.cream,group,x,s.y+3.47,s.z)}
@@ -34,10 +35,18 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
   }
   // The lower platform overlaps the existing entry landing. The upper bridge
   // overlaps the real summit terrace, without changing the old stair flights.
-  const a=new THREE.Vector3(1.55,11.14,4.8),b=new THREE.Vector3(0,11.14,1.5),mid=a.clone().add(b).multiplyScalar(.5),length=a.distanceTo(b),angle=Math.atan2(b.x-a.x,b.z-a.z);
-  const bridge=box(1.5,.20,length+.6,m.stone,group,mid.x,11.04,mid.z,'Cable_summit_bridge');bridge.rotation.y=angle;floorRect(mid.x,11.14,mid.z,1.5,length+.6,angle);
+  const summitY=CABLE_STATIONS[1].y,a=new THREE.Vector3(1.55,summitY,4.8),b=new THREE.Vector3(0,summitY,1.5),mid=a.clone().add(b).multiplyScalar(.5),length=a.distanceTo(b),angle=Math.atan2(b.x-a.x,b.z-a.z);
+  // Cut the bridge flush to the station edge. Its top must never lie over
+  // the station floor; both used to draw at exactly the same depth.
+  const basis=new THREE.Matrix4().makeRotationY(angle).setPosition(mid.x,summitY,mid.z),edge=CABLE_STATIONS[1].z-1.2;
+  const corners=[[-.75,-(length+.6)/2],[-.75,(length+.6)/2],[.75,(length+.6)/2],[.75,-(length+.6)/2]].map(([x,z])=>new THREE.Vector3(x,0,z).applyMatrix4(basis)),outline=[];
+  for(let i=0;i<corners.length;i++){const p=corners[i],q=corners[(i+1)%corners.length],pin=p.z<=edge,qin=q.z<=edge;if(pin)outline.push(p);if(pin!==qin)outline.push(p.clone().lerp(q,(edge-p.z)/(q.z-p.z)))}
+  const shape=new THREE.Shape(outline.map(p=>new THREE.Vector2(p.x,-p.z))),deck=new THREE.ExtrudeGeometry(shape,{depth:.20,steps:1,bevelEnabled:false}),positions=deck.attributes.position;
+  for(let i=0;i<positions.count;i++)positions.setXYZ(i,positions.getX(i),summitY-.20+positions.getZ(i),-positions.getY(i));deck.computeVertexNormals();
+  mesh(deck,m.stone,group,0,0,0,'Cable_summit_bridge');
+  for(let i=0;i<positions.count;i+=3){const top=[0,1,2].map(j=>new THREE.Vector3().fromBufferAttribute(positions,i+j));if(top.every(p=>Math.abs(p.y-summitY)<1e-5)&&new THREE.Triangle(...top).getNormal(new THREE.Vector3()).y>.9)for(const p of top)navPositions.push(...p.toArray())}
   const side=new THREE.Vector3(Math.cos(angle),0,-Math.sin(angle));
-  for(const sign of [-1,1]){const from=a.clone().addScaledVector(side,sign*.71),to=b.clone().addScaledVector(side,sign*.71);rail([from.x,from.z],[to.x,to.z],11.14);for(let j=0;j<=3;j++){const p=from.clone().lerp(to,j/3);post(p.x,11.14,p.z)}}
+  for(const sign of [-1,1]){const from=a.clone().addScaledVector(side,sign*.71),to=b.clone().addScaledVector(side,sign*.71);rail([from.x,from.z],[to.x,to.z],summitY);for(let j=0;j<=3;j++){const p=from.clone().lerp(to,j/3);post(p.x,summitY,p.z)}}
   for(const x of [2.22,3.38]){const points=[];for(let i=0;i<=40;i++){const p=cablePosition(i/40);points.push(new THREE.Vector3(x,p.y+3.55,p.z))}mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),64,.022,6,false),m.dark)}
   vehicle=new THREE.Group();vehicle.name='Honk_scenic_cable_cabin';group.add(vehicle);
   rounded(1.46,.65,1.5,.15,m.red,vehicle,0,.40,0);box(1.33,.07,1.4,m.dark,vehicle,0,.04,0);
