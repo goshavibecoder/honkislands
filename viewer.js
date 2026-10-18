@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createArchitectureCollision} from './walk-architecture.js?v=77';
 import {prepareGroypAir} from './groyp-air.js?v=74';
 import {prepareVisualQuality} from './visual-quality.js?v=72';
 import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=72';
@@ -65,6 +66,7 @@ export class IslandViewer {
   }
   this.helicopterCollision=this.helicopter?createHelicopterCollision(this.root,this.helicopter.scale):null;
   this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):slug==='goat-mountain'?createMountainCollision(this.root):null;
+  this.architectureCollision=createArchitectureCollision(this.root,slug);
   if(slug==='goat-mountain')this.nav=createMountainNavigation(this.root);if(this.antiqueRoom)this.nav=this.antiqueRoom.nav;
   this.visualQuality=prepareVisualQuality(this.root,{maxAnisotropy:this.renderer.capabilities.getMaxAnisotropy()});
   const stormAnchor=slug==='goat-mountain'?findMountainStormAnchor(this.root):null;
@@ -122,7 +124,7 @@ export class IslandViewer {
   let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObjects(this.padNav?[this.nav,this.padNav]:[this.nav],false)[0]?.point.y??null;
   const cabin=this.gallery?.floorAt(x,z,top,far);return cabin!==null&&cabin!==undefined?floor===null?cabin:Math.max(floor,cabin):floor;
  }
- canStand(x,z,floor){if(this.islandTransportWorld&&!this.islandTransportWorld.canStand(x,z,floor))return false;if(this.arenaCircus&&!this.arenaCircus.canStand(x,z,floor,this.config.eye))return false;if(this.gallery&&!this.gallery.canStand(x,z,floor))return false;const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
+ canStand(x,z,floor){if(this.architectureCollision&&!this.architectureCollision.canStand(x,z,floor,this.config.eye))return false;if(this.islandTransportWorld&&!this.islandTransportWorld.canStand(x,z,floor))return false;if(this.arenaCircus&&!this.arenaCircus.canStand(x,z,floor,this.config.eye))return false;if(this.gallery&&!this.gallery.canStand(x,z,floor))return false;const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
  stepTo(x,z){if(this.physics){const floor=this.physics.step(x,z,this.foot);if(floor===null)return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}const floor=this.floorAt(x,z,this.foot+.49,1.2);if(floor===null||floor-this.foot>.48||this.foot-floor>.65||!this.canStand(x,z,floor))return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}
  tick(time){this.frame=0;if(!this.active)return;const dt=Math.min((time-(this.previous||time))/1000,.08);this.previous=time;this.renderQuality?.update(dt);
   const ballooning=this.balloonTravel?.active;this.balloonTravel?.update(dt);
@@ -177,6 +179,7 @@ export class IslandViewer {
   this.helicopterFlight?.dispose();this.helicopterFlight=null;this.galleryLift?.dispose();this.galleryLift=null;this.gallery=null;this.helicopter=null;
   this.helicopterCollision?.dispose();this.helicopterCollision=null;this.helicopterExplosion?.dispose();this.helicopterExplosion=null;
   if(this.padNav){this.padNav.geometry.dispose();this.padNav.material.dispose();this.padNav=null}
+  this.architectureCollision?.dispose();this.architectureCollision=null;
   this.physics?.dispose();this.physics=null;this.floorIndex?.clear();this.floorIndex=null;this.walkCollision=null;if(this.stairNav){this.stairNav.geometry.dispose();this.stairNav.material.dispose();this.stairNav=null}
   if(this.arenaCircus){this.arenaCircus.dispose();this.arenaCircus=null}else this.arcadeTargets?.dispose();this.arcadeTargets=null;this.gameTaps?.reset();this.renderer.domElement.title='';this.renderer.domElement.style.cursor='';
   for(const mixer of this.mixers||[])mixer.stopAllAction();const geometries=new Set(),materials=new Set(),textures=new Set();for(const root of [this.root,this.staticGroup,this.clouds,this.nav]){if(!root)continue;root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(m);for(const v of Object.values(m))if(v?.isTexture&&v!==this.environment)textures.add(v)}});root.removeFromParent()}
