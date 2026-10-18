@@ -1,0 +1,73 @@
+/* One thumb zone per side, an unobstructed view, and the same circus paint. */
+#world.in-island-ride #walk-controls,#world.in-gallery-lift #walk-controls{display:none!important}
+#world.flying .reset,#world.in-island-ride .reset,#world.in-gallery-lift .reset{display:none}
+#world .heli-height button,#world .ride-brake{touch-action:none}
+.ride-controls,.heli-controls,.gallery-lift{overscroll-behavior:contain}
+
+@media(max-width:600px),(max-width:1000px) and (max-height:600px){
+ #world{--control-left:max(12px,env(safe-area-inset-left));--control-right:max(12px,env(safe-area-inset-right));--control-bottom:calc(16px + env(safe-area-inset-bottom));--control-top:calc(78px + env(safe-area-inset-top))}
+ #world button{min-height:44px}
+ #world .back{left:var(--control-left);top:calc(10px + env(safe-area-inset-top));font-size:11px;min-height:46px}
+ #world .view-switch{right:var(--control-right);top:calc(10px + env(safe-area-inset-top))}
+ #world .view-switch button{padding:8px 9px;font-size:11px}
+ #world #walk-controls{left:var(--control-left);bottom:var(--control-bottom)}
+ #world #joystick{width:112px;height:112px}
+ #world #knob{left:31px;top:31px}
+ #world .ride-controls,#world .heli-controls{right:var(--control-right);width:min(250px,calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));bottom:calc(144px + env(safe-area-inset-bottom));max-height:calc(100svh - 238px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow-y:auto;padding-bottom:4px}
+ #world.in-island-ride .ride-controls,#world.flying .heli-controls{top:var(--control-top);bottom:auto;width:min(320px,calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-height:calc(100svh - 250px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+ #world .ride-dashboard,#world .heli-dashboard{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px;border-radius:15px}
+ #world .ride-heading,#world .heli-heading,#world .ride-status,#world .heli-status,#world .heli-warning{grid-column:1/-1}
+ #world .ride-heading,#world .heli-heading{font-size:10px;flex-wrap:nowrap}
+ #world .ride-status,#world .heli-status{min-height:0;font-size:10px;line-height:1.35;margin:0}
+ #world .ride-warning,#world .heli-warning{font-size:11px;margin:0;padding:7px}
+ #world .ride-dashboard button,#world .heli-dashboard button{min-height:44px;margin:0;padding:7px 5px;font-size:11px;line-height:1.25}
+ #world .ride-brake{grid-column:1/-1}
+ #world .heli-height{grid-column:1/-1;gap:9px}
+ #world.flying .heli-height{position:fixed;right:var(--control-right);bottom:var(--control-bottom);width:140px;gap:8px}
+ #world.flying .heli-height button{min-height:74px;border-width:2px;border-radius:16px;background:#fff6df;font-size:13px;font-weight:800;box-shadow:0 3px 0 #95601e}
+ #world.flying .heli-height button.pressed{background:#bf243e;color:#fff6df}
+ #world.flying .heli-camera,#world.flying .heli-land{margin-top:0}
+ #world .kart-game-stick{left:var(--control-left);bottom:var(--control-bottom);width:120px;height:120px}
+ #world .kart-game-knob{width:56px;height:56px;margin:-28px 0 0 -28px}
+ #world .kart-turn-left,#world .kart-turn-right{top:49px}
+ #world .kart-pedals{right:var(--control-right);bottom:var(--control-bottom);gap:8px}
+ #world .kart-pedals button{width:64px;min-height:78px;padding:7px 4px;font-size:11px}
+ #world .gallery-lift{right:var(--control-right);bottom:calc(144px + env(safe-area-inset-bottom));width:min(290px,calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-height:calc(100svh - 230px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow-y:auto;padding-bottom:4px}
+ #world .lift-menu{padding:10px;margin-top:7px}
+ #world .lift-menu>p{margin-bottom:8px}
+ #world .lift-floors{gap:7px}
+ #world .lift-floors button{min-height:44px;padding:7px}
+ #world .lift-floors span{font-size:11px}
+ #world .lift-close{margin-top:8px;min-height:44px}
+ #world.in-gallery-lift .gallery-lift{top:var(--control-top);bottom:auto}
+ #world .heli-respawn-note{margin:0}
+}
+@media(max-width:360px) and (orientation:portrait){
+ #world .back::after{display:none}
+ #world .back{padding-right:7px;gap:4px}
+ #world .view-switch{top:calc(10px + env(safe-area-inset-top));padding:3px;gap:2px}
+ #world .view-switch button{padding:7px 6px;font-size:10px}
+ #world .kart-game-stick{width:110px;height:110px}
+ #world .kart-turn-left,#world .kart-turn-right{top:44px}
+ #world .kart-pedals button{width:60px}
+}
+@media(orientation:landscape) and (max-height:600px) and (max-width:1000px){
+ #world{--control-top:calc(70px + env(safe-area-inset-top))}
+ #world.in-island-ride .ride-controls,#world.flying .heli-controls{width:276px;max-height:calc(100svh - 180px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+ #world .ride-status:not(.ride-warning),#world .heli-status{display:none}
+ #world .ride-dashboard,#world .heli-dashboard{gap:6px;padding:8px}
+ #world .ride-dashboard .ride-brake{grid-column:auto}
+ #world.driving-kart .ride-dashboard{grid-template-columns:repeat(3,1fr)}
+ #world.driving-kart .ride-heading{grid-column:1/-1}
+ #world .ride-controls,#world .heli-controls{bottom:calc(114px + env(safe-area-inset-bottom))}
+ #world .gallery-lift{top:var(--control-top);bottom:auto;width:300px;max-height:calc(100svh - 90px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+ #world .lift-floors{grid-template-columns:1fr 1fr}
+ #world .lift-menu>p{display:none}
+ #world .lift-toggle{min-height:44px;padding:5px 9px}
+ #world .lift-floors button{gap:6px}
+ #world .lift-floors strong{width:25px;height:25px;font-size:15px}
+ #world .kart-game-stick{width:108px;height:108px}
+ #world .kart-turn-left,#world .kart-turn-right{top:43px}
+ #world .kart-pedals button{min-height:70px}
+ #world.flying .heli-height button{min-height:68px}
+}

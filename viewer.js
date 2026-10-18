@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {MobileRenderQuality} from './mobile-render-quality.js?v=59';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
@@ -7,8 +8,8 @@ import {createArcadeTargets} from './arcade-links.js?v=8';
 import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=27';
 import {rebuildMountainStairs} from './mountain-stairs.js?v=23';
 import {repairLandingPad} from './landing-pad.js?v=19';
-import {addClownHelicopter} from './clown-helicopter.js?v=39';
-import {mountHelicopterFlight} from './helicopter-flight.js?v=40';
+import {addClownHelicopter} from './clown-helicopter.js?v=59';
+import {mountHelicopterFlight} from './helicopter-flight.js?v=59';
 import {createHelicopterCollision,createHelicopterExplosion} from './helicopter-world.js?v=40';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=21';
 import {createWorldTargets} from './world-links.js?v=32';
@@ -18,19 +19,19 @@ import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
 import {loadHonkFamilyPictures} from './family-wall.js?v=53';
 import {prepareAntiqueRoom} from './antique-room.js?v=53';
-import {prepareGalleryInterior} from './gallery-interior.js?v=36';
+import {prepareGalleryInterior} from './gallery-interior.js?v=59';
 import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=49';
-import {mountGalleryLift} from './gallery-lift.js?v=36';
-import {prepareIslandTransport} from './island-transport-world.js?v=58';
-import {mountIslandTransport} from './island-transport.js?v=58';
-import {loadHonkKartHead} from './kart-driver.js?v=58';
+import {mountGalleryLift} from './gallery-lift.js?v=59';
+import {prepareIslandTransport} from './island-transport-world.js?v=59';
+import {mountIslandTransport} from './island-transport.js?v=59';
+import {loadHonkKartHead} from './kart-driver.js?v=59';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
 const configPromise=fetch('./worlds.json?v=7').then(r=>{if(!r.ok)throw Error('World configuration unavailable');return r.json()});
 export class IslandViewer {
  constructor(host){
   this.host=host;this.active=false;this.mode='walk';this.keys=new Set();this.stick={x:0,y:0};this.yaw=0;this.pitch=0;this.motion=new WalkMotion();this.drag=null;this.foot=0;this.previous=0;this.frame=0;this.navRay=new THREE.Raycaster();
-  this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));this.renderer.setClearColor(0x000000,0);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});this.renderQuality=new MobileRenderQuality(this.renderer,{mobile:matchMedia('(pointer:coarse)').matches,pixelRatio:devicePixelRatio});this.renderer.setClearColor(0x000000,0);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
   this.renderer.domElement.setAttribute('aria-label','Интерактивная 3D-сцена');host.append(this.renderer.domElement);
   this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.035,1100);this.camera.rotation.order='YXZ';
   this.skyTarget=createPanoramicSky(this.renderer);this.scene.background=this.skyTarget.texture;
@@ -43,7 +44,7 @@ export class IslandViewer {
  }
  async fetchBinary(url,onChunk=()=>{}){const response=await fetch(url);if(!response.ok)throw Error(`Asset ${response.status}: ${url}`);if(!response.body)return new Uint8Array(await response.arrayBuffer());const reader=response.body.getReader(),chunks=[];let n=0;while(true){const {value,done}=await reader.read();if(done)break;chunks.push(value);n+=value.length;onChunk(value.length)}const data=new Uint8Array(n);let off=0;for(const chunk of chunks){data.set(chunk,off);off+=chunk.length}return data}
  async open(slug,progress){
-  this.setActive(false);this.clear();this.slug=slug;this.camera.near=slug==='arena'?.10:.035;this.camera.far=slug==='arena'?180:1100;this.camera.updateProjectionMatrix();this.config=(await configPromise)[slug];if(!this.config)throw Error('Unknown island');this.renderer.setPixelRatio(Math.min(devicePixelRatio,this.config.pixelRatio||1.6));
+  this.setActive(false);this.clear();this.slug=slug;this.camera.near=slug==='arena'?.10:.035;this.camera.far=slug==='arena'?180:1100;this.camera.updateProjectionMatrix();this.config=(await configPromise)[slug];if(!this.config)throw Error('Unknown island');this.renderQuality.configure(this.config.pixelRatio||1.6);
   const response=await fetch(`./models/${slug}.json?v=9`);if(!response.ok)throw Error('Model manifest unavailable');this.manifest=await response.json();let downloaded=0;const payloads=await Promise.all(this.manifest.parts.map(part=>this.fetchBinary(`./models/${part}?v=9`,n=>{downloaded+=n;progress(downloaded/this.manifest.bytes*.72,'Летим на остров…')})));
   const bytes=new Uint8Array(payloads.reduce((n,a)=>n+a.length,0));let offset=0;for(const a of payloads){bytes.set(a,offset);offset+=a.length}
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
@@ -113,7 +114,7 @@ export class IslandViewer {
  }
  canStand(x,z,floor){if(this.islandTransportWorld&&!this.islandTransportWorld.canStand(x,z,floor))return false;if(this.arenaCircus&&!this.arenaCircus.canStand(x,z,floor,this.config.eye))return false;if(this.gallery&&!this.gallery.canStand(x,z,floor))return false;const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
  stepTo(x,z){if(this.physics){const floor=this.physics.step(x,z,this.foot);if(floor===null)return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}const floor=this.floorAt(x,z,this.foot+.49,1.2);if(floor===null||floor-this.foot>.48||this.foot-floor>.65||!this.canStand(x,z,floor))return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}
- tick(time){this.frame=0;if(!this.active)return;const dt=Math.min((time-(this.previous||time))/1000,.08);this.previous=time;
+ tick(time){this.frame=0;if(!this.active)return;const dt=Math.min((time-(this.previous||time))/1000,.08);this.previous=time;this.renderQuality?.update(dt);
   const riding=this.galleryLift?.active;this.galleryLift?.update(dt);
   const flying=this.helicopterFlight?.active;this.helicopterFlight?.update(dt);
   const transporting=this.islandTransport?.active;this.islandTransport?.update(dt);

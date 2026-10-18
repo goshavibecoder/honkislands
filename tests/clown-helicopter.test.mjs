@@ -51,6 +51,6 @@ test('the actual citadel batches with the aircraft and retains its H marking',as
  assert.ok(gltf.scene.getObjectByName('Helipad_single_H_marking'));
  const viewer={root:gltf.scene.clone(true),config:{},renderer:{capabilities:{getMaxAnisotropy:()=>4}}};
  const removed=new Function('THREE','mergeGeometries','gltf','slug',source.slice(start,end)+'return remove;').call(viewer,THREE,mergeGeometries,{animations:[]},'citadel');
- assert.ok(!removed.some(o=>o.userData.helicopterDynamic));let moving=0;viewer.root.traverse(o=>{if(o.isMesh&&o.userData.helicopterDynamic)moving++});assert.ok(moving>50);
+ assert.ok(!removed.some(o=>o.userData.helicopterDynamic));let moving=0;viewer.root.traverse(o=>{if(o.isMesh&&o.userData.helicopterDynamic)moving++});assert.ok(moving>15&&moving<65,`Aircraft draw calls: ${moving}`);
  assert.ok(viewer.staticGroup.children.length>0);viewer.staticGroup.traverse(o=>{if(!o.isMesh)return;assert.ok(o.geometry.attributes.position.count>0);assert.ok(o.geometry.boundingSphere.radius>0);o.geometry.dispose()});
 });

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import {CABLE_STATIONS,cablePosition,KART_TRACK,kartSteeringAngle} from './island-transport-motion.js?v=58';
-import {createHonkKartDriver} from './kart-driver.js?v=58';
+import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,kartSteeringAngle} from './island-transport-motion.js?v=59';
+import {batchRideMeshes} from './ride-performance.js?v=59';
+import {createHonkKartDriver} from './kart-driver.js?v=59';
 
 export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  if(!['goat-mountain','arcade-district'].includes(slug))return null;
@@ -56,11 +57,9 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
   const count=128;for(let i=0;i<count;i++){const t=i*Math.PI*2/count,n=(i+1)*Math.PI*2/count;navPositions.push(0,.04,0,Math.sin(t)*9.55,.04,Math.cos(t)*11.75,Math.sin(n)*9.55,.04,Math.cos(n)*11.75)}
   const roadPositions=[];for(let i=0;i<count;i++){const t=i*Math.PI*2/count,n=(i+1)*Math.PI*2/count;const p=a=>[[Math.sin(a)*(KART_TRACK.rx-1.8),.052,Math.cos(a)*(KART_TRACK.rz-1.8)],[Math.sin(a)*(KART_TRACK.rx+1.8),.052,Math.cos(a)*(KART_TRACK.rz+1.8)]];const [a,b]=p(t),[c,d]=p(n);roadPositions.push(...a,...b,...c,...b,...d,...c)}
   const road=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(roadPositions,3));road.computeVertexNormals();mesh(road,m.road,group,0,0,0,'Arcade_driveable_circuit');
-  for(const side of [-1,1])for(let i=0;i<96;i++){
-   const t=i*Math.PI*2/96,n=(i+1)*Math.PI*2/96,rx=KART_TRACK.rx+side*1.92,rz=KART_TRACK.rz+side*1.92;
-   if(side<0&&Math.abs(Math.sin((t+n)/2))<.36&&Math.cos(t)>0)continue;
-   const start=[Math.sin(t)*rx,Math.cos(t)*rz],end=[Math.sin(n)*rx,Math.cos(n)*rz];rod([start[0],.22,start[1]],[end[0],.22,end[1]],.075,i%2?m.red:m.cream);
-   rod([start[0],.67,start[1]],[end[0],.67,end[1]],.028,m.cyan);if(i%4===0)post(start[0],.04,start[1],.64);
+  for(const r of KART_RAILS){
+   const start=[r.ax,r.az],end=[r.bx,r.bz];rod([r.ax,.22,r.az],[r.bx,.22,r.bz],.075,r.index%2?m.red:m.cream);
+   rod([r.ax,.67,r.az],[r.bx,.67,r.bz],.028,m.cyan);if(r.index%4===0)post(start[0],.04,start[1],.64);
   }
   for(let i=0;i<64;i++){const t=i*Math.PI*2/64;const o=box(.075,.008,.42,m.cream,group,Math.sin(t)*KART_TRACK.rx,.06,Math.cos(t)*KART_TRACK.rz);o.rotation.y=Math.atan2(KART_TRACK.rx*Math.cos(t),-KART_TRACK.rz*Math.sin(t))}
   for(let i=0;i<8;i++)for(let j=0;j<2;j++)box(.20,.008,.45,(i+j)%2?m.white:m.dark,group,-.1+j*.20,.064,KART_TRACK.rz-1.575+i*.45);
@@ -75,13 +74,14 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
   for(let i=0;i<5;i++)sphere(-.36+i*.18,.66,.71,.066,.045,.04,[m.red,m.gold,m.green,m.blue,m.pink][i],vehicle);
   driver=createHonkKartDriver(vehicle,driverHead);dynamic(vehicle);vehicle.position.set(0,KART_TRACK.y,KART_TRACK.rz);vehicle.rotation.y=Math.PI/2;
  }
+ batchRideMeshes(vehicle,{keep:o=>steering.includes(o)});dynamic(vehicle);
  group.updateWorldMatrix(true,true);
  const bounds=new THREE.Box3().setFromObject(group);
  function setPose(p,yaw=0,spin=0,steer=0,speed=0){vehicle.position.set(p.x,p.y,p.z);vehicle.rotation.y=yaw;for(const w of wheels){w.pivot.rotation.y=w.front?kartSteeringAngle(steer,speed):0;w.tire.rotation.x=spin;w.hub.rotation.x=spin}for(const s of steering)s.rotation.z=steer*.65;driver?.steer(steer)}
  function canStand(x,z){
   if(kind==='cable')return true;
   const near=(rx,rz)=>Math.abs(Math.hypot(x/rx,z/rz)-1)*Math.min(rx,rz)<.25;
-  if(near(KART_TRACK.rx+1.92,KART_TRACK.rz+1.92)||near(KART_TRACK.rx-1.92,KART_TRACK.rz-1.92)&&!(z>5&&Math.abs(x)<2.1))return false;
+  if(near(KART_TRACK.rx+KART_TRACK.railOffset,KART_TRACK.rz+KART_TRACK.railOffset)||near(KART_TRACK.rx-KART_TRACK.railOffset,KART_TRACK.rz-KART_TRACK.railOffset)&&!(z>5&&Math.abs(x)<2.1))return false;
   const dx=x-vehicle.position.x,dz=z-vehicle.position.z,c=Math.cos(vehicle.rotation.y),s=Math.sin(vehicle.rotation.y);return !(Math.abs(dx*c-dz*s)<.77&&Math.abs(dx*s+dz*c)<1.17);
  }
  return {kind,group,vehicle,driver,navPositions,extraBoxes,bounds,setPose,canStand};

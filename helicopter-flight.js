@@ -73,7 +73,7 @@ export function mountHelicopterFlight(viewer,helicopter,{collision=null,effects=
  const flight=new HelicopterFlight(helicopter.home,{collides:(p,yaw)=>collision?.hit(p,yaw)||false}),panel=document.createElement('aside');panel.className='heli-controls';panel.hidden=true;panel.setAttribute('aria-label','Вертолёт HONK AIR');
  panel.innerHTML='<button class="heli-board glass" type="button"><b aria-hidden="true">✦</b> Сесть в вертолёт</button><div class="heli-dashboard glass" hidden><div class="heli-heading"><strong>HONK AIR</strong><output class="heli-altitude" aria-live="off"></output></div><p class="heli-status" role="status" aria-live="polite"></p><p class="heli-warning" role="status" aria-live="polite" hidden></p><div class="heli-height"><button type="button" data-rise="1" aria-label="Лететь выше">↑ Выше</button><button type="button" data-rise="-1" aria-label="Лететь ниже">↓ Ниже</button></div><button class="heli-camera" type="button">Вид из кабины</button><button class="heli-land" type="button">Посадить и выйти</button></div><p class="heli-respawn-note glass" role="status" hidden></p>';
  const warning=panel.querySelector('.heli-warning'),note=panel.querySelector('.heli-respawn-note'),board=panel.querySelector('.heli-board'),dashboard=panel.querySelector('.heli-dashboard'),status=panel.querySelector('.heli-status'),altitude=panel.querySelector('.heli-altitude'),land=panel.querySelector('.heli-land'),camera=panel.querySelector('.heli-camera'),heightButtons=[...panel.querySelectorAll('[data-rise]')],world=document.getElementById('world');world.append(panel);
- let saved=null,rise=0,cabin=false,oldPhase='',spin=0,rotorSpeed=0,boarding=0,toastTime=0;
+ let saved=null,rise=0,cabin=false,oldPhase='',spin=0,rotorSpeed=0,boarding=0,toastTime=0,uiTime=0;
  const pressed=new Map(),labels={spinup:'Запускаем винты…',takeoff:'Плавно взлетаем…',depart:'Выходим на круг вокруг замка…',cruise:'Джойстик — полёт · Экран — поворот',return:'Возвращаемся к площадке…',approach:'Заходим на посадку…',land:'Садимся…',exit:'Выходим из вертолёта…',climb:'Набираем высоту над замком…',overflight:'Возвращаемся к площадке…',descend:'Снижаемся перед посадкой…',crashed:'Столкновение! Возвращаемся на площадку…',respawn:'Респаун: ты упирался в границу 10 секунд…'};
  function release(){pressed.clear();rise=0;for(const b of heightButtons)b.classList.remove('pressed')}
  function restore(reason=null){
@@ -123,7 +123,7 @@ export function mountHelicopterFlight(viewer,helicopter,{collision=null,effects=
      else if(cabin)viewer.camera.rotation.set(pitch,yaw,0,'YXZ');else viewer.camera.lookAt(p.x-Math.sin(yaw)*1.4,p.y+1,p.z-Math.cos(yaw)*1.4);
     }
    }
-   sync();
+   uiTime-=dt;if(uiTime<=0||oldPhase!==flight.phase){uiTime=.10;sync()}
   },
   cancel(){if(flight.active||saved){flight.cancel();restore()}sync()},
   dispose(){this.cancel();window.removeEventListener('blur',blur);window.removeEventListener('keydown',key);panel.remove()}

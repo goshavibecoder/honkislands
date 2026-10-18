@@ -24,7 +24,7 @@ export function createHonkKartDriver(vehicle,headData){
   sphere(arm,sign*.19,.88,-.23,.09,.09,.10,m.blue);sphere(arm,...elbow,.066,.066,.066,m.blue);
   const upper=limb(shoulder,elbow,.064,m.blue,arm),forearm=limb(elbow,[sign*.14,.84,.17],.055,m.blue,arm),hand=sphere(arm,sign*.14,.84,.17,.052,.043,.035,m.green);hands.push({sign,arm,shoulder,elbow,upper,forearm,hand});
  }
- const grip=new THREE.Vector3();
- function steer(value){const rotation=new THREE.Euler(-.5,0,value*.65,'XYZ');for(const h of hands){grip.set(h.sign*.14,0,0).applyEuler(rotation).add(new THREE.Vector3(0,.84,.17));h.hand.position.copy(grip);setLimb(h.forearm,h.elbow,grip.toArray())}}
+ const grip=new THREE.Vector3(),rotation=new THREE.Euler(),wheelCenter=new THREE.Vector3(0,.84,.17);let lastSteer=Infinity;
+ function steer(value){if(Math.abs(value-lastSteer)<.00001)return;lastSteer=value;rotation.set(-.5,0,value*.65,'XYZ');for(const h of hands){grip.set(h.sign*.14,0,0).applyEuler(rotation).add(wheelCenter);h.hand.position.copy(grip);setLimb(h.forearm,h.elbow,grip.toArray())}}
  return {group:driver,head,torso,suit,arms:hands,steer,setSeated(value,inside=false){driver.visible=value;head.visible=!inside}};
 }

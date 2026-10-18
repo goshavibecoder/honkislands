@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import * as THREE from '../vendor/three.module.min.js';
-import {CableTransit,KartDrive,CABLE_STATIONS,KART_TRACK,cablePosition} from '../island-transport-motion.js';
+import {CableTransit,KartDrive,CABLE_STATIONS,KART_TRACK,KART_RAILS,kartCanDrive,cablePosition} from '../island-transport-motion.js';
 import {createTouchStick} from '../touch-stick.js';
 import {WalkMotion} from '../walk-motion.js';
 const driverHead=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url))));
@@ -17,6 +17,16 @@ const {createMountainNavigation,MountainWalkPhysics,createMountainCollision}=awa
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,height:1,close(){}});
 function advance(controller,seconds,hz=60,input){let left=seconds;while(left>1e-8){const dt=Math.min(1/hz,left);controller.update(dt,input);left-=dt}}
 
+test('both asphalt lanes stay open and only the rendered rail segments stop the kart',()=>{
+ for(let i=0;i<128;i++){
+  const a=i*Math.PI/64,yaw=Math.atan2(KART_TRACK.rx*Math.cos(a),-KART_TRACK.rz*Math.sin(a));
+  for(const offset of [-.95,0,.95])assert.ok(kartCanDrive(Math.sin(a)*(KART_TRACK.rx+offset),Math.cos(a)*(KART_TRACK.rz+offset),yaw),`invisible obstacle at angle ${a}, lane ${offset}`);
+ }
+ for(const r of KART_RAILS)assert.equal(kartCanDrive((r.ax+r.bx)/2,(r.az+r.bz)/2,0),false);
+ for(let z=6;z<9;z+=.1)assert.ok(kartCanDrive(0,z,0),'the visible entrance must remain open');
+ const wall={min:{x:-.1,y:0,z:6},max:{x:.1,y:3,z:6.2}};assert.equal(kartCanDrive(0,6.8,0,[wall]),false);
+});
+
 test('cable rides have gentle starts, exact station stops, and matching refresh rates',()=>{
  const journeys=[30,60,120].map(hz=>{const t=new CableTransit();assert.equal(t.travel(-1),false);assert.equal(t.travel(0),false);assert.equal(t.travel(1),true);assert.equal(t.travel(0),false);advance(t,4,hz);return t});
  for(const t of journeys)assert.ok(Math.abs(t.t-journeys[0].t)<1e-10);
@@ -28,7 +38,7 @@ test('kart driving, reversing, braking and steering remain stable across frame r
  const states=[30,60,120].map(hz=>{const k=new KartDrive();advance(k,1.5,hz,{throttle:.7,steer:.3});return k});
  for(const k of states){assert.ok(Math.abs(k.position.x-states[0].position.x)<.002);assert.ok(Math.abs(k.position.z-states[0].position.z)<.002)}
  for(const k of states){assert.ok(k.speed>0);advance(k,1,60,{brake:true});assert.ok(Math.abs(k.speed)<.001);advance(k,.5,60,{throttle:-1});assert.ok(k.speed< -1);assert.ok(k.position.y===.06)}
- const k=new KartDrive();for(let i=0;i<15000;i++){k.update(1/120,{throttle:i%2000<1600?1:-1,steer:Math.sin(i/80)});const q=Math.hypot(k.position.x/KART_TRACK.rx,k.position.z/KART_TRACK.rz);assert.ok(Math.abs(q-1)<=KART_TRACK.margin/KART_TRACK.rx+1e-8);assert.ok(Math.abs(k.position.x)>=4.88||Math.abs(k.position.z)>=6.48);assert.ok(Object.values(k.position).every(Number.isFinite))}
+ const k=new KartDrive();for(let i=0;i<15000;i++){k.update(1/120,{throttle:i%2000<1600?1:-1,steer:Math.sin(i/80)});assert.ok(kartCanDrive(k.position.x,k.position.z,k.yaw));assert.ok(Object.values(k.position).every(Number.isFinite))}
 });
 
 test('a kart can complete full circuits and the lap counter requires an entire loop',()=>{
@@ -123,5 +133,5 @@ test('the complete cabin clears the actual mountain and both station exits conne
 test('the track has continuous floors, an open entrance and solid edge barriers',()=>{
  const world=prepareIslandTransport(new THREE.Group(),'arcade-district'),nav=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(world.navPositions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide})),ray=new THREE.Raycaster();
  for(let i=0;i<128;i++){const a=i*Math.PI/64,x=Math.sin(a)*KART_TRACK.rx,z=Math.cos(a)*KART_TRACK.rz;ray.set(new THREE.Vector3(x,1,z),new THREE.Vector3(0,-1,0));assert.ok(ray.intersectObject(nav).length);assert.equal(world.canStand(Math.sin(a)*(KART_TRACK.rx+1.92),Math.cos(a)*(KART_TRACK.rz+1.92)),false)}
- for(let z=5.2;z<8;z+=.1)assert.ok(world.canStand(0,z));let dynamic=0;world.vehicle.traverse(o=>{if(o.isMesh){dynamic++;assert.equal(o.userData.islandRide,true)}});assert.ok(dynamic>20);
+ for(let z=5.2;z<8;z+=.1)assert.ok(world.canStand(0,z));let dynamic=0;world.vehicle.traverse(o=>{if(o.isMesh){dynamic++;assert.equal(o.userData.islandRide,true)}});assert.ok(dynamic>5&&dynamic<45);
 });

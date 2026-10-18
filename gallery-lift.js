@@ -43,12 +43,12 @@ export function mountGalleryLift(viewer,gallery){
  const buttons=gallery.floors.map((floor,index)=>{const b=document.createElement('button');b.type='button';b.innerHTML=`<strong>${index+1}</strong><span>${floor.title}</span>`;b.setAttribute('aria-label',`Этаж ${index+1}: ${floor.title}`);list.append(b);b.addEventListener('click',()=>{
   const foot={x:viewer.camera.position.x,y:viewer.foot,z:viewer.camera.position.z};
   if(!viewer.active||viewer.mode!=='walk'||!journey.start(index,foot))return;
-  viewer.clearWalkInput();viewer.physics?.reset();close();sync();
+  viewer.clearWalkInput();viewer.physics?.reset();host.classList.add('in-gallery-lift');close();sync();
  });return b});
  function close(){menu.hidden=true;toggle.setAttribute('aria-expanded','false')}
  toggle.addEventListener('click',()=>{menu.hidden=!menu.hidden;toggle.setAttribute('aria-expanded',String(!menu.hidden))});panel.querySelector('.lift-close').addEventListener('click',close);
  const escape=e=>{if(e.key==='Escape'&&!menu.hidden){close();e.stopPropagation();e.preventDefault()}};document.addEventListener('keydown',escape,true);
- document.getElementById('world').append(panel);
+ const host=document.getElementById('world');host.append(panel);
  let oldPhase='',oldNearby=null,oldActive=null;
  function sync(){
   gallery.setCabin(journey.cabinY,journey.door);
@@ -56,7 +56,7 @@ export function mountGalleryLift(viewer,gallery){
  }
  return {journey,
   update(dt){
-   const wasActive=journey.active;journey.update(dt);if(wasActive)sync();
+   const wasActive=journey.active;journey.update(dt);if(wasActive){sync();if(!journey.active)host.classList.remove('in-gallery-lift')}
    const nearby=journey.nearby({x:viewer.camera.position.x,y:viewer.foot,z:viewer.camera.position.z});
    panel.hidden=viewer.mode!=='walk'||(!journey.active&&nearby<0);
    if(panel.hidden)close();
@@ -64,7 +64,7 @@ export function mountGalleryLift(viewer,gallery){
    if(nearby!==oldNearby||journey.active!==oldActive){oldNearby=nearby;oldActive=journey.active;toggle.hidden=journey.active;status.hidden=!journey.active;buttons.forEach((b,i)=>{b.disabled=journey.active||i===nearby;b.setAttribute('aria-current',String(i===nearby))})}
   },
   get active(){return journey.active},
-  cancel(){if(journey.cancel())sync();close();panel.hidden=true},
+  cancel(){if(journey.cancel())sync();host.classList.remove('in-gallery-lift');close();panel.hidden=true},
   dispose(){this.cancel();document.removeEventListener('keydown',escape,true);panel.remove()}
  };
 }

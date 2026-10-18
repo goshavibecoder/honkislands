@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createGalleryExhibits} from './gallery-exhibits.js?v=36';
 
 const LIFT={x:-2.7,z:-1.8,front:-3.6,back:-1.8,half:.9},DOWN=new THREE.Vector3(0,-1,0);
@@ -162,6 +163,7 @@ export function prepareGalleryInterior(root){
  for(const z of [LIFT.z-.84,LIFT.z+.84]){box(1.65,2.1,.018,m.glass,cabin,LIFT.x,1.1,z);rod([-3.5,1.03,z],[-1.9,1.03,z],.025,m.gold,cabin)}
  box(.018,2.1,1.65,m.glass,cabin,-1.86,1.1,LIFT.z);box(1.5,.025,.07,m.light,cabin,LIFT.x,2.15,LIFT.z);
  const doors=[-1,1].map(side=>box(.025,2.06,.78,m.glass,cabin,-3.57,1.08,LIFT.z+side*.4));
+ batchRideMeshes(cabin,{keep:o=>doors.includes(o)});
  cabin.traverse(o=>{if(o.isMesh)o.userData.galleryDynamic=true});
  let cabinY=floors[0].y;
  function setCabin(y,open){cabinY=y;cabin.position.y=y;doors.forEach((o,i)=>o.position.z=LIFT.z+(i?1:-1)*(.4+.72*open));gates.forEach((g,i)=>{g.visible=Math.abs(floors[i].y-y)>.025||open<.9})}

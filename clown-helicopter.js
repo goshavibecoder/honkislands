@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {batchRideMeshes} from './ride-performance.js?v=59';
 
 // A parked, lightweight aircraft built in metres, with +Z pointing forwards.
 // It uses the real landing deck height; the aircraft keeps its moving hierarchy.
@@ -81,6 +82,8 @@ export function addClownHelicopter(root){
  // Tiny fixed roof beacons; no extra realtime lights are needed.
  sphere(body,m.gold,0,1.36,.44,.065,.04,.065);sphere(body,m.pink,0,1.41,.44,.043,.045,.043);
 
+ // Merge only rigid parts: both rotors retain their own moving transforms.
+ for(const part of [body,tail,gear,airframe,rotor,tailRotor,...rotor.children.filter(o=>o.isGroup)])batchRideMeshes(part,{keep:o=>!!o.name});
  const skidBottom=new THREE.Box3().setFromObject(gear).min.y;airframe.position.y=-skidBottom;
  const scale=radius/2.2;group.scale.setScalar(scale);group.rotation.y=Math.PI/2;group.position.set(center.x,deck.max.y+.01,center.z-.12);
  group.updateMatrix();group.matrix.premultiply(root.matrixWorld.clone().invert());group.matrix.decompose(group.position,group.quaternion,group.scale);root.add(group);root.updateMatrixWorld(true);
