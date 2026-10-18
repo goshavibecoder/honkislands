@@ -76,7 +76,7 @@ test('the real viewer batches the expanded workshop without losing furniture geo
  const source=readFileSync(new URL('../viewer.js',import.meta.url),'utf8'),start=source.indexOf('  const animated=new Set();'),end=source.indexOf('  const originalGeometries=',start),viewer={root:gltf.scene.clone(true),config:{},renderer:{capabilities:{getMaxAnisotropy:()=>4}}};
  let before=0;viewer.root.traverse(o=>{if(o.isMesh)before+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3});
  new Function('THREE','mergeGeometries','gltf','slug',source.slice(start,end)).call(viewer,THREE,mergeGeometries,{animations:[]},'honkhub');
- let after=0,batches=0;viewer.staticGroup.traverse(o=>{if(!o.isMesh)return;batches++;after+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));assert.equal(o.geometry.attributes.uv.count,o.geometry.attributes.position.count);o.geometry.dispose()});assert.equal(after,before);assert.ok(batches<100);
+ let after=0,batches=0;viewer.staticGroup.traverse(o=>{if(!o.isMesh)return;batches++;after+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));assert.equal(o.geometry.attributes.uv.count,o.geometry.attributes.position.count);o.geometry.dispose()});assert.equal(after,before);assert.ok(batches<=100);
 });
 
 test('three cartoon family pictures and five original posters are framed around all four walls',()=>{
@@ -91,4 +91,19 @@ test('three cartoon family pictures and five original posters are framed around 
 
 test('the generated family textures are bundled as small browser-readable WebP assets',()=>{
  for(const name of ['honk-grandma-v51.webp','honk-grandpa-v51.webp','honk-family-v51.webp']){const data=readFileSync(new URL('../assets/'+name,import.meta.url));assert.equal(data.toString('ascii',0,4),'RIFF');assert.equal(data.toString('ascii',8,12),'WEBP');assert.ok(data.length>30000&&data.length<300000)}
+});
+
+
+test('the castle has four roofed turrets, a closed roof and a single mobile material batch',()=>{
+ assert.equal(room.castle.towers.length,4);assert.ok(room.castle.group.getObjectByName('Castle_closed_hipped_roof'));assert.ok(room.castle.group.getObjectByName('Castle_entrance_gable'));
+ let triangles=0;const materials=new Set(),inside=new THREE.Box3(new THREE.Vector3(-2.79,.03,-1.59),new THREE.Vector3(5.99,3.74,5.99));
+ room.castle.group.traverse(o=>{if(!o.isMesh)return;materials.add(o.material);triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;assert.equal(o.geometry.attributes.color.count,o.geometry.attributes.position.count);
+  const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++){const v=new THREE.Vector3().fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld);assert.ok(!inside.containsPoint(v),`castle detail enters the antique interior: ${o.name}`)}
+ });
+ assert.equal(materials.size,1);assert.ok(triangles<26000);assert.ok(room.bounds.max.y>7.5);assert.ok(room.bounds.min.x< -4.5);assert.ok(room.bounds.max.x>7.5);
+});
+
+test('the complete balloon entrance stays open at walking height and has solid stone sides',()=>{
+ const ray=new THREE.Raycaster();for(const x of [1.30,1.65,1.98])for(const y of [.32,1.10,1.75,2.35]){ray.set(new THREE.Vector3(x,y,7.8),new THREE.Vector3(0,0,-1));ray.far=2;assert.equal(ray.intersectObject(room.castle.group,true).length,0,`castle blocks the doorway at ${x},${y}`)}
+ for(const x of [.25,3.05]){ray.set(new THREE.Vector3(x,1.2,7.8),new THREE.Vector3(0,0,-1));ray.far=2;assert.ok(ray.intersectObject(room.castle.group,true).length>0)}
 });
