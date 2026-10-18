@@ -47,7 +47,8 @@ export function prepareGroypAir(root,balloon,actorScene){
  const stamp=new THREE.Group();stamp.name='GROYP_AIR_hand_stamp';const ink=new THREE.Mesh(new THREE.BoxGeometry(.17,.035,.10),m.red),grip=new THREE.Mesh(new THREE.CylinderGeometry(.035,.045,.20,12),m.dark);ink.position.y=-.08;stamp.add(ink,grip);stamp.visible=false;
  function handProp(prop,offset,worldRotation){root.updateMatrixWorld(true);const hand=bones.hand_r,p=hand.getWorldPosition(new THREE.Vector3()).add(offset),q=hand.getWorldQuaternion(new THREE.Quaternion());hand.add(prop);prop.position.copy(hand.worldToLocal(p));prop.quaternion.copy(q.invert().multiply(worldRotation))}
  handProp(stamp,new THREE.Vector3(0,-.11,-.10),new THREE.Quaternion());
- bones.upperarm_r.quaternion.copy(rightPresent);handProp(ticket,new THREE.Vector3(0,0,-.10),new THREE.Quaternion().setFromAxisAngle(yAxis,Math.PI));
+ // Offer the paper flat from the fingertips; only its rear edge meets the hand.
+ bones.upperarm_r.quaternion.copy(rightPresent);handProp(ticket,new THREE.Vector3(.025,-.08,-.30),new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2,0,Math.PI)));
  bones.upperarm_r.quaternion.copy(rightDown);bones.lowerarm_r.quaternion.copy(rest.lowerarm_r);
  actor.traverse(o=>o.userData.islandRide=true);deskTicket.userData.islandRide=true;
  const emoteCanvas=document.createElement('canvas');emoteCanvas.width=128;emoteCanvas.height=128;const emoteContext=emoteCanvas.getContext('2d'),emoteTexture=new THREE.CanvasTexture(emoteCanvas);emoteTexture.colorSpace=THREE.SRGBColorSpace;

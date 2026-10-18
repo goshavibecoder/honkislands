@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {createArchitectureCollision} from './walk-architecture.js?v=77';
-import {prepareGroypAir} from './groyp-air.js?v=78';
+import {prepareGroypAir} from './groyp-air.js?v=81';
 import {prepareVisualQuality} from './visual-quality.js?v=72';
 import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=72';
 import {mountBalloonTravel} from './balloon-travel.js?v=78';

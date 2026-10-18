@@ -42,13 +42,20 @@ test('Groyper dozes when left alone, greets arrivals, and reacts when approached
  assert.ok(s.actor.position.y>.01,'sudden close approach should produce a small surprised hop');
 });
 
-test('the hand stamp contacts the actual desk ticket and the issued ticket stays attached to the wrist',async()=>{
+test('the hand stamp contacts the actual desk ticket and the issued ticket rests at the fingertips without cutting through the hand',async()=>{
  const f=await fresh(),s=f.station;assert.ok(s.beginTicket('Goat Mountain'));assert.equal(s.beginTicket('Neon Castle'),false);
  tick(f,1.2);assert.equal(s.stamp.visible,true);assert.equal(s.deskTicket.visible,true);
  const ink=new THREE.Box3().setFromObject(s.stamp),paper=new THREE.Box3().setFromObject(s.deskTicket);
  assert.ok(Math.abs(ink.min.y-paper.min.y)<.02);assert.ok(ink.min.x<paper.max.x&&ink.max.x>paper.min.x&&ink.min.z<paper.max.z&&ink.max.z>paper.min.z);
  tick(f,.6);assert.equal(s.ticket.visible,true);assert.equal(s.stamp.visible,false);assert.equal(s.ticket.parent,s.bones.hand_r);
- const wrist=s.bones.hand_r.getWorldPosition(new THREE.Vector3()),ticket=s.ticket.getWorldPosition(new THREE.Vector3());assert.ok(ticket.distanceTo(wrist)<.16);
+ let mesh;s.actor.traverse(o=>{if(o.isSkinnedMesh)mesh=o});
+ const handIndex=mesh.skeleton.bones.indexOf(s.bones.hand_r),weights=mesh.geometry.attributes.skinWeight,joints=mesh.geometry.attributes.skinIndex,hand=[];
+ for(let i=0;i<weights.count;i++){let weight=0;for(let k=0;k<4;k++)if(joints.getComponent(i,k)===handIndex)weight+=weights.getComponent(i,k);if(weight>.4){const p=new THREE.Vector3().fromBufferAttribute(mesh.geometry.attributes.position,i);mesh.applyBoneTransform(i,p).applyMatrix4(mesh.matrixWorld);hand.push(s.ticket.worldToLocal(p))}}
+ const paperBounds=new THREE.Box3(new THREE.Vector3(-.25,-.125,-.004),new THREE.Vector3(.25,.125,.004));
+ assert.ok(Math.min(...hand.map(p=>paperBounds.distanceToPoint(p)))<.012,'the paper edge must touch the actual fingertips');
+ // All of the hand stays outside the paper interior, including triangles between sampled vertices.
+ const handBounds=new THREE.Box3().setFromPoints(hand),interior=new THREE.Box3(new THREE.Vector3(-.235,-.110,-.006),new THREE.Vector3(.235,.110,.006));
+ assert.equal(handBounds.intersectsBox(interior),false,'the ticket face must not pass through the hand');
  assert.equal(s.ticketReady,false);tick(f,1);assert.equal(s.ticketReady,true);s.cancelService();assert.equal(s.phase,'idle');assert.equal(s.ticket.visible,false);
 });
 
