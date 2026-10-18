@@ -1,0 +1,37 @@
+import * as THREE from 'three';
+import {BALLOON_ISLANDS,BalloonJourney} from './balloon-route.js?v=65';
+
+export function mountBalloonTravel(viewer,balloon){
+ const host=document.getElementById('world'),panel=document.createElement('aside');panel.className='balloon-controls';panel.hidden=true;
+ panel.innerHTML='<button type="button" class="balloon-open glass">✦ Карта перелётов</button>';host.append(panel);
+ const dialog=document.createElement('div');dialog.className='balloon-map-overlay';dialog.hidden=true;dialog.innerHTML='<section class="balloon-map-card glass" role="dialog" aria-modal="true" aria-label="Выбери остров для перелёта"><div class="balloon-map-title"><div><small>HONK BALLOON LINES</small><h2>Куда полетим?</h2></div><button type="button" class="balloon-map-close" aria-label="Закрыть карту">×</button></div><div class="balloon-destinations"></div><p>Выбери остров — шар доставит тебя к его площадке.</p></section>';host.append(dialog);
+ const list=dialog.querySelector('.balloon-destinations'),open=panel.querySelector('button'),closeButton=dialog.querySelector('.balloon-map-close'),model=new BalloonJourney(balloon.home,balloon.outward),basketEye=new THREE.Vector3(),desired=new THREE.Vector3(),look=new THREE.Vector3(),rotation=new THREE.Quaternion();
+ let saved=null,pending=null,disposed=false,uiTime=0;
+ function otherRide(){return viewer.galleryLift?.active||viewer.helicopterFlight?.active||viewer.islandTransport?.active}
+ function nearby(){const p=viewer.camera.position;return viewer.mode==='walk'&&Math.hypot(p.x-balloon.mapPosition.x,p.z-balloon.mapPosition.z)<3.4&&Math.abs(viewer.foot-balloon.home.y)<.6}
+ function close(){dialog.hidden=true;host.classList.remove('choosing-balloon');open.focus?.({preventScroll:true})}
+ function openMap(){if(disposed||!viewer.active||model.active||otherRide()||!nearby())return false;viewer.clearWalkInput();dialog.hidden=false;host.classList.add('choosing-balloon');closeButton.focus?.({preventScroll:true});return true}
+ for(const island of BALLOON_ISLANDS){const button=document.createElement('button');button.type='button';button.className='balloon-destination';button.disabled=island.slug===viewer.slug;button.innerHTML=`<img src="./assets/${island.image}" alt="" draggable="false"><span>${island.title}</span>${button.disabled?'<small>Ты здесь</small>':''}`;list.append(button);button.addEventListener('click',()=>{if(model.active||disposed||button.disabled)return;close();viewer.onBalloonTravel?.(island.slug)})}
+ open.addEventListener('click',openMap);closeButton.addEventListener('click',close);dialog.addEventListener('click',e=>{if(e.target===dialog)close()});
+ const escape=e=>{if(e.key==='Escape'&&!dialog.hidden){e.preventDefault();e.stopImmediatePropagation();close()}};window.addEventListener('keydown',escape,true);
+ function lock(){viewer.clearWalkInput();viewer.physics?.reset();host.classList.add('balloon-in-flight');close();panel.hidden=true}
+ function finish(value){const done=pending;pending=null;done?.(value)}
+ function restorePose(p){viewer.camera.position.copy(p.position);viewer.foot=p.foot;viewer.yaw=p.yaw;viewer.pitch=p.pitch;viewer.motion.reset(p.yaw,p.pitch);viewer.camera.rotation.set(p.pitch,p.yaw,0,'YXZ');viewer.physics?.reset();viewer.clearWalkInput()}
+ function end(landed){if(landed)restorePose({position:balloon.exit.clone().add(new THREE.Vector3(0,viewer.config.eye,0)),foot:balloon.exit.y,yaw:balloon.yaw,pitch:0});host.classList.remove('balloon-in-flight');saved=null;finish(true)}
+ const control={model,get active(){return model.active||model.phase==='departed'},get mapOpen(){return !dialog.hidden},openMap,
+  depart(){if(disposed||model.active||otherRide()||viewer.mode!=='walk')return Promise.resolve(false);saved={position:viewer.camera.position.clone(),quaternion:viewer.camera.quaternion.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};model.depart();lock();return new Promise(resolve=>pending=resolve)},
+  arrive(){if(disposed)return Promise.resolve(false);saved=null;model.arrive();lock();balloon.setPose(model.position,true);placeCamera();return new Promise(resolve=>pending=resolve)},
+  update(dt){if(disposed)return;
+   if(model.active){model.update(dt);balloon.setPose(model.position,model.phase==='ascending'||model.phase==='descending');placeCamera();if(!model.active){if(model.phase==='landed')end(true);else finish(true)}}
+   uiTime-=dt;if(uiTime<=0){uiTime=.15;panel.hidden=control.active||otherRide()||!nearby()||!dialog.hidden;host.classList.toggle('near-balloon',!panel.hidden);if(!dialog.hidden&&(!nearby()||viewer.mode!=='walk'))close()}
+  },
+  cancel(){if(disposed)return;if(saved)restorePose(saved);model.cancel();balloon.setPose(model.position,false);host.classList.remove('balloon-in-flight','near-balloon');saved=null;close();finish(false)},
+  dispose(){if(disposed)return;this.cancel();disposed=true;window.removeEventListener('keydown',escape,true);panel.remove();dialog.remove()}
+ };
+ function placeCamera(){const p=model.position;basketEye.set(p.x,p.y+.13+viewer.config.eye,p.z);desired.copy(basketEye);look.set(p.x-balloon.outward.x*8,p.y+1.7,p.z-balloon.outward.z*8);
+  if(model.phase==='boarding'&&saved){viewer.camera.position.lerpVectors(saved.position,desired,model.progress);viewer.camera.lookAt(look);rotation.copy(viewer.camera.quaternion);viewer.camera.quaternion.slerpQuaternions(saved.quaternion,rotation,model.progress)}
+  else if(model.phase==='exiting'||model.phase==='landed'){desired.copy(balloon.exit);desired.y+=viewer.config.eye;viewer.camera.position.lerpVectors(basketEye,desired,model.phase==='landed'?1:model.progress);viewer.camera.lookAt(look)}
+  else{viewer.camera.position.copy(desired);viewer.camera.lookAt(look)}
+ }
+ balloon.setPose(model.position,false);return control;
+}

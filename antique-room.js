@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {hangFamilyPictures} from './family-wall.js?v=53';
 import {addClownTeaCabinet,rearrangeWorkshopNotes} from './antique-details.js?v=53';
 
-export function prepareAntiqueRoom(root,{familyTextures=[]}={}){
+export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false}={}){
  root.updateMatrixWorld(true);const sources=new Map(),posters=[],original=[];
  root.traverse(o=>{if(!o.isMesh)return;original.push(o);if(!sources.has(o.material.name))sources.set(o.material.name,o.material);if(/^Poster_artwork_/.test(o.name))posters.push(o)});
  const material=(color,roughness=.85,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
@@ -27,19 +27,21 @@ export function prepareAntiqueRoom(root,{familyTextures=[]}={}){
  function boards(x0,x1,z0,z1){for(let z=z0,row=0;z<z1;z+=.238,row++){const endZ=Math.min(z+.230,z1);for(let x=x0-(row%3)*.48;x<x1;x+=1.46){const a=Math.max(x,x0),b=Math.min(x+1.45,x1);if(b>a)box(b-a,.04,endZ-z,m.wood,group,(a+b)/2,.008,(z+endZ)/2,'Antique_extended_floorboard')}}}
  boards(3.358,right,rear,2.9485);boards(left,right,2.9565,front);
  function wall(name,w,d,x,z){const o=box(w,3.82,d,m.plaster,group,x,1.88,z,name);o.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(o))}
- wall('Antique_sealed_right_wall',.22,7.96,6.11,2.2);wall('Antique_sealed_front_wall',9.24,.22,1.6,6.11);
+ wall('Antique_sealed_right_wall',.22,7.96,6.11,2.2);
+ if(balloonDoor){for(const [a,b] of [[-3.02,.89],[2.41,6.22]])wall('Antique_front_wall_beside_balloon_door',b-a,.22,(a+b)/2,6.11);const lintel=box(1.52,.94,.22,m.plaster,group,1.65,3.32,6.11,'Antique_balloon_door_lintel');lintel.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(lintel))}else wall('Antique_sealed_front_wall',9.24,.22,1.6,6.11);
  wall('Antique_rear_wall_extension',2.90,.18,4.78,-1.69);wall('Antique_left_wall_extension',.18,3.34,-2.89,4.54);
  box(9.24,.16,7.96,m.dark,group,1.6,3.86,2.2,'Antique_sealed_ceiling');
  for(let x=left;x<right;x+=.24)box(.232,.045,7.60,m.wood,group,x+.116,3.755,2.2,'Antique_ceiling_board');
  for(const z of [-1.45,1.05,3.55,5.86])box(8.84,.22,.18,m.dark,group,1.6,3.60,z,'Antique_ceiling_beam');
  for(const x of [-2.69,.2,3.12,5.87])box(.17,.20,7.48,m.dark,group,x,3.59,2.2,'Antique_ceiling_crossbeam');
- for(const [x,z] of [[5.88,-1.47],[5.88,2.2],[5.88,5.87],[1.6,5.87],[-2.69,5.87]]){box(.18,3.60,.18,m.dark,group,x,1.81,z,'Antique_timber_post');for(const sign of [-1,1])rod([x,3.5,z],[x+sign*.50,3.05,z],.045,m.dark)}
+ for(const [x,z] of [[5.88,-1.47],[5.88,2.2],[5.88,5.87],[1.6,5.87],[-2.69,5.87]]){if(balloonDoor&&x===1.6&&z===5.87)continue;box(.18,3.60,.18,m.dark,group,x,1.81,z,'Antique_timber_post');for(const sign of [-1,1])rod([x,3.5,z],[x+sign*.50,3.05,z],.045,m.dark)}
  function dado(length,x,z,angle){const g=place('Antique_brick_dado',x,z,angle);for(let row=0;row<4;row++)for(let a=-length/2-.22*(row%2);a<length/2;a+=.45){const lo=Math.max(a,-length/2),hi=Math.min(a+.435,length/2);if(hi>lo)box(hi-lo,.19,.045,m.brick,g,(lo+hi)/2,.12+row*.205,0)}box(length,.08,.09,m.dark,g,0,.92,.01);box(length,.12,.10,m.dark,g,0,.08,.01)}
- dado(8.7,1.6,5.975,Math.PI);dado(7.55,5.975,2.2,-Math.PI/2);dado(2.75,4.75,-1.575,0);dado(3.12,-2.775,4.43,Math.PI/2);
+ if(balloonDoor){dado(3.64,-.93,5.975,Math.PI);dado(3.54,4.18,5.975,Math.PI)}else dado(8.7,1.6,5.975,Math.PI);dado(7.55,5.975,2.2,-Math.PI/2);dado(2.75,4.75,-1.575,0);dado(3.12,-2.775,4.43,Math.PI/2);
  // A closed old oak door, with inset panels, hinges and an aged brass handle.
- const door=place('Antique_closed_oak_door',1.65,5.96,Math.PI);box(1.12,2.55,.10,m.dark,door,0,1.31,0);for(const x of [-.64,.64])box(.13,2.77,.17,m.wood,door,x,1.39,.02);box(1.41,.15,.17,m.wood,door,0,2.73,.02);
- for(const y of [.65,1.75]){box(.86,.82,.04,m.wood,door,0,y,.065);for(const x of [-.39,.39])box(.025,.76,.026,m.trim,door,x,y,.095)}
- for(const y of [.50,2.12]){box(.36,.065,.035,m.iron,door,-.38,y,.11);for(const x of [-.49,-.28])ball(x,y,.135,.018,.018,.012,m.brass,door)}ball(.37,1.24,.14,.065,.065,.045,m.brass,door);rod([.32,1.24,.18],[.47,1.24,.18],.022,m.brass,door);
+ const door=place('Antique_closed_oak_door',1.65,5.96,Math.PI),leaf=new THREE.Group();door.add(leaf);box(1.12,2.55,.10,m.dark,leaf,0,1.31,0);for(const x of [-.64,.64])box(.13,2.77,.17,m.wood,door,x,1.39,.02);box(1.41,.15,.17,m.wood,door,0,2.73,.02);
+ for(const y of [.65,1.75]){box(.86,.82,.04,m.wood,leaf,0,y,.065);for(const x of [-.39,.39])box(.025,.76,.026,m.trim,leaf,x,y,.095)}
+ for(const y of [.50,2.12]){box(.36,.065,.035,m.iron,leaf,-.38,y,.11);for(const x of [-.49,-.28])ball(x,y,.135,.018,.018,.012,m.brass,leaf)}ball(.37,1.24,.14,.065,.065,.045,m.brass,leaf);rod([.32,1.24,.18],[.47,1.24,.18],.022,m.brass,leaf);
+ if(balloonDoor){leaf.position.x=-.56;for(const child of leaf.children)child.position.x+=.56;leaf.rotation.y=-Math.PI/2;leaf.updateWorldMatrix(true,true);extraBoxes.push(new THREE.Box3().setFromObject(leaf));door.name='Antique_open_oak_door_to_balloon'}
  // Faded woven rug with a restrained border, lozenges and short fringe.
  const rug=place('Antique_faded_circus_rug',-.65,4.23);box(4.25,.009,3.18,m.rug,rug,0,.009,0);for(const sign of [-1,1]){box(4.1,.003,.065,m.trim,rug,0,.016,sign*1.47);box(.065,.003,2.94,m.trim,rug,sign*1.98,.016,0);for(let i=0;i<34;i++)box(.018,.004,.12,m.ivory,rug,-2.02+i*.122,.014,sign*1.64)}
  for(let i=0;i<5;i++){const x=-1.5+i*.75;for(const sign of [-1,1]){rod([x-.30,.02,0],[x,.02,sign*.39],.009,m.trim,rug);rod([x,.02,sign*.39],[x+.30,.02,0],.009,m.trim,rug)}}
@@ -49,7 +51,7 @@ export function prepareAntiqueRoom(root,{familyTextures=[]}={}){
   rod([-width/2+.14,.36,-.425],[width/2-.14,.36,-.425],.026,m.wood,g);
   const pillow=cushion(.38,.34,.14,m.green,g,-width*.23,.77,.14);pillow.rotation.z=.16;solid(g);return g;
  }
- seat('Antique_worn_sofa',-1.17,5.28,2.60,0);seat('Antique_tufted_armchair',2.12,4.78,1.13,-.35);
+ seat('Antique_worn_sofa',-1.17,5.28,2.60,0);seat('Antique_tufted_armchair',balloonDoor?2.7:2.12,balloonDoor?3.7:4.78,1.13,-.35);
  const table=place('Antique_low_tea_table',-.78,3.68);cushion(1.65,.10,.79,m.wood,table,0,.55,0);box(1.39,.14,.56,m.dark,table,0,.43,0);for(const x of [-.64,.64])for(const z of [-.23,.23])rod([x,.05,z],[x*.91,.47,z*.91],.048,m.dark,table);solid(table);
  function book(parent,x,y,z,w,d,h,index=0){box(w,h,d,m.paper,parent,x,y,z);box(w+.035,.02,d+.025,m.books[index%5],parent,x,y+h/2+.012,z);box(w+.035,.02,d+.025,m.books[index%5],parent,x,y-h/2-.012,z);box(.025,h+.04,d+.025,m.books[index%5],parent,x-w/2-.01,y,z)}
  book(table,-.33,.65,.05,.54,.37,.07,0);book(table,-.28,.74,.04,.50,.34,.07,3);cyl(.13,.018,m.ivory,table,.46,.62,-.05);cyl(.073,.11,m.ivory,table,.46,.68,-.05,.061);const cupHandle=mesh(new THREE.TorusGeometry(.044,.012,6,14),m.brass,table,.55,.69,-.05);cupHandle.rotation.y=Math.PI/2;

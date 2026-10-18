@@ -88,3 +88,9 @@ test('island rides own the camera and restore walking before overview and deacti
  v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.z,13.25);assert.equal(v.foot,.19);
  v.setActive(false);assert.equal(cancelled,2);
 });
+
+ test('balloon travel owns the camera and pauses across backgrounding without cancelling the trip',()=>{
+ const {v}=setup();let cancelled=0;v.balloonTravel={active:true,update(){v.camera.position.set(1.65,7.2,10)},cancel(){cancelled++;this.active=false}};
+ v.keys.add('KeyW');v.physics={fall(){throw Error('Gravity must not run in a balloon')}};v.tick(1016);assert.equal(v.camera.position.y,7.2);assert.equal(v.camera.position.z,10);
+ v.setActive(false);assert.equal(cancelled,0);assert.equal(v.balloonTravel.active,true);v.setMode('orbit');assert.equal(cancelled,1);
+ });
