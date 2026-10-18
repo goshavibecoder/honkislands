@@ -42,12 +42,6 @@ test('real viewer tick accelerates, slides along walls, stops and limits collisi
  assert.equal(v.motion.vx,0);assert.equal(v.motion.vz,0);const z=v.camera.position.z;
  v.tick(2700);assert.equal(v.camera.position.z,z);assert.equal(v.camera.position.y,1.65);
 });
-
-test('the cannon owns the camera during a shot and restores walking on overview or deactivation',()=>{
- const {v}=setup();let cancelled=0;v.keys.add('KeyW');v.physics={fall(){throw Error('Walking gravity must not run during a cannon shot')}};
- v.honkCannon={active:true,panelOpen:true,update(){v.camera.position.set(-17,5,-2)},cancel(){cancelled++;this.active=this.panelOpen=false}};
- v.tick(1016);assert.equal(v.camera.position.y,5);assert.equal(v.camera.position.x,-17);v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.honkCannon.active,false);v.honkCannon.active=true;v.setActive(false);assert.equal(cancelled,2);
-});
 test('finger ownership, look easing and blur cleanup work together',()=>{
  const {v,canvas,window}=setup();
  canvas.emit('pointerdown',{pointerId:1,clientX:0,clientY:0});
