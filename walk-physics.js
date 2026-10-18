@@ -5,12 +5,28 @@ import {Capsule} from './vendor/Capsule.js';
 // Keep the walker's full height out of the gallery walls, ramp underside and
 // railings. Build from the original mesh transforms before draw-call batching.
 export function createGalleryCollision(root){
- const tree=new Octree(),triangle=new THREE.Triangle();root.updateMatrixWorld(true);
+ const tree=new Octree(),triangle=new THREE.Triangle(),normal=new THREE.Vector3(),walls=new WeakSet();root.updateMatrixWorld(true);
  root.traverse(o=>{
   if(!o.isMesh||! /^(Curved_white_gallery_wall|Continuous_walkable_spiral_ramp|Inner_opaque_black_spiral_balustrade|Upper_supported_gallery_end_landing|Black_museum_wall_inset)/.test(o.name))return;
   const pos=o.geometry.attributes.position,index=o.geometry.index,n=index?index.count:pos.count;
-  for(let i=0;i<n;i+=3){triangle.a.fromBufferAttribute(pos,index?index.getX(i):i).applyMatrix4(o.matrixWorld);triangle.b.fromBufferAttribute(pos,index?index.getX(i+1):i+1).applyMatrix4(o.matrixWorld);triangle.c.fromBufferAttribute(pos,index?index.getX(i+2):i+2).applyMatrix4(o.matrixWorld);tree.addTriangle(triangle.clone())}
- });tree.build();return tree;
+  for(let i=0;i<n;i+=3){triangle.a.fromBufferAttribute(pos,index?index.getX(i):i).applyMatrix4(o.matrixWorld);triangle.b.fromBufferAttribute(pos,index?index.getX(i+1):i+1).applyMatrix4(o.matrixWorld);triangle.c.fromBufferAttribute(pos,index?index.getX(i+2):i+2).applyMatrix4(o.matrixWorld);const face=triangle.clone();tree.addTriangle(face);if(Math.abs(face.getNormal(normal).y)<.65)walls.add(face)}
+ });tree.build();
+ const candidates=[],reverse=new THREE.Triangle();
+ return {
+  capsuleIntersect(capsule){
+   // A capsule wedged between a thin wall's opposing faces can produce a
+   // near-zero aggregate correction. Test nearby wall faces independently,
+   // from both sides, before applying the usual floor/ramp contact rules.
+   candidates.length=0;tree.getCapsuleTriangles(capsule,candidates);
+   for(const face of candidates){
+    if(!walls.has(face))continue;
+    const hit=tree.triangleCapsuleIntersect(capsule,face)||tree.triangleCapsuleIntersect(capsule,reverse.set(face.c,face.b,face.a));
+    if(hit&&hit.depth>=.012&&Math.abs(hit.normal.y)<.65)return hit;
+   }
+   return tree.capsuleIntersect(capsule);
+  },
+  clear(){candidates.length=0;tree.clear()}
+ };
 }
 
 // A continuous invisible walk surface over the actual treads removes the

@@ -32,6 +32,29 @@ function floorAt(x,z,top,far=2){ray.origin.set(x,top,z);const hit=index.rayInter
 function canStand(x,z,floor){return gallery.canStand(x,z,floor)&&!boxes.some(b=>floor+1.53>b.min.y&&floor+.22<b.max.y&&x>b.min.x-.17&&x<b.max.x+.17&&z>b.min.z-.17&&z<b.max.z+.17)}
 const physics=new WalkPhysics({floorAt,canStand,eye:1.65,collision});
 
+test('ground-floor wall seams reject a capsule even when opposing face corrections cancel',()=>{
+ for(const [x,z] of [[-7.245,4.78],[-8.545,1.53],[-8.35,2.375],[-7.895,3.61],[-3.15,-8.09],[-6.14,-6.14]]){
+  const foot=floorAt(x,z,.4,200);assert.ok(Math.abs(foot-.018)<.001);
+  assert.equal(physics.clearAt(x,z,foot),false,`Capsule inside gallery wall at ${x}, ${z}`);
+ }
+});
+
+test('holding diagonal movement against ground-floor wall seams keeps the walker outside the wall',()=>{
+ for(const [wx,wz] of [[-7.245,4.78],[-8.35,2.375],[-3.15,-8.09],[-6.14,-6.14]]){
+  const direction=new THREE.Vector2(wx,wz).normalize();let x=direction.x*7,z=direction.y*7,foot=floorAt(x,z,.4,200);physics.reset();
+  assert.notEqual(foot,null);
+  for(let frame=0;frame<720;frame++){
+   const dx=direction.x*.035,dz=direction.y*.035;
+   for(const [nx,nz] of [[x+dx,z+dz],[x+dx,z],[x,z+dz]]){
+    const next=physics.step(nx,nz,foot);if(next===null)continue;x=nx;z=nz;foot=next;break;
+   }
+   foot=physics.fall(x,z,foot,1/60);
+   assert.ok(foot>-.05,`Fell at ${x}, ${z}`);
+   assert.ok(Math.hypot(x,z)<8.56,`Entered the curved wall at ${x}, ${z}`);
+  }
+ }
+});
+
 test('bridge corners stay on the selected spiral turn, including the top landing edge',()=>{
  assert.equal(gallery.floors.length,4);const size=gallery.bridgePositions.length/3;assert.ok(size>18&&size%9===0);
  for(let i=0;i<3;i++){

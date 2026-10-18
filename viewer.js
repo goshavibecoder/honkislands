@@ -9,7 +9,7 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
-import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=27';
+import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=76';
 import {rebuildMountainStairs} from './mountain-stairs.js?v=23';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {addClownHelicopter} from './clown-helicopter.js?v=59';
