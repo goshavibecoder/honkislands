@@ -16,6 +16,7 @@ import {prepareArenaCircus} from './arena-circus.js?v=46';
 import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
+import {prepareAntiqueRoom} from './antique-room.js?v=50';
 import {prepareGalleryInterior} from './gallery-interior.js?v=36';
 import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=49';
 import {mountGalleryLift} from './gallery-lift.js?v=36';
@@ -43,13 +44,13 @@ export class IslandViewer {
   const bytes=new Uint8Array(payloads.reduce((n,a)=>n+a.length,0));let offset=0;for(const a of payloads){bytes.set(a,offset);offset+=a.length}
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Открываем 3D-мир…');
-  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
+  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root):null;this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
   let mountainShell=null;if(slug==='goat-mountain'){const sealed=await this.fetchBinary('./models/goat-mountain-shell-v22.bin?v=22');mountainShell=await new Response(new Blob([sealed]).stream().pipeThrough(new DecompressionStream('gzip'))).json()}
   this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;
   this.helicopter=slug==='citadel'?addClownHelicopter(this.root):null;
   this.helicopterCollision=this.helicopter?createHelicopterCollision(this.root,this.helicopter.scale):null;
   this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):slug==='goat-mountain'?createMountainCollision(this.root):null;
-  if(slug==='goat-mountain')this.nav=createMountainNavigation(this.root);
+  if(slug==='goat-mountain')this.nav=createMountainNavigation(this.root);if(this.antiqueRoom)this.nav=this.antiqueRoom.nav;
   const stormAnchor=slug==='goat-mountain'?findMountainStormAnchor(this.root):null;
   // Bake static geometry into material batches. Animated nodes remain attached
   // to their original hierarchy, so original animation tracks still work.
@@ -74,7 +75,7 @@ export class IslandViewer {
   this.mixers=[];if(gltf.animations.length){const mixer=new THREE.AnimationMixer(this.root);for(const clip of gltf.animations)mixer.clipAction(clip).play();this.mixers.push(mixer)}
   if(!this.nav){const navBytes=await this.fetchBinary(`./models/${slug}.nav.bin?v=9`);const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.BufferAttribute(new Float32Array(navBytes.buffer,navBytes.byteOffset,navBytes.byteLength/4),3));ng.computeBoundingSphere();this.nav=new THREE.Mesh(ng,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));this.nav.updateMatrixWorld()}
   if(this.gallery){const bridge=new THREE.BufferGeometry();bridge.setAttribute('position',new THREE.Float32BufferAttribute(this.gallery.bridgePositions,3));const old=this.nav.geometry;this.nav.geometry=mergeGeometries([old,bridge],false);old.dispose();bridge.dispose();this.nav.geometry.computeBoundingSphere()}
-  this.boxes=this.manifest.collisionBoxes.map(([lo,hi])=>new THREE.Box3(new THREE.Vector3(...lo),new THREE.Vector3(...hi)));this.boxes.push(...(this.arenaCircus?.extraBoxes||[]),...(this.gallery?.extraBoxes||[]),...(this.helicopter?.extraBoxes||[]));this.bounds=new THREE.Box3(new THREE.Vector3(...this.manifest.bounds[0]),new THREE.Vector3(...this.manifest.bounds[1]));
+  this.boxes=this.manifest.collisionBoxes.map(([lo,hi])=>new THREE.Box3(new THREE.Vector3(...lo),new THREE.Vector3(...hi)));this.boxes.push(...(this.arenaCircus?.extraBoxes||[]),...(this.gallery?.extraBoxes||[]),...(this.helicopter?.extraBoxes||[]),...(this.antiqueRoom?.extraBoxes||[]));this.bounds=this.antiqueRoom?.bounds.clone()||new THREE.Box3(new THREE.Vector3(...this.manifest.bounds[0]),new THREE.Vector3(...this.manifest.bounds[1]));
   this.floorIndex=['carnival','goat-mountain','arena'].includes(slug)?createFloorIndex(this.nav,{doubleSided:slug==='arena'}):null;
   const Physics=slug==='goat-mountain'?MountainWalkPhysics:WalkPhysics;
   this.physics=['carnival','goat-mountain'].includes(slug)?new Physics({floorAt:(...args)=>this.floorAt(...args),canStand:(...args)=>this.canStand(...args),eye:this.config.eye,collision:this.walkCollision}):null;
@@ -84,6 +85,7 @@ export class IslandViewer {
    if(light.isHemisphereLight){light.color.set(circus?0xfff1da:0xe7f5ff);light.groundColor.set(circus?0x8a6b54:0x80717f)}
    else if(light.isDirectionalLight)light.color.set(light.position.x>0?(circus?0xffdfaa:0xfff1d2):(circus?0xffe5c2:0xb5dfff));
   }
+  this.antiqueRoom?.mountLights(this.scene);
   this.renderer.toneMappingExposure=this.config.exposure;this.mountainStorm=slug==='goat-mountain'?mountMountainStorm(this,stormAnchor):null;this.reset();this.setMode('walk');this.galleryLift=this.gallery?mountGalleryLift(this,this.gallery):null;this.helicopterExplosion=this.helicopter?createHelicopterExplosion(this.root):null;this.helicopterFlight=this.helicopter?mountHelicopterFlight(this,this.helicopter,{collision:this.helicopterCollision,effects:this.helicopterExplosion}):null;this.resize();progress(.96,'Почти на месте…');await this.renderer.compileAsync(this.scene,this.camera);this.renderer.render(this.scene,this.camera);progress(1,'Добро пожаловать');
  }
  reset(){
@@ -144,6 +146,7 @@ export class IslandViewer {
   const codes={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'};document.querySelectorAll('[data-move]').forEach(b=>{b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);this.keys.add(codes[b.dataset.move])});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>this.keys.delete(codes[b.dataset.move]))});
  }
  clear(){
+  this.antiqueRoom?.dispose();this.antiqueRoom=null;
   this.mountainStorm?.dispose();this.mountainStorm=null;
   this.helicopterFlight?.dispose();this.helicopterFlight=null;this.galleryLift?.dispose();this.galleryLift=null;this.gallery=null;this.helicopter=null;
   this.helicopterCollision?.dispose();this.helicopterCollision=null;this.helicopterExplosion?.dispose();this.helicopterExplosion=null;
