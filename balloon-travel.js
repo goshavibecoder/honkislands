@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {BALLOON_ISLANDS,BalloonJourney} from './balloon-route.js?v=68';
+import {BALLOON_ISLANDS,BalloonJourney} from './balloon-route.js?v=70';
 
 export function mountBalloonTravel(viewer,balloon){
  const host=document.getElementById('world'),panel=document.createElement('aside');panel.className='balloon-controls';panel.hidden=true;
@@ -22,7 +22,8 @@ export function mountBalloonTravel(viewer,balloon){
   depart(startFade){if(disposed||model.active||otherRide()||viewer.mode!=='walk')return Promise.resolve(false);saved={position:viewer.camera.position.clone(),quaternion:viewer.camera.quaternion.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};onAscent=startFade;model.depart();lock();return new Promise(resolve=>pending=resolve)},
   arrive(){if(disposed)return Promise.resolve(false);saved=null;model.arrive();lock();balloon.setPose(model.position,true);placeCamera();return new Promise(resolve=>pending=resolve)},
   update(dt){if(disposed)return;
-   if(model.active){model.update(dt);if(model.phase==='ascending'&&onAscent){const callback=onAscent;onAscent=null;callback()}balloon.setPose(model.position,model.phase==='ascending'||model.phase==='descending');placeCamera();if(!model.active){if(model.phase==='landed')end(true);else finish(true)}}
+   if(model.active){model.update(dt);if(model.phase==='ascending'&&onAscent){const callback=onAscent;onAscent=null;callback()}balloon.setPose(model.position,model.phase==='ascending'||model.phase==='descending'||model.phase==='departed');placeCamera();if(!model.active){if(model.phase==='landed')end(true);else finish(true)}}
+   else if(model.phase==='departed'){const step=Math.max(0,Math.min(.25,dt))/2.8;model.position.x+=balloon.outward.x*1.2*step;model.position.y+=5.5*step;model.position.z+=balloon.outward.z*1.2*step;balloon.setPose(model.position,true);placeCamera()}
    uiTime-=dt;if(uiTime<=0){uiTime=.15;panel.hidden=control.active||otherRide()||!nearby()||!dialog.hidden;host.classList.toggle('near-balloon',!panel.hidden);if(!dialog.hidden&&(!nearby()||viewer.mode!=='walk'))close()}
   },
   cancel(){if(disposed)return;if(saved)restorePose(saved);onAscent=null;model.cancel();balloon.setPose(model.position,false);host.classList.remove('balloon-in-flight','near-balloon');saved=null;close();finish(false)},

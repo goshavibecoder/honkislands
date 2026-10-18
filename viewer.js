@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=69';
-import {mountBalloonTravel} from './balloon-travel.js?v=69';
+import {mountBalloonTravel} from './balloon-travel.js?v=70';
 import {MobileRenderQuality} from './mobile-render-quality.js?v=59';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';

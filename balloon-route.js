@@ -16,7 +16,7 @@ export class BalloonJourney{
  get raised(){return {x:this.home.x+this.outward.x*1.2,y:this.home.y+5.5,z:this.home.z+this.outward.z*1.2}}
  get progress(){return ease(this.elapsed/(this.phase==='boarding'?1:this.phase==='exiting'?1:2.8))}
  update(dt){let left=Math.max(0,Math.min(.25,dt));while(this.active&&left>1e-9){const duration=this.phase==='boarding'||this.phase==='exiting'?1:2.8,step=Math.min(left,duration-this.elapsed);left-=step;this.elapsed+=step;const t=ease(this.elapsed/duration),high=this.raised;
-  if(this.phase==='ascending'||this.phase==='descending'){const k=this.phase==='ascending'?t:1-t;this.position={x:this.home.x+(high.x-this.home.x)*k,y:this.home.y+5.5*k,z:this.home.z+(high.z-this.home.z)*k}}
+  if(this.phase==='ascending'||this.phase==='descending'){const u=this.elapsed/duration,k=this.phase==='ascending'?u*u*(2-u):1-t;this.position={x:this.home.x+(high.x-this.home.x)*k,y:this.home.y+5.5*k,z:this.home.z+(high.z-this.home.z)*k}}
   if(this.elapsed+1e-9>=duration){if(this.phase==='boarding'){this.phase='ascending';this.elapsed=0}else if(this.phase==='descending'){this.phase='exiting';this.elapsed=0;this.position={...this.home}}else{if(this.phase==='ascending')this.position=this.raised;this.phase=this.phase==='ascending'?'departed':'landed';this.active=false}}
  }return this}
 }
