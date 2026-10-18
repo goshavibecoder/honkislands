@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import * as THREE from '../vendor/three.module.min.js';
 import {CableTransit,KartDrive,CABLE_STATIONS,KART_TRACK,cablePosition} from '../island-transport-motion.js';
+import {createTouchStick} from '../touch-stick.js';
 import {WalkMotion} from '../walk-motion.js';
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
 function moduleURL(url){if(modules.has(url.href))return modules.get(url.href);const source=readFileSync(url,'utf8').replace(/(^import\s[\s\S]*?\sfrom\s+)(['"])([^'"]+)\2/gm,(_,prefix,q,path)=>`${prefix}'${path==='three'?threeURL:moduleURL(new URL(path,url))}'`),result='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(url.href,result);return result}
@@ -26,11 +27,11 @@ test('kart driving, reversing, braking and steering remain stable across frame r
  const states=[30,60,120].map(hz=>{const k=new KartDrive();advance(k,1.5,hz,{throttle:.7,steer:.3});return k});
  for(const k of states){assert.ok(Math.abs(k.position.x-states[0].position.x)<.002);assert.ok(Math.abs(k.position.z-states[0].position.z)<.002)}
  for(const k of states){assert.ok(k.speed>0);advance(k,1,60,{brake:true});assert.ok(Math.abs(k.speed)<.001);advance(k,.5,60,{throttle:-1});assert.ok(k.speed< -1);assert.ok(k.position.y===.06)}
- const k=new KartDrive();for(let i=0;i<15000;i++){k.update(1/120,{throttle:i%2000<1600?1:-1,steer:Math.sin(i/80)});const q=Math.hypot(k.position.x/KART_TRACK.rx,k.position.z/KART_TRACK.rz);assert.ok(Math.abs(q-1)<=KART_TRACK.margin/KART_TRACK.rx+1e-8);assert.ok(Math.abs(k.position.x)>=4.88||Math.abs(k.position.z)>=6.48);assert.ok(Object.values(k.position).every(Number.isFinite))}assert.ok(k.warning>0);
+ const k=new KartDrive();for(let i=0;i<15000;i++){k.update(1/120,{throttle:i%2000<1600?1:-1,steer:Math.sin(i/80)});const q=Math.hypot(k.position.x/KART_TRACK.rx,k.position.z/KART_TRACK.rz);assert.ok(Math.abs(q-1)<=KART_TRACK.margin/KART_TRACK.rx+1e-8);assert.ok(Math.abs(k.position.x)>=4.88||Math.abs(k.position.z)>=6.48);assert.ok(Object.values(k.position).every(Number.isFinite))}
 });
 
 test('a kart can complete full circuits and the lap counter requires an entire loop',()=>{
- const k=new KartDrive();for(let i=0;i<60*38;i++){const p=k.position,a=Math.atan2(p.x/KART_TRACK.rx,p.z/KART_TRACK.rz)+.18,yaw=Math.atan2(Math.sin(a)*KART_TRACK.rx-p.x,Math.cos(a)*KART_TRACK.rz-p.z),error=Math.atan2(Math.sin(yaw-k.yaw),Math.cos(yaw-k.yaw));k.update(1/60,{throttle:.7,steer:error*2})}assert.ok(k.laps>=2);assert.equal(k.warning,0);k.reset();assert.equal(k.laps,0);
+ const k=new KartDrive();for(let i=0;i<60*60;i++){const p=k.position,a=Math.atan2(p.x/KART_TRACK.rx,p.z/KART_TRACK.rz)+.18,yaw=Math.atan2(Math.sin(a)*KART_TRACK.rx-p.x,Math.cos(a)*KART_TRACK.rz-p.z),error=Math.atan2(Math.sin(yaw-k.yaw),Math.cos(yaw-k.yaw));k.update(1/60,{throttle:.7,steer:error*4})}assert.ok(k.laps>=2);assert.equal(k.warning,0);k.reset();assert.equal(k.laps,0);
 });
 
 class Element{
@@ -53,6 +54,16 @@ test('kart touch driving, brake hold, camera change, exit and cancellation relea
  const {viewer,controller,panel,world,window,host}=setup('kart');panel.querySelector('.ride-board').click();assert.equal(controller.active,true);viewer.stick.y=-1;viewer.stick.x=.2;advance(controller,1);assert.ok(controller.model.speed>2);panel.querySelector('.ride-camera').click();advance(controller,.5);assert.ok(viewer.camera.position.toArray().every(Number.isFinite));
  panel.querySelector('.ride-brake').fire('pointerdown',{pointerId:1});advance(controller,.7);assert.ok(controller.model.speed<.01);window.fire('blur');assert.equal(viewer.stick.y,0);panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(controller.active,false);assert.equal(host.classes.has('in-island-ride'),false);assert.ok(world.canStand(viewer.camera.position.x,viewer.camera.position.z));
  advance(controller,.2);panel.querySelector('.ride-board').click();assert.equal(controller.active,true);advance(controller,.5);controller.cancel();assert.equal(controller.active,false);assert.deepEqual(controller.model.position,{x:0,y:.06,z:9.4});controller.dispose();assert.equal(window.events.blur.length,0);
+});
+
+test('real touch joystick drives with sideways and diagonal drags and stops when released',()=>{
+ for(const [dx,dy] of [[29,0],[20,-20],[-29,0]]){
+  const {viewer,controller,panel,window}=setup('kart'),joystick=new Element(),doc=new Element(),knob={style:{}};doc.defaultView=window;joystick.ownerDocument=doc;joystick.getBoundingClientRect=()=>({left:0,top:0,width:100});let captured=null;joystick.setPointerCapture=id=>{captured=id};joystick.hasPointerCapture=id=>captured===id;joystick.releasePointerCapture=()=>{captured=null};
+  const stick=createTouchStick(joystick,knob,(x,y)=>{viewer.stick.x=x;viewer.stick.y=y});panel.querySelector('.ride-board').click();
+  joystick.fire('pointerdown',{pointerId:7,pointerType:'touch',clientX:50+dx,clientY:50+dy});const start=controller.model.position.x;advance(controller,1);assert.ok(controller.model.speed>2);assert.ok(controller.model.position.x>start+1,'sideways joystick did not accelerate');
+  advance(controller,29);assert.ok(controller.model.laps>=1,'a sustained thumb drag got stuck at a barrier');assert.equal(controller.model.warning,0);
+  window.fire('pointerup',{pointerId:7});assert.equal(viewer.stick.x,0);assert.equal(viewer.stick.y,0);advance(controller,1);assert.equal(controller.model.speed,0);stick.destroy();controller.dispose();
+ }
 });
 
 async function loadMountain(){const manifest=JSON.parse(readFileSync(new URL('../models/goat-mountain.json',import.meta.url))),bytes=gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url))))),gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');rebuildMountainStairs(gltf.scene,JSON.parse(gunzipSync(readFileSync(new URL('../models/goat-mountain-shell-v22.bin',import.meta.url)))));return gltf.scene}

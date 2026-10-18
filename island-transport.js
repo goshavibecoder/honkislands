@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {CableTransit,KartDrive,CABLE_STATIONS} from './island-transport-motion.js?v=54';
+import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=55';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
 export function mountIslandTransport(viewer,world){
@@ -43,7 +43,7 @@ export function mountIslandTransport(viewer,world){
   exit.disabled=!!exiting||cable&&model.moving;trip.disabled=!!exiting||model.moving;camera.disabled=!!exiting;
   trip.textContent=model.station===0?'Ехать к вершине':'Ехать вниз';exit.textContent=cable?(model.station===1?'Выйти на вершине':'Выйти на нижней станции'):'Остановиться и выйти';
   camera.textContent=inside?'Вид снаружи':cable?'Вид из кабинки':'Вид с водительского места';
-  const label=exiting?'Выходим…':cable?(model.moving?(model.destination?'Поднимаемся к вершине · Проведи по экрану, чтобы осмотреться':'Спускаемся · Проведи по экрану, чтобы осмотреться'):'Прибыли! Можно выйти или поехать обратно'):model.warning>0?'Край трассы — поверни к дороге':'Джойстик: вперёд — газ, назад — задний ход, в стороны — руль';
+  const label=exiting?'Выходим…':cable?(model.moving?(model.destination?'Поднимаемся к вершине · Проведи по экрану, чтобы осмотреться':'Спускаемся · Проведи по экрану, чтобы осмотреться'):'Прибыли! Можно выйти или поехать обратно'):model.warning>0?'Помогаем выровняться вдоль трассы':'Джойстик — ехать и поворачивать · Отпусти — стоп · Вниз — задний ход';
   if(status.textContent!==label)status.textContent=label;status.classList.toggle('ride-warning',!cable&&model.warning>0);
   output.textContent=cable?`${Math.round(model.t*100)}%`:`${Math.round(Math.abs(model.speed)*3.6)} км/ч · Круги: ${model.laps}`;
  }
@@ -66,7 +66,7 @@ export function mountIslandTransport(viewer,world){
    if(saved){
     if(exiting){exiting.time+=dt;const t=smooth(exiting.time/.6);viewer.camera.position.lerpVectors(exiting.from,exiting.to.position,t);viewer.camera.quaternion.slerpQuaternions(exiting.rotation,exiting.toRotation,t);if(exiting.time>=.6)restore(exiting.to)}
     else{
-     if(!cable){const keys=viewer.keys,throttle=-viewer.stick.y+(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0),steer=viewer.stick.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0);model.update(dt,{throttle,steer,brake:braking||keys.has('Space')});pose()}
+     if(!cable){const keys=viewer.keys,x=viewer.stick.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),y=viewer.stick.y-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0);model.update(dt,{...kartJoystickInput(x,y),brake:braking||keys.has('Space')});pose()}
      updateCamera(dt);
     }
    }

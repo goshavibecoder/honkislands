@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {CABLE_STATIONS,cablePosition,KART_TRACK} from './island-transport-motion.js?v=54';
+import {CABLE_STATIONS,cablePosition,KART_TRACK} from './island-transport-motion.js?v=55';
 
 export function prepareIslandTransport(root,slug){
  if(!['goat-mountain','arcade-district'].includes(slug))return null;
