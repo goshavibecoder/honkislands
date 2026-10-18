@@ -31,9 +31,18 @@ def remap_uv(v,original,faces,uv):
  return mapped
 for name,parts in models.items():
  allp=np.concatenate([np.array(p['positions']).reshape(-1,3) for p in parts]);center=(allp.min(0)+allp.max(0))/2;center[1]=allp.min(0)[1];angle={'teledog':np.pi/2,'fast':np.pi}.get(name,0);rotation=np.array([[np.cos(angle),0,np.sin(angle)],[0,1,0],[-np.sin(angle),0,np.cos(angle)]]);allp=(allp-center)@rotation.T;size=allp.max(0)-allp.min(0);scale=min(1.2/size[1],.67/size[0]);height=size[1]*scale;hip=height*(.40 if name=='groyper' else .46)
+ if name=='groyper':
+  # Keep every original UV seam and its index. Re-projecting UVs after welding
+  # chooses different atlas islands at seams and produces vein-like streaks.
+  part=parts[0];original=(np.array(part['positions']).reshape(-1,3)-center)@rotation.T*scale;p=pose(original,hip);f=np.array(part['indices']).reshape(-1,3)
+  _,inverse=np.unique(np.round(p,6),axis=0,return_inverse=True);normal=np.zeros((inverse.max()+1,3));face_normal=np.cross(p[f[:,1]]-p[f[:,0]],p[f[:,2]]-p[f[:,0]])
+  for corner in range(3):np.add.at(normal,inverse[f[:,corner]],face_normal)
+  normal/=np.maximum(np.linalg.norm(normal,axis=1,keepdims=True),1e-20)
+  geometry={'positions':np.round(p,6).reshape(-1).tolist(),'indices':part['indices'],'uv':part['uv'],'normals':np.round(normal[inverse],6).reshape(-1).tolist(),'colors':[1.]*(len(p)*3)}
+  result[name]={'high':geometry,'low':geometry,'seatLift':.225,'frontOffset':.16};print(name,'original UVs',len(f),'triangles',flush=True);continue
  prepared=[];total=sum(len(p['indices'])//3 for p in parts)
  for part in parts:
-  original=(np.array(part['positions']).reshape(-1,3)-center)@rotation.T*scale;p=pose(original,hip);f=np.array(part['indices'],dtype=np.int32).reshape(-1,3)
+  original=(np.array(part['positions']).reshape(-1,3)-center)@rotation.T*scale;p=original.copy() if name=='zoich' else pose(original,hip);f=np.array(part['indices'],dtype=np.int32).reshape(-1,3)
   _,first,inverse=np.unique(np.round(p,6),axis=0,return_index=True,return_inverse=True);v=p[first];f=inverse[f];f=f[(f[:,0]!=f[:,1])&(f[:,1]!=f[:,2])&(f[:,0]!=f[:,2])]
   edges=np.r_[f[:,[0,1]],f[:,[1,2]],f[:,[2,0]]];graph=coo_matrix((np.ones(len(edges)),(edges[:,0],edges[:,1])),shape=(len(v),len(v)));_,labels=connected_components(graph,directed=False);component=labels[f[:,0]]
   prepared.append((part,p,np.array(part['indices']).reshape(-1,3),v,f,component))
@@ -50,8 +59,8 @@ for name,parts in models.items():
   if uvs:baked[lod]['uv']=np.round(uvs,6).reshape(-1).tolist()
   print(name,lod,len(indices),'triangles',flush=True)
  # The pelvis, rather than the origin at the hips, rests on the cushion.
- baked['seatLift']={'teledog':.187,'zoich':.308,'fast':.194,'honk':.393,'groyper':.225}[name];baked['frontOffset']=.23 if name=='teledog' else .16;result[name]=baked
+ baked['seatLift']={'teledog':.187,'zoich':.008,'fast':.194,'honk':.393,'groyper':.225}[name];baked['frontOffset']=.23 if name=='teledog' else .16;result[name]=baked
 payload=gzip.compress(json.dumps(result,separators=(',',':')).encode(),mtime=0);encoded=base64.b64encode(payload).decode();parts=[]
 for i,start in enumerate(range(0,len(encoded),120000)):
- name=f'arena-crowd-v83.{i}.json';(repo/'models'/name).write_text(json.dumps(encoded[start:start+120000])+'\n');parts.append(name)
-(repo/'models/arena-crowd-v83.json').write_text(json.dumps({'parts':parts,'bytes':len(payload),'source':'goshavibecoder/Teledog','characters':list(models)},separators=(',',':'))+'\n');print('Packaged',len(payload),'bytes',len(parts),'chunks')
+ name=f'arena-crowd-v84.{i}.json';(repo/'models'/name).write_text(json.dumps(encoded[start:start+120000])+'\n');parts.append(name)
+(repo/'models/arena-crowd-v84.json').write_text(json.dumps({'parts':parts,'bytes':len(payload),'source':'goshavibecoder/Teledog','characters':list(models)},separators=(',',':'))+'\n');print('Packaged',len(payload),'bytes',len(parts),'chunks')

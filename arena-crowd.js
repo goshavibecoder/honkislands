@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 export async function loadArenaCrowd(){
- const read=async url=>{const r=await fetch(url);if(!r.ok)throw Error(`Crowd asset ${r.status}: ${url}`);return r.json()},manifest=await read('./models/arena-crowd-v83.json');
+ const read=async url=>{const r=await fetch(url);if(!r.ok)throw Error(`Crowd asset ${r.status}: ${url}`);return r.json()},manifest=await read('./models/arena-crowd-v84.json');
  const parts=await Promise.all(manifest.parts.map(name=>read('./models/'+name))),raw=atob(parts.join('')),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
  const data=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).json();
  const pixels=Uint8Array.from(atob(data.texture),c=>c.charCodeAt(0)),image=await createImageBitmap(new Blob([pixels],{type:'image/webp'}));
@@ -26,7 +26,7 @@ export function createArenaCrowd(root,characters){
   // and detailed geometry are retained for the spectators beside the player.
   const material=new THREE.MeshStandardMaterial({name:'Teledog cast / '+name,vertexColors:name!=='groyper',map:data.map||null,side:THREE.DoubleSide,roughness:.82,metalness:0});materials.push(material);const pair={};
   for(const lod of ['high','low']){
-   const source=data[lod],geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(source.positions,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(source.colors,3));if(source.uv)geometry.setAttribute('uv',new THREE.Float32BufferAttribute(source.uv,2));geometry.setIndex(source.indices);geometry.computeVertexNormals();
+   const source=data[lod],geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(source.positions,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(source.colors,3));if(source.uv)geometry.setAttribute('uv',new THREE.Float32BufferAttribute(source.uv,2));geometry.setIndex(source.indices);if(source.normals)geometry.setAttribute('normal',new THREE.Float32BufferAttribute(source.normals,3));else geometry.computeVertexNormals();
    const mesh=new THREE.InstancedMesh(geometry,material,count);mesh.name=`Arena_spectators_${name}_${lod}`;mesh.userData.arenaCrowd=true;mesh.count=0;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;group.add(mesh);meshes.push(mesh);pair[lod]=mesh;
   }
   batches.set(name,pair);

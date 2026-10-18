@@ -18,9 +18,9 @@ globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,heigh
 const bytes=gunzipSync(readFileSync(new URL('../models/arena.0.bin',import.meta.url)));
 const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
 
-const manifest=JSON.parse(readFileSync(new URL('../models/arena-crowd-v83.json',import.meta.url))),data=JSON.parse(gunzipSync(Buffer.from(manifest.parts.map(p=>JSON.parse(readFileSync(new URL('../models/'+p,import.meta.url)))).join(''),'base64'))),crowd=createArenaCrowd(gltf.scene,data);
+const manifest=JSON.parse(readFileSync(new URL('../models/arena-crowd-v84.json',import.meta.url))),data=JSON.parse(gunzipSync(Buffer.from(manifest.parts.map(p=>JSON.parse(readFileSync(new URL('../models/'+p,import.meta.url)))).join(''),'base64'))),crowd=createArenaCrowd(gltf.scene,data);
 test('the real colosseum seats are filled with all five original characters without covering the arena or aisles',()=>{
- assert.equal(crowd.count,154);assert.equal(crowd.meshes.length,10);assert.ok(crowd.triangles<1400000);assert.ok(manifest.bytes<2500000);
+ assert.equal(crowd.count,154);assert.equal(crowd.meshes.length,10);assert.ok(crowd.triangles<1400000);assert.ok(manifest.bytes<3000000);
  for(const name of ['groyper','fast','teledog','honk','zoich'])assert.ok(crowd.placements.filter(p=>p.name===name).length>=25);
  for(const p of crowd.placements){assert.ok(Math.hypot(p.position.x,p.position.z/.8)>5.3);assert.ok(p.position.y>2.8);const direction=new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0),p.yaw);const back=gltf.scene.getObjectByName(p.seat.replace('red_cushion','low_carved_back')),center=new THREE.Box3().setFromObject(back).getCenter(new THREE.Vector3()),expected=p.position.clone().sub(center);expected.y=0;assert.ok(direction.dot(expected.normalize())>.998)}
  for(const b of crowd.extraBoxes)assert.equal(b.containsPoint(new THREE.Vector3(0,1,2.5)),false);
@@ -54,4 +54,16 @@ test('nearby spectators retain detailed source surfaces and Groyper UVs while di
 
 test('seated feet retain depth instead of collapsing into a flickering plane',()=>{
  const points=data.teledog.high.positions,foot=[];let minimum=Infinity;for(let i=1;i<points.length;i+=3)minimum=Math.min(minimum,points[i]);for(let i=0;i<points.length;i+=3)if(points[i+1]<minimum+.06)foot.push(new THREE.Vector3(points[i],points[i+1],points[i+2]));const box=new THREE.Box3().setFromPoints(foot);assert.ok(box.max.z-box.min.z>.06);assert.ok(box.max.x-box.min.x>.15);
+});
+
+test('Groyper keeps the source UV seams and triangle pairing, with smooth normals across the seams',async()=>{
+ const {createHash}=await import('node:crypto'),g=data.groyper.high,hash=a=>createHash('sha256').update(new Uint8Array(a.buffer)).digest('hex');
+ assert.equal(hash(new Float32Array(g.uv)),'a4448bb072e7dbd72e3b81cc3fd0f686396b35d17c7b0acbaa9c4eccddc78434');
+ assert.equal(hash(new Uint32Array(g.indices)),'e3f587205430c3702ea83dde4654be46598cda17a97282cab7bf66633cd696db');
+ const normals=new Map();for(let i=0;i<g.positions.length;i+=3){const key=g.positions.slice(i,i+3).join(','),n=g.normals.slice(i,i+3);if(normals.has(key))assert.deepEqual(n,normals.get(key));else normals.set(key,n)}
+ assert.deepEqual(data.groyper.low.uv,g.uv);
+});
+test('Zoich keeps the original source foot proportions and vertex positions',()=>{
+ const samples=[[.161042,.096023,-.072365],[-.206146,.023826,.104602],[-.222946,.00637,.090068],[.2052,.077831,.071973],[-.300743,.079161,-.124437],[-.194282,.038219,.171284],[-.215116,.067541,.090163],[-.235686,.032622,.183838],[-.203251,.055272,.103674],[-.306686,.01612,.149893],[.22269,.062879,.081712],[.180935,.022099,.18463],[.206524,.046377,.068371],[.252748,.005597,.204628],[.201697,.03234,.08519],[.2962,0,.165586]],p=data.zoich.high.positions,vertices=new Set();for(let i=0;i<p.length;i+=3)vertices.add(p.slice(i,i+3).join(','));for(const sample of samples)assert.ok(vertices.has(sample.join(',')),'original Zoich foot vertex missing: '+sample);
+ assert.equal(data.zoich.seatLift,.008);
 });
