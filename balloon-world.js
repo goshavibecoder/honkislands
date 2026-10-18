@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {balloonIsland} from './balloon-route.js?v=65';
+import {balloonIsland} from './balloon-route.js?v=68';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
 export function prepareBalloonWorld(root,slug){

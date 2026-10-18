@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {BALLOON_ISLANDS,BalloonJourney} from './balloon-route.js?v=65';
+import {BALLOON_ISLANDS,BalloonJourney} from './balloon-route.js?v=68';
 
 export function mountBalloonTravel(viewer,balloon){
  const host=document.getElementById('world'),panel=document.createElement('aside');panel.className='balloon-controls';panel.hidden=true;

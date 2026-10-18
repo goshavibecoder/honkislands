@@ -7,15 +7,18 @@ async function cover(){transition.className='active';transition.setAttribute('ar
 async function reveal(){transition.classList.add('depart');await wait(reduced?220:1000);transition.className='';transition.setAttribute('aria-hidden','true')}
 function progress(value,label){$('progress').style.width=`${Math.round(value*100)}%`;$('load-label').textContent=label||'Летим на остров…'}
 async function enter(slug,button){if(busy)return;entryIntro?.finish();busy=true;lastButton=button||lastButton;activeWorld=slug;const current=++epoch;$('error').hidden=true;progress(0);const curtain=cover();try{
- const module=await import('./viewer.js?v=67');viewer??=new module.IslandViewer($('viewport'));viewer.onBalloonTravel=flyByBalloon;await curtain;
+ const module=await import('./viewer.js?v=68');viewer??=new module.IslandViewer($('viewport'));viewer.onBalloonTravel=flyByBalloon;await curtain;
  world.hidden=false;map.hidden=true;world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');
  await viewer.open(slug,progress);if(current!==epoch)return;
  viewer.setActive(true);history.replaceState(null,'',`#${slug}`);await reveal();busy=false;$('viewport').focus({preventScroll:true});showHint();
  }catch(e){console.error(e);await curtain;if(current!==epoch)return;await reveal();busy=false;$('error-message').textContent='Не удалось открыть 3D-остров. Проверьте соединение и попробуйте ещё раз.';$('error').hidden=false;}}
 async function balloonCurtain(covered,durationMs=900){
- const duration=reduced?180:durationMs;transition.style.transitionDuration=`${duration}ms`;
- if(covered){transition.className='active balloon-transfer';transition.setAttribute('aria-hidden','true');void transition.offsetWidth;transition.classList.add('covered');await wait(duration);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))}
- else{transition.classList.remove('covered');await wait(duration);transition.className='';transition.style.transitionDuration='';transition.setAttribute('aria-hidden','true')}
+ const from=covered?0:1,to=covered?1:0;
+ transition.style.opacity=String(from);transition.className='active balloon-transfer';transition.setAttribute('aria-hidden','true');
+ const animation=transition.animate([{opacity:from},{opacity:to}],{duration:durationMs,easing:'linear',fill:'both'});
+ await animation.finished;transition.style.opacity=String(to);animation.cancel();
+ if(covered)await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+ else{transition.className='';transition.style.opacity=''}
 }
 async function flyByBalloon(slug){
  if(busy||!viewer?.balloonTravel||slug===activeWorld)return;busy=true;const current=++epoch;clearTimeout(hintTimer);$('error').hidden=true;
