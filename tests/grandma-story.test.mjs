@@ -16,6 +16,8 @@ async function room(){const bytes=gunzipSync(readFileSync(new URL('../models/hon
 test('grandma sits on the original chair and survives the real static batching pass',async()=>{
  const {gltf,room:r}=await room(),actor=r.grandma,seat=new THREE.Box3().setFromObject(gltf.scene.getObjectByName('Chair_seat'));
  assert.ok(actor);assert.ok(Math.abs(actor.group.position.x-seat.getCenter(new THREE.Vector3()).x)<1e-6);assert.ok(Math.abs(actor.seat.y-seat.max.y)<1e-6);
+ for(const t of [0,1,3,10]){actor.update(t,true);actor.group.updateWorldMatrix(true,true);const skirt=new THREE.Box3().setFromObject(actor.group.getObjectByName('Grandma_seated_skirt'));assert.ok(skirt.min.y>seat.max.y+.01,'seated skirt intersects the chair')}
+ actor.update(0);
  const bounds=new THREE.Box3().setFromObject(actor.group);assert.ok(Math.abs(bounds.min.y-.028)<.001);assert.ok(bounds.max.y>1.8&&bounds.max.y<2.1);assert.ok(bounds.max.z<seat.max.z,'body faces the open side of the chair');
  let draws=0,triangles=0;actor.group.traverse(o=>{if(!o.isMesh)return;draws++;assert.ok(o.userData.grandmaDynamic);assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3});assert.ok(draws<=24,`grandma draw calls ${draws}`);
  const source=readFileSync(new URL('../viewer.js',import.meta.url),'utf8'),start=source.indexOf('  const animated=new Set();'),end=source.indexOf('  const originalGeometries=',start),viewer={root:gltf.scene,config:{},renderer:{capabilities:{getMaxAnisotropy:()=>4}}};
@@ -39,29 +41,37 @@ test('entry brickwork, castle jamb backing and chair caps no longer share visibl
 });
 
 class Element{
- constructor(){this.events={};this.children=[];this.nodes=new Map();this.attributes={};this.dataset={};this.isConnected=true;this.classes=new Set();this.classList={toggle:(k,v)=>v?this.classes.add(k):this.classes.delete(k),remove:k=>this.classes.delete(k)}}
+ constructor(){this.events={};this.children=[];this.nodes=new Map();this.attributes={};this.isConnected=true;this.currentTime=0;this.paused=true;this.playCalls=0;this.classes=new Set();this.classList={toggle:(k,v)=>v?this.classes.add(k):this.classes.delete(k),remove:k=>this.classes.delete(k)}}
  addEventListener(k,f){(this.events[k]??=[]).push(f)}removeEventListener(k,f){this.events[k]=(this.events[k]||[]).filter(g=>g!==f)}
+ emit(k){for(const f of this.events[k]||[])f()}
+ play(){this.playCalls++;if(this.blocked)return Promise.reject({name:'NotAllowedError'});this.paused=false;this.emit('playing');return Promise.resolve()}
+ pause(){this.paused=true;this.emit('pause')}load(){this.loaded=true}removeAttribute(k){delete this.attributes[k];if(k==='src')this.src=''}
  append(e){this.children.push(e)}replaceChildren(...a){this.children=a}setAttribute(k,v){this.attributes[k]=v}focus(){document.activeElement=this}remove(){this.removed=true}
- querySelector(k){if(!this.nodes.has(k))this.nodes.set(k,new Element());return this.nodes.get(k)}
- querySelectorAll(k){if(k==='[data-lang]'){if(!this.languages)this.languages=['ru','en'].map(lang=>{const e=new Element();e.dataset.lang=lang;return e});return this.languages}return []}
+ querySelector(k){if(!this.nodes.has(k))this.nodes.set(k,new Element());return this.nodes.get(k)}querySelectorAll(){return []}
  click(){for(const f of this.events.click||[])f({target:this})}
 }
-function environment(voice=true){
+function environment(){
  const world=new Element(),doc=new Element();doc.createElement=()=>new Element();doc.getElementById=()=>world;globalThis.document=doc;
- const spoken=[],speech={cancelled:0,getVoices:()=>[{lang:'ru-RU',name:'Milena'},{lang:'en-US',name:'Samantha'}],speak:u=>spoken.push(u),cancel(){this.cancelled++}};
- globalThis.speechSynthesis=voice?speech:undefined;globalThis.SpeechSynthesisUtterance=voice?class{constructor(text){this.text=text}}:undefined;
- const viewer={host:new Element(),controls:{enabled:true},cleared:0,clearWalkInput(){this.cleared++}},actor={update(...args){this.last=args}},controller=mountGrandmaStory(viewer,actor);return {world,doc,spoken,speech,viewer,actor,controller,overlay:world.children[0]};
+ // Playback must work even when iOS has no usable SpeechSynthesis voices.
+ globalThis.speechSynthesis=undefined;globalThis.SpeechSynthesisUtterance=undefined;
+ const viewer={host:new Element(),controls:{enabled:true},cleared:0,clearWalkInput(){this.cleared++}},actor={update(...args){this.last=args}},controller=mountGrandmaStory(viewer,actor),overlay=world.children[0];return {world,doc,viewer,actor,controller,overlay,audio:overlay.querySelector('audio')};
 }
 
-test('story speaks on the tap, changes language, rejects stale callbacks and restores controls',()=>{
- const e=environment(),{controller:c,overlay:o,viewer:v,spoken,speech,doc}=e;assert.equal(o.hidden,true);c.open();assert.equal(c.active,true);assert.equal(v.controls.enabled,false);assert.equal(spoken.length,1);assert.equal(spoken[0].voice.name,'Samantha');const stale=spoken[0].onend;
- o.querySelectorAll('[data-lang]')[0].click();assert.equal(speech.cancelled,1);assert.equal(spoken.at(-1).lang,'ru-RU');assert.equal(spoken.at(-1).voice.name,'Milena');const count=spoken.length;stale();assert.equal(spoken.length,count);
- c.update(.2);assert.deepEqual(e.actor.last,[.2,true]);
- for(let i=0;i<HONK_STORY.ru.paragraphs.length;i++)spoken.at(-1).onend();assert.equal(c.speaking,false);
- o.querySelector('.grandma-story-listen').click();const last=spoken.at(-1).onend;let prevented=false,stopped=false;doc.events.keydown[0]({key:'Escape',preventDefault(){prevented=true},stopImmediatePropagation(){stopped=true}});assert.ok(prevented&&stopped);assert.equal(c.active,false);assert.equal(v.controls.enabled,true);assert.equal(o.hidden,true);last();assert.equal(spoken.length,count+3);
- c.open();c.dispose();assert.equal(c.active,false);assert.ok(o.removed);assert.equal(doc.events.keydown.length,0);assert.ok(speech.cancelled>=3);
+test('bundled English audio starts on the tap, highlights paragraphs and stops when the dialog closes',()=>{
+ const e=environment(),{controller:c,overlay:o,viewer:v,audio,doc}=e;assert.equal(o.hidden,true);c.open();assert.equal(c.active,true);assert.equal(v.controls.enabled,false);assert.equal(audio.playCalls,1);assert.equal(audio.volume,1);assert.equal(audio.muted,false);assert.match(audio.src,/grandma-story-en-v102.mp3$/);assert.equal(c.speaking,true);
+ const content=o.querySelector('.grandma-story-text');assert.equal(content.children.length,HONK_STORY.en.paragraphs.length);assert.equal('ru' in HONK_STORY,false);assert.doesNotMatch(o.innerHTML,/data-lang/);
+ audio.currentTime=20;audio.emit('timeupdate');assert.equal(content.children[1].classes.has('is-reading'),true);c.update(.2);assert.deepEqual(e.actor.last,[.2,true]);
+ audio.emit('ended');assert.equal(c.speaking,false);o.querySelector('.grandma-story-listen').click();assert.equal(audio.playCalls,2);assert.equal(audio.currentTime,0);
+ let prevented=false,stopped=false;doc.events.keydown[0]({key:'Escape',preventDefault(){prevented=true},stopImmediatePropagation(){stopped=true}});assert.ok(prevented&&stopped);assert.equal(c.active,false);assert.equal(v.controls.enabled,true);assert.equal(o.hidden,true);assert.equal(audio.paused,true);assert.equal(audio.currentTime,0);
+ c.open();c.dispose();assert.equal(c.active,false);assert.ok(o.removed);assert.equal(doc.events.keydown.length,0);assert.ok(audio.loaded);assert.equal(audio.src,'');assert.equal(audio.events.playing.length,0);
 });
 
-test('voice failure and devices without speech retain the readable story and working close button',()=>{
- for(const voice of [true,false]){const e=environment(voice);e.controller.open();if(voice)e.spoken[0].onerror();assert.match(e.overlay.querySelector('.grandma-story-status').textContent,/unavailable/);assert.equal(e.overlay.querySelector('.grandma-story-text').children.length,3);e.overlay.querySelector('.grandma-story-close').click();assert.equal(e.controller.active,false);e.controller.dispose()}
+test('autoplay rejection offers a native Play tap and Listen retries rather than silently failing',async()=>{
+ const e=environment();e.audio.blocked=true;e.controller.open();await Promise.resolve();assert.equal(e.controller.speaking,false);assert.match(e.overlay.querySelector('.grandma-story-status').textContent,/Tap Play or Listen/);
+ e.audio.blocked=false;e.overlay.querySelector('.grandma-story-listen').click();await Promise.resolve();assert.equal(e.controller.speaking,true);
+ e.overlay.querySelector('.grandma-story-stop').click();assert.equal(e.controller.speaking,false);assert.ok(e.audio.paused);e.controller.dispose();
+});
+
+test('a rejected old playback request cannot overwrite a reopened conversation',async()=>{
+ const e=environment();let reject;e.audio.play=()=>new Promise((_,r)=>reject=r);e.controller.open();e.controller.close();e.audio.play=()=>{e.audio.emit('playing');return Promise.resolve()};e.controller.open();reject({name:'NotAllowedError'});await Promise.resolve();assert.equal(e.controller.speaking,true);assert.match(e.overlay.querySelector('.grandma-story-status').textContent,/telling/);e.controller.dispose();
 });
