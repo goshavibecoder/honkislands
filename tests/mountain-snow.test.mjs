@@ -94,3 +94,21 @@ test('double-pole strokes keep wrists, elbows and grips connected without turnin
  }
  assert.ok(skier.arms[0].hand.position.equals(rest));
 });
+
+
+test('ski boots stay seated on their bindings and enclose the trouser ends on slopes and through pole strokes',()=>{
+ const data=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url)))),skier=createSkiHonk(new THREE.Group(),data),raycaster=new THREE.Raycaster();
+ for(const slope of [-.4,0,.7])for(const phase of [-1,.22,.67,1]){
+  skier.pose(snow.start,.8,3.7,-.6,slope,phase);skier.group.updateMatrixWorld(true);
+  for(const ski of skier.skis){
+   assert.equal(ski.boot.parent,ski.group);
+   ski.sole.geometry.computeBoundingBox();ski.binding.geometry.computeBoundingBox();
+   const sole=ski.sole.geometry.boundingBox.clone().applyMatrix4(ski.sole.matrix),binding=ski.binding.geometry.boundingBox.clone().applyMatrix4(ski.binding.matrix);
+   assert.ok(Math.abs(sole.min.y-binding.max.y)<1e-8,'flat sole must sit on top of the binding');assert.ok(sole.min.x>=binding.min.x&&sole.max.x<=binding.max.x);
+   const ankle=ski.group.worldToLocal(skier.group.localToWorld(ski.ankle.clone())),direction=new THREE.Vector3(0,1,0).transformDirection(ski.group.matrixWorld),worldAnkle=ski.group.localToWorld(ankle.clone());
+   // Both rays start inside the boot shaft, where the lower leg ends.
+   for(const sign of [-1,1]){raycaster.set(worldAnkle.clone().addScaledVector(direction,sign*.3),direction.clone().multiplyScalar(-sign));const hit=raycaster.intersectObject(ski.boot,true)[0];assert.ok(hit&&hit.distance<.3,'ankle must enter the boot shaft')}
+   assert.ok(Math.abs(ankle.x)<1e-8);assert.ok(Math.abs(ankle.z-.015)<1e-8);
+  }
+ }
+});

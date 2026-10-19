@@ -13,7 +13,7 @@ import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
 import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=95';
 import {prepareMountainSnow} from './mountain-snow.js?v=106';
-import {createSkiHonk} from './ski-honk.js?v=106';
+import {createSkiHonk} from './ski-honk.js?v=107';
 import {mountMountainSki} from './mountain-ski.js?v=106';
 import {rebuildMountainStairs} from './mountain-stairs.js?v=96';
 import {repairLandingPad} from './landing-pad.js?v=19';
