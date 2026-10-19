@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {BALLOON_ISLANDS,balloonIsland} from './balloon-route.js?v=72';
+import {BALLOON_ISLANDS,balloonIsland} from './balloon-route.js?v=90';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
 let mapPictures;
@@ -26,6 +26,21 @@ export function prepareBalloonWorld(root,slug,{mapImages=[]}={}){
  const depth=island.padDepth||4.8;box(4.8,.22,depth,m.dark,pad,0,-.115,0);box(4.7,.035,depth-.10,m.cream,pad,0,-.005,0);floor(home.x,home.y+.013,home.z,4.7,depth-.10,yaw);
  for(const x of [-2.18,2.18]){rod([x,.06,-depth/2+.15],[x,.06,depth/2-.15],.045,m.gold,pad);for(const z of [-depth/2+.15,depth/2-.15]){const post=box(.10,1,.10,m.dark,pad,x,.5,z);post.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(post))}rod([x,.96,-depth/2+.15],[x,.96,depth/2-.15],.035,m.gold,pad)}
  const length=home.distanceTo(anchor),mid=home.clone().lerp(anchor,.5),bridge=box(1.6,.18,length+.5,m.wood,group,mid.x,home.y-.10,mid.z,'Balloon_access_walkway');bridge.rotation.y=yaw;floor(mid.x,home.y,mid.z,1.6,length+.5,yaw);
+ // The library's high silhouette is revealed from a more distant stone causeway.
+ if(slug==='honkhub'){
+  bridge.material=m.cream;
+  const approach=new THREE.Group();approach.name='Library_castle_balloon_causeway';approach.position.copy(mid);approach.rotation.y=yaw;group.add(approach);
+  box(1.80,.28,length+.50,m.cream,approach,0,-.16,0,'Library_stone_bridge_deck');box(.68,.012,length+.48,m.colors[4],approach,0,.008,0,'Library_blue_arrival_runner');
+  for(const sign of [-1,1]){
+   const rail=box(.065,.055,length+.48,m.gold,approach,sign*.86,.80,0,'Library_bridge_handrail');rail.updateWorldMatrix(true,false);const collider=new THREE.Box3().setFromObject(rail);collider.min.y=home.y+.10;extraBoxes.push(collider);
+   for(let z=-length/2;z<=length/2;z+=1.10){box(.09,.77,.09,m.cream,approach,sign*.86,.39,z);mesh(new THREE.SphereGeometry(.065,8,5),m.gold,approach,sign*.86,.82,z)}
+   const side=new THREE.Group();side.position.x=sign*.80;side.rotation.y=Math.PI/2;approach.add(side);const span=length/4,r=span*.38;
+   for(let k=0;k<4;k++){
+    const center=-length/2+span*(k+.5);for(let i=0;i<12;i++){const a=(i+.5)*Math.PI/12,stone=box(r*Math.PI/12+.025,.24,.18,m.cream,side,center+Math.cos(a)*r,-r-.32+Math.sin(a)*r,0,'Library_bridge_arch_stone');stone.rotation.z=a-Math.PI/2}
+   }
+   for(let k=0;k<=4;k++)box(span-2*r,.95,.18,m.cream,side,-length/2+span*k,-r*.5-.40,0,'Library_bridge_pier');
+  }
+ }
  const vehicle=new THREE.Group();vehicle.name='Honk_rainbow_passenger_balloon';vehicle.position.copy(home);vehicle.rotation.y=yaw;group.add(vehicle);
  // Open boarding side, a woven basket, leather rim and rounded sandbags.
  box(1.65,.12,1.65,m.wood,vehicle,0,.08,0,'Balloon_basket_floor');

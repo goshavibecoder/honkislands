@@ -1,80 +1,98 @@
 import * as THREE from 'three';
 
-// A closed exterior built outside the antique room's existing wall envelope.
-// Coordinates share the room's world-aligned extension, including its balloon door.
+// The map's library castle wraps the original workshop; the balloon doorway
+// and all interior walls retain their original world coordinates.
 export function addAntiqueCastle(parent,extraBoxes){
  const group=new THREE.Group();group.name='Antique_storybook_castle';parent.add(group);
- const material=color=>({color:new THREE.Color(color)});
- const surface=new THREE.MeshStandardMaterial({name:'Antique castle coloured sandstone and slate',color:0xffffff,vertexColors:true,roughness:.9,metalness:.05});
- const m={stone:[0xb6a08a,0xbda790,0xb19a83,0xc1ab95].map(c=>material(c)),trim:material(0xd9c5a5),base:material(0x806f60),roof:material(0x46555a),roofEdge:material(0x66787a),dark:material(0x26383b),gold:material(0xb59a61,.55,.35),red:material(0x8f3f47),teal:material(0x46736b),glass:material(0xc39c65,.55)};
- const mesh=(g,mat,p=group,x=0,y=0,z=0,name='Castle_exterior_detail')=>{if(!g.index)g.setIndex(Array.from({length:g.attributes.position.count},(_,i)=>i));const colors=new Float32Array(g.attributes.position.count*3);for(let i=0;i<colors.length;i+=3)mat.color.toArray(colors,i);g.setAttribute('color',new THREE.BufferAttribute(colors,3));const o=new THREE.Mesh(g,surface);o.name=name;o.position.set(x,y,z);p.add(o);return o};
- const box=(w,h,d,mat,p,x,y,z,name)=>mesh(new THREE.BoxGeometry(w,h,d),mat,p,x,y,z,name);
- const cylinder=(top,bottom,h,mat,p,x,y,z,name)=>mesh(new THREE.CylinderGeometry(top,bottom,h,24),mat,p,x,y,z,name);
+ const surface=new THREE.MeshStandardMaterial({name:'Library castle stone, blue enamel and gardens',color:0xffffff,vertexColors:true,roughness:.78,metalness:.06});
+ const color=c=>new THREE.Color(c),m={stone:[0xe3dccb,0xf0e7d3,0xd9d0c0,0xe9dfcc].map(color),trim:color(0xffefcf),base:color(0xb6ac9d),blue:color(0x2458ad),blueLight:color(0x3b73be),gold:color(0xd9a944),dark:color(0x344d58),cyan:color(0x71dce6),pane:color(0xb6f5eb),wood:color(0x69513a),paper:color(0xf6e8bc),green:color(0x3f8960),leaf:color(0x529f69),grass:color(0x77ac68),rose:color(0xd98580),books:[0x9b4546,0x577a65,0xbc9955,0x416a9a,0x8a6d95].map(color)};
+ function mesh(g,c,p=group,x=0,y=0,z=0,name='Castle_exterior_detail'){
+  if(!g.index)g.setIndex(Array.from({length:g.attributes.position.count},(_,i)=>i));const colors=new Float32Array(g.attributes.position.count*3);for(let i=0;i<colors.length;i+=3)c.toArray(colors,i);g.setAttribute('color',new THREE.BufferAttribute(colors,3));const o=new THREE.Mesh(g,surface);o.name=name;o.position.set(x,y,z);p.add(o);return o;
+ }
+ const box=(w,h,d,c,p,x,y,z,name)=>mesh(new THREE.BoxGeometry(w,h,d),c,p,x,y,z,name);
+ const cylinder=(top,bottom,h,c,p,x,y,z,name)=>mesh(new THREE.CylinderGeometry(top,bottom,h,16),c,p,x,y,z,name);
+ function rod(a,b,r,c,p=group,name='Castle_gold_detail'){const u=new THREE.Vector3(...a),v=new THREE.Vector3(...b),d=v.clone().sub(u),o=mesh(new THREE.CylinderGeometry(r,r,d.length(),4,1,true),c,p,...u.add(v).multiplyScalar(.5).toArray(),name);o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return o}
+ function ball(r,c,p,x,y,z,name){return mesh(new THREE.SphereGeometry(r,8,5),c,p,x,y,z,name)}
  function solid(o){o.updateWorldMatrix(true,true);extraBoxes.push(new THREE.Box3().setFromObject(o))}
- function archShape(r,spring){const s=new THREE.Shape();s.moveTo(-r,0);s.lineTo(r,0);s.lineTo(r,spring);s.absarc(0,spring,r,0,Math.PI,false);s.lineTo(-r,0);return s}
- function archFrame(r,spring,width,depth,mat,p,x,y,z,name){const s=archShape(r+width,spring),hole=new THREE.Path();hole.moveTo(-r,0);hole.lineTo(-r,spring);hole.absarc(0,spring,r,Math.PI,0,true);hole.lineTo(r,0);hole.closePath();s.holes.push(hole);return mesh(new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:false,curveSegments:12}),mat,p,x,y,z,name)}
- // Individually coursed sandstone avoids large blank plaster faces and coplanar overlays.
- function wall(x,z,length,angle,door=false){const side=new THREE.Group();side.position.set(x,0,z);side.rotation.y=angle;group.add(side);
-  for(let row=0;row<9;row++){const y=.12+row*.425;for(let a=-length/2-(row%2)*.58,i=0;a<length/2;a+=1.16,i++){
-   let lo=Math.max(a,-length/2),hi=Math.min(a+1.145,length/2);const spans=door&&y<2.84?[[lo,Math.min(hi,-.78)],[Math.max(lo,.78),hi]]:[[lo,hi]];
+ function arch(r,spring){const s=new THREE.Shape();s.moveTo(-r,0);s.lineTo(r,0);s.lineTo(r,spring);s.absarc(0,spring,r,0,Math.PI,false);s.lineTo(-r,0);return s}
+ function frame(r,spring,width,depth,c,p,x,y,z,name){const s=arch(r+width,spring),hole=new THREE.Path();hole.moveTo(-r,0);hole.lineTo(-r,spring);hole.absarc(0,spring,r,Math.PI,0,true);hole.lineTo(r,0);hole.closePath();s.holes.push(hole);return mesh(new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:false,curveSegments:r>.5?8:4}),c,p,x,y,z,name)}
+ function window(p,x,y,z,r=.25,h=1.15){mesh(new THREE.ShapeGeometry(arch(r,h),8),m.cyan,p,x,y,z+.015,'Castle_turquoise_arch_window');frame(r,h,.075,.07,m.trim,p,x,y,z+.025,'Castle_window_stone_surround');rod([x,y+.05,z+.06],[x,y+h+r-.04,z+.06],.015,m.gold,p);box(r*2+.25,.09,.20,m.gold,p,x,y-.02,z+.035,'Castle_window_sill');for(const sign of [-1,1]){rod([x-r*.7,y+h*.32,z+.06],[x+sign*r*.7,y+h*.70,z+.06],.012,m.pane,p);rod([x+sign*r*.7,y+h*.70,z+.06],[x,y+h+r-.08,z+.06],.012,m.pane,p)}}
+ function face(x,z,angle){const o=new THREE.Group();o.position.set(x,0,z);o.rotation.y=angle;group.add(o);return o}
+ // Pale, finely coursed base follows the old room, including the existing door.
+ function wall(x,z,length,angle,door=false){const side=face(x,z,angle);
+  for(let row=0;row<9;row++)for(let a=-length/2-(row%2)*.58,i=0;a<length/2;a+=1.16,i++){
+   const lo=Math.max(a,-length/2),hi=Math.min(a+1.147,length/2),y=.12+row*.425,spans=door&&y<2.84?[[lo,Math.min(hi,-.78)],[Math.max(lo,.78),hi]]:[[lo,hi]];
    for(const [l,h] of spans)if(h-l>.01)box(h-l,.410,.19,m.stone[(row+i)%4],side,(l+h)/2,y+.205,0,'Castle_sandstone_course');
-  }}
-  for(const [y,h,d] of [[.04,.15,.27],[.55,.075,.235],[3.84,.12,.30],[4.02,.16,.40]]){
-   const spans=door&&y<2.84?[[-length/2,-.78],[.78,length/2]]:[[-length/2,length/2]];
-   for(const [lo,hi] of spans)box(hi-lo,h,d,y===.04?m.base:m.trim,side,(lo+hi)/2,y,0,'Castle_continuous_stone_moulding');
   }
-  // Short corbels cast recessed shadow lines beneath the eaves.
-  for(let a=-length/2+.42;a<length/2;a+=.64)box(.16,.23,.32,m.base,side,a,3.68,.045,'Castle_eaves_corbel');
-  for(const [lo,hi] of door?[[-length/2,-.78],[.78,length/2]]:[[-length/2,length/2]])solid(box(hi-lo,3.8,.20,m.stone[0],side,(hi+lo)/2,1.9,-.015,'Castle_solid_outer_wall'));
+  for(const [y,h,d] of [[.04,.15,.27],[.55,.07,.24],[3.84,.12,.32],[4.02,.16,.43]])for(const [lo,hi] of door&&y<2.84?[[-length/2,-.78],[.78,length/2]]:[[-length/2,length/2]])box(hi-lo,h,d,y===.04?m.base:m.trim,side,(lo+hi)/2,y,0,'Castle_continuous_stone_moulding');
+  for(const [lo,hi] of door?[[-length/2,-.78],[.78,length/2]]:[[-length/2,length/2]])solid(box(hi-lo,3.80,.20,m.stone[0],side,(lo+hi)/2,1.90,-.015,'Castle_solid_outer_wall'));
  }
  wall(1.65,6.36,9.50,0,true);wall(1.60,-1.94,9.50,Math.PI);wall(-3.13,2.20,8.32,-Math.PI/2);wall(6.36,2.20,8.32,Math.PI/2);
- // Closed hipped roof: a ridge rather than a flat rectangular lid.
- function hipRoof(cx,cz,w,d,eave,ridge,mat,name){const p=[[-w/2,eave,-d/2],[w/2,eave,-d/2],[w/2,eave,d/2],[-w/2,eave,d/2],[-w*.26,ridge,0],[w*.26,ridge,0]],g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p.flatMap(([x,y,z])=>[x+cx,y,z+cz]),3));g.setIndex([0,4,5,0,5,1,1,5,2,2,5,4,2,4,3,3,4,0,3,0,1,3,1,2]);g.computeVertexNormals();return mesh(g,mat,group,0,0,0,name)}
- hipRoof(1.60,2.20,9.92,8.76,4.12,6.27,m.roof,'Castle_closed_hipped_roof');
- // Shallow overlapping courses follow the roof slopes, keeping mobile geometry light.
- for(let i=1;i<12;i++){const t=i/12,w=9.92*(1-.48*t),d=8.76*(1-t),y=4.12+2.15*t;for(const sign of [-1,1]){box(w,.025,.035,m.roofEdge,group,1.6,y+.015,2.2+sign*d/2,'Castle_roof_slate_course');const e=box(.035,.025,d,m.roofEdge,group,1.6+sign*w/2,y+.015,2.2,'Castle_roof_slate_course');e.rotation.y=0}}
- box(5.26,.11,.14,m.roofEdge,group,1.60,6.29,2.20,'Castle_roof_ridge_cap');
- // The central stone gable anchors the crest and breaks up the long eaves.
- const gable=new THREE.Shape();gable.moveTo(-1.35,3.97);gable.lineTo(1.35,3.97);gable.lineTo(0,5.98);gable.closePath();
- mesh(new THREE.ExtrudeGeometry(gable,{depth:2.30,bevelEnabled:false}),m.stone[1],group,1.65,0,4.28,'Castle_entrance_gable');
- const gp=new THREE.BufferGeometry();gp.setAttribute('position',new THREE.Float32BufferAttribute([-1.49,3.98,4.20,0,6.12,4.20,1.49,3.98,4.20,-1.49,3.98,6.78,0,6.12,6.78,1.49,3.98,6.78].reduce((a,v,i)=>{a.push(v+(i%3===0?1.65:0));return a},[]),3));gp.setIndex([0,3,4,0,4,1,1,4,5,1,5,2]);gp.computeVertexNormals();mesh(gp,m.roof,group,0,0,0,'Castle_gable_slate_roof');
- for(const sign of [-1,1]){const start=new THREE.Vector3(1.65,6.12,6.79),end=new THREE.Vector3(1.65+sign*1.49,3.98,6.79),v=end.clone().sub(start),edge=cylinder(.055,.055,v.length(),m.trim,group,...start.clone().add(end).multiplyScalar(.5).toArray(),'Castle_gable_edge');edge.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize())}
- // Four distinct stone turrets frame the silhouette seen during balloon descent.
- const towers=[];
- for(const [x,z] of [[-3.46,6.66],[6.66,6.66],[-3.46,-2.26],[6.66,-2.26]]){
-  const tower=new THREE.Group();tower.name='Castle_corner_turret';tower.position.set(x,0,z);group.add(tower);towers.push(tower);
-  cylinder(.88,.94,.28,m.base,tower,0,.025,0,'Castle_tower_footing');
-  cylinder(.85,.88,4.95,m.stone[1],tower,0,2.61,0,'Castle_tower_closed_stone_shaft');
-  for(let row=0;row<11;row++)cylinder(.86,.86,.035,m.base,tower,0,.34+row*.43,0,'Castle_tower_masonry_joint');
-  for(const y of [.37,3.10,4.72])cylinder(.92,.92,.105,m.trim,tower,0,y,0,'Castle_tower_stone_belt');
-  cylinder(1.04,.88,.30,m.base,tower,0,5.10,0,'Castle_turret_corbel_crown');
-  cylinder(1.08,1.08,.13,m.trim,tower,0,5.29,0,'Castle_turret_eaves');
-  cylinder(0,1.16,2.12,m.roof,tower,0,6.40,0,'Castle_conical_turret_roof');
-  for(let i=1;i<7;i++){const t=i/7;cylinder(1.16*(1-t),1.16*(1-t)+.025,.035,m.roofEdge,tower,0,5.34+2.12*t,0,'Castle_turret_slate_course')}
-  cylinder(.028,.06,.29,m.gold,tower,0,7.54,0,'Castle_turret_finial');
-  mesh(new THREE.SphereGeometry(.075,10,6),m.gold,tower,0,7.73,0);
-  for(const a of [0,Math.PI/2,Math.PI,Math.PI*1.5]){const g=new THREE.Group();g.position.set(Math.sin(a)*.855,0,Math.cos(a)*.855);g.rotation.y=a;tower.add(g);window(g,0,3.34,0,.20,.70)}
-  // Collision stays outside the room, even at diagonally adjoining round towers.
-  for(let i=0;i<24;i++){const a=i*Math.PI/12,b=(i+1)*Math.PI/12,pts=[a,b].map(t=>new THREE.Vector3(x+Math.sin(t)*.88,0,z+Math.cos(t)*.88));const bounds=new THREE.Box3().setFromPoints(pts);bounds.min.y=-.12;bounds.max.y=5.1;extraBoxes.push(bounds)}
+ // Stacked, receding floors with a complete slab and separate terrace edges.
+ const tiers=[];
+ function tier(cx,cz,w,d,bottom,height){const g=new THREE.Group();g.name='Castle_library_storey';g.position.set(cx,bottom,cz);group.add(g);tiers.push(g);
+  box(w,height,d,m.stone[1],g,0,height/2,0,'Castle_closed_upper_storey');
+  for(const y of [.05,height-.22,height+.02]){box(w+.32,.13,d+.32,m.trim,g,0,y,0,'Castle_storey_cornice');box(w+.36,.035,d+.36,m.gold,g,0,y+.09,0,'Castle_storey_gold_stringcourse')}
+  for(let row=1;row<5;row++)for(const sign of [-1,1]){box(w,.013,.02,m.base,g,0,row*height/5,sign*(d/2+.01));box(.02,.013,d,m.base,g,sign*(w/2+.01),row*height/5,0)}
+  for(const sign of [-1,1])for(const xx of [-w/2+.24,w/2-.24])box(.22,height+.04,.28,m.stone[0],g,xx,height/2,sign*(d/2+.05),'Castle_upper_corner_pilaster');
+  for(const sign of [-1,1]){const side=new THREE.Group();side.position.set(0,0,sign*d/2);side.rotation.y=sign===1?0:Math.PI;g.add(side);for(let x=-w/2+1.1;x<w/2-.6;x+=1.35)window(side,x,.46,0,.21,height-1.12)}
+  for(const sign of [-1,1]){const side=new THREE.Group();side.position.set(sign*w/2,0,0);side.rotation.y=sign*Math.PI/2;g.add(side);for(const x of [-d*.24,d*.24])window(side,x,.48,0,.22,height-1.15)}
+  return g;
  }
- function window(p,x,y,z,r=.29,h=.93){const s=archShape(r,h),face=mesh(new THREE.ShapeGeometry(s,12),m.dark,p,x,y,z+.014,'Castle_recessed_arch_window');archFrame(r,h,.075,.065,m.trim,p,x,y,z+.02,'Castle_window_stone_surround');box(.035,h+r,.03,m.gold,p,x,y+(h+r)/2,z+.055,'Castle_window_mullion');box(r*1.75,.035,.035,m.gold,p,x,y+h*.54,z+.06);box(r*2+.24,.09,.21,m.trim,p,x,y-.035,z+.02,'Castle_window_sill');return face}
- for(const x of [-1.57,4.85])window(group,x,1.80,6.47,.32,.88);
- for(const [x,z,angle] of [[-3.24,2.20,-Math.PI/2],[6.47,2.20,Math.PI/2],[1.60,-2.05,Math.PI]]){const side=new THREE.Group();side.position.set(x,0,z);side.rotation.y=angle;group.add(side);for(const a of [-2,2])window(side,a,1.82,0,.28,.86)}
- // A recessed arched portal preserves the original open oak door and level threshold.
- const portal=new THREE.Group();portal.name='Castle_balloon_entrance';portal.position.set(1.65,0,6.48);group.add(portal);
- archFrame(.79,2.76,.25,.20,m.trim,portal,0,.025,0,'Castle_entrance_arch');
- for(const sign of [-1,1]){solid(box(.28,2.80,.34,m.trim,portal,sign*.94,1.39,.08,'Castle_entrance_pier'));box(.43,.17,.46,m.base,portal,sign*.94,.09,.10);box(.40,.15,.42,m.trim,portal,sign*.94,2.73,.10)}
- for(let i=0;i<9;i++){const a=(i+.5)*Math.PI/9,o=box(.22,.26,.24,i===4?m.gold:m.stone[2],portal,Math.cos(a)*.925,2.785+Math.sin(a)*.925,.12,'Castle_arch_voussoir');o.rotation.z=a-Math.PI/2}
- // Stone lintel remains behind this fanlight, above the full-height walkable doorway.
- const fan=archShape(.74,0);mesh(new THREE.ShapeGeometry(fan),m.dark,portal,0,2.88,-.10,'Castle_portal_fanlight');for(const x of [-.4,0,.4])box(.028,.48,.03,m.gold,portal,x,3.11,-.075);
- box(.25,.34,.30,m.gold,portal,0,3.81,.13,'Castle_arch_keystone');
- // A modest heraldic medallion and rich cloth banners tie the old castle to Honk.
- const crest=new THREE.Group();crest.position.set(1.65,4.58,6.54);group.add(crest);
- const shield=new THREE.Shape();shield.moveTo(-.43,.32);shield.lineTo(.43,.32);shield.lineTo(.38,-.23);shield.quadraticCurveTo(0,-.65,-.38,-.23);shield.closePath();mesh(new THREE.ExtrudeGeometry(shield,{depth:.07,bevelEnabled:true,bevelThickness:.035,bevelSize:.035,bevelSegments:1}),m.gold,crest);
- mesh(new THREE.SphereGeometry(.18,14,8),m.red,crest,0,-.02,.14,'Castle_honk_red_nose_crest');for(const x of [-.19,.19]){const eye=mesh(new THREE.SphereGeometry(.085,10,6),m.trim,crest,x,.18,.13);eye.scale.z=.45;const pupil=mesh(new THREE.SphereGeometry(.034,8,6),m.dark,crest,x,.18,.17);pupil.scale.z=.4}
- for(const [x,mat] of [[-.32,m.red],[3.62,m.teal]]){const banner=new THREE.Group();banner.name='Castle_heraldic_banner';banner.position.set(x,2.53,6.55);group.add(banner);const s=new THREE.Shape();s.moveTo(-.27,.58);s.lineTo(.27,.58);s.lineTo(.27,-.42);s.lineTo(0,-.66);s.lineTo(-.27,-.42);s.closePath();mesh(new THREE.ExtrudeGeometry(s,{depth:.025,bevelEnabled:false}),mat,banner);box(.64,.04,.06,m.gold,banner,0,.62,.015);const diamond=box(.18,.18,.035,m.gold,banner,0,-.03,.04);diamond.rotation.z=Math.PI/4;for(const sign of [-1,1])box(.022,.92,.018,m.gold,banner,sign*.22,.06,.037)}
- // Warm glazed lanterns need no additional real-time lights or shadow maps.
- for(const x of [.40,2.90]){const lantern=new THREE.Group();lantern.name='Castle_entrance_lantern';lantern.position.set(x,1.93,6.65);group.add(lantern);box(.07,.38,.08,m.dark,lantern,0,.20,-.08);box(.22,.29,.19,m.glass,lantern,0,0,.05);for(const xx of [-.12,.12])for(const zz of [-.055,.155])box(.025,.33,.025,m.dark,lantern,xx,0,zz);cylinder(0,.19,.16,m.dark,lantern,0,.25,.05);box(.29,.045,.25,m.dark,lantern,0,-.18,.05)}
- group.updateWorldMatrix(true,true);
- return {group,towers,bounds:new THREE.Box3().setFromObject(group)};
+ tier(1.60,1.75,8.48,6.75,4.12,2.70);
+ tier(1.60,1.05,6.42,5.12,6.97,2.72);
+ tier(1.60,.45,4.38,3.72,9.84,2.78);
+ // Balconies, planted terraces and external library shelves echo the map art.
+ function railing(x,z,length,y,angle=0){const g=face(x,z,angle);for(let a=-length/2;a<=length/2+.01;a+=.48){box(.065,.46,.065,m.trim,g,a,y+.23,0);ball(.045,m.gold,g,a,y+.50,0)}box(length,.055,.08,m.gold,g,0,y+.48,0,'Castle_balcony_gold_rail')}
+ function shelf(x,y,z,w,h,angle=0){const g=face(x,z,angle);g.name='Castle_exterior_library_shelves';box(w,h,.12,m.wood,g,0,y+h/2,0);for(const xx of [-w/2,w/2])box(.065,h+.1,.39,m.gold,g,xx,y+h/2,.08);const rows=Math.floor(h/.47);for(let j=0;j<=rows;j++)box(w+.13,.055,.44,m.wood,g,0,y+j*h/rows,.12);for(let j=0;j<rows;j++)for(let i=0;i<Math.floor(w/.16);i++){const bh=.25+(i*3+j)%4*.027;box(.105,bh,.19,m.books[(i+j*2)%5],g,-w/2+.13+i*.16,y+j*h/rows+.05+bh/2,.22,'Castle_coloured_library_book')}
+ }
+ function tree(x,y,z,s=1){const g=new THREE.Group();g.name='Castle_terrace_cypress';g.position.set(x,y,z);group.add(g);cylinder(.045,.07,.48*s,m.wood,g,0,.24*s,0);for(const [r,yy] of [[.32,.55],[.27,.92],[.19,1.23]]){const o=ball(r*s,m.leaf,g,0,yy*s,0);o.scale.y=1.45}}
+ function garden(x,y,z,w,d){box(w,.15,d,m.trim,group,x,y,z,'Castle_terrace_planter');box(w-.10,.06,d-.10,m.grass,group,x,y+.10,z);for(let i=0;i<3;i++){const xx=x+(i-1)*w*.27;const shrub=ball(.17,m.green,group,xx,y+.25,z);shrub.scale.y=.8;if(i%2===0)ball(.06,m.rose,group,xx,y+.38,z+.04)}}
+ for(const [x,z,w,y] of [[-1.55,5.72,2.5,4.16],[4.82,5.72,2.5,4.16],[-.65,4.60,1.7,6.98],[3.95,4.60,1.7,6.98],[-.06,3.72,1.05,9.83],[3.26,3.72,1.05,9.83]]){railing(x,z,w,y);garden(x,y+.02,z-.36,w*.9,.48);tree(x,y+.15,z-.40,.7)}
+ for(const [x,y,z,w,h,angle] of [[-1.60,4.40,5.17,1.48,1.8,0],[4.80,4.40,5.17,1.48,1.8,0],[3.95,7.22,3.66,1.23,1.92,0],[-.75,7.22,3.66,1.23,1.92,0],[3.80,10.06,.60,1.9,1.95,Math.PI/2],[-2.65,4.40,1.0,2.2,1.85,-Math.PI/2]])shelf(x,y,z,w,h,angle);
+ for(const [x,y,z,s] of [[-2.55,4.20,3.8,.9],[5.70,4.20,3.8,.9],[-1.18,7.08,1.65,.85],[4.38,7.08,1.65,.85],[.10,9.95,-.72,.75],[3.10,9.95,-.72,.75]])tree(x,y,z,s);
+ // Rounded blue domes with gold ribs replace the previous low slate cones.
+ function dome(p,r,y,height){const points=[[0,0],[r*.92,0],[r*1.04,.10],[r*.98,.34],[r*.79,.66],[r*.43,.88],[0,1]].map(([x,yy])=>new THREE.Vector2(x,yy*height));mesh(new THREE.LatheGeometry(points,20),m.blue,p,0,y,0,'Castle_royal_blue_dome');cylinder(r*1.07,r*1.07,.10,m.gold,p,0,y+.055,0);
+  for(let i=0;i<8;i++){const a=i*Math.PI/4;for(let j=1;j<points.length;j++){const u=points[j-1],v=points[j];rod([Math.sin(a)*u.x,y+u.y+.025,Math.cos(a)*u.x],[Math.sin(a)*v.x,y+v.y+.025,Math.cos(a)*v.x],.022,m.gold,p,'Castle_dome_gold_rib')}}
+  cylinder(.015,.085,.55,m.gold,p,0,y+height+.24,0,'Castle_gold_spire');ball(.085,m.gold,p,0,y+height+.02,0);
+ }
+ const towers=[];
+ function tower(x,z,r,base,height){const g=new THREE.Group();g.name='Castle_corner_turret';g.position.set(x,base,z);group.add(g);towers.push(g);
+  cylinder(r,r*1.08,height,m.stone[1],g,0,height/2,0,'Castle_tower_closed_stone_shaft');
+  for(const y of [.12,height*.48,height-.10]){cylinder(r*1.16,r*1.16,.13,m.trim,g,0,y,0);cylinder(r*1.19,r*1.19,.045,m.gold,g,0,y+.09,0)}
+  for(const a of [0,Math.PI/2,Math.PI,Math.PI*1.5]){const w=new THREE.Group();w.position.set(Math.sin(a)*(r+.012),0,Math.cos(a)*(r+.012));w.rotation.y=a;g.add(w);for(let y=.72;y<height-1;y+=2.38)window(w,0,y,0,r*.25,1.17)}
+  dome(g,r*1.21,height,.95+r*.32);
+  // Only the ground-level turrets intersect a walker's height.
+  if(base<.1)for(let i=0;i<16;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8,bounds=new THREE.Box3().setFromPoints([a,b].map(t=>new THREE.Vector3(x+Math.sin(t)*r*1.08,base,z+Math.cos(t)*r*1.08)));bounds.min.y=base-.12;bounds.max.y=base+height;extraBoxes.push(bounds)}
+  return g;
+ }
+ tower(-3.52,6.72,.82,0,6.1);tower(6.72,6.72,.82,0,6.1);
+ tower(-3.52,-2.32,.82,0,9.4);tower(6.72,-2.32,.82,0,9.4);
+ tower(-1.72,4.42,.40,4.15,4.80);tower(4.92,4.42,.40,4.15,4.80);
+ tower(-.80,2.95,.36,7.05,5.45);tower(4.0,2.95,.36,7.05,5.45);
+ // The tall central keep rises through the stepped wings, like the thumbnail.
+ const keep=new THREE.Group();keep.name='Castle_central_library_spire';keep.position.set(1.65,0,.45);group.add(keep);
+ cylinder(1.02,1.15,6.75,m.stone[1],keep,0,12.60,0,'Castle_central_high_keep');
+ for(const y of [9.40,12.72,15.93]){cylinder(1.17,1.17,.14,m.trim,keep,0,y,0);cylinder(1.20,1.20,.055,m.gold,keep,0,y+.11,0)}
+ for(const a of [0,Math.PI/2,Math.PI,Math.PI*1.5]){const side=new THREE.Group();side.position.set(Math.sin(a)*1.025,0,Math.cos(a)*1.025);side.rotation.y=a;keep.add(side);window(side,0,13.15,0,.26,1.91);for(const sign of [-1,1])rod([sign*.57,12.82,.015],[sign*.44,15.85,.015],.055,m.gold,side)}
+ dome(keep,1.25,16.08,1.28);
+ // Gold-rimmed blue information seal, with a real geometric lower-case i.
+ const badge=new THREE.Group();badge.name='Castle_information_emblem';badge.position.set(0,18.00,0);keep.add(badge);
+ const disc=cylinder(.65,.65,.10,m.gold,badge,0,0,0);disc.rotation.x=Math.PI/2;const blue=cylinder(.54,.54,.12,m.blue,badge,0,0,.035);blue.rotation.x=Math.PI/2;
+ box(.10,.54,.045,m.trim,badge,0,-.10,.12);box(.27,.075,.045,m.trim,badge,0,-.36,.12);ball(.08,m.trim,badge,0,.32,.13);cylinder(0,.12,.40,m.gold,keep,0,18.85,0);
+ // Blue central banner and open gilded book above the preserved ground-floor entrance.
+ const front=new THREE.Group();front.name='Castle_library_entrance_tower';front.position.set(1.65,0,6.48);group.add(front);
+ box(2.40,3.26,.28,m.blue,front,0,5.70,-.22,'Castle_royal_blue_entrance_banner');for(const sign of [-1,1]){box(.075,3.31,.12,m.gold,front,sign*1.14,5.70,-.02);cylinder(.22,.28,4.20,m.stone[1],front,sign*1.37,5.65,-.03);cylinder(.29,.29,.12,m.gold,front,sign*1.37,7.80,-.03);cylinder(0,.31,.88,m.blue,front,sign*1.37,8.28,-.03);cylinder(0,.07,.30,m.gold,front,sign*1.37,8.87,-.03)}
+ const crown=new THREE.Shape();crown.moveTo(-.46,0);crown.lineTo(.46,0);crown.lineTo(.54,.62);crown.lineTo(.23,.35);crown.lineTo(0,.75);crown.lineTo(-.23,.35);crown.lineTo(-.54,.62);crown.closePath();mesh(new THREE.ExtrudeGeometry(crown,{depth:.04,bevelEnabled:false}),m.gold,front,0,6.10,-.025,'Castle_gold_crown_emblem');
+ frame(.79,2.76,.25,.20,m.trim,front,0,.025,0,'Castle_entrance_arch');
+ for(const sign of [-1,1]){solid(box(.28,2.80,.34,m.trim,front,sign*.94,1.39,.08,'Castle_entrance_pier'));box(.43,.17,.46,m.gold,front,sign*.94,.09,.10);box(.40,.15,.42,m.gold,front,sign*.94,2.73,.10)}
+ for(let i=0;i<9;i++){const a=(i+.5)*Math.PI/9,o=box(.22,.26,.24,i===4?m.gold:m.stone[0],front,Math.cos(a)*.925,2.785+Math.sin(a)*.925,.12,'Castle_arch_voussoir');o.rotation.z=a-Math.PI/2}
+ mesh(new THREE.ShapeGeometry(arch(.74,0)),m.dark,front,0,2.88,-.10,'Castle_portal_fanlight');
+ const book=new THREE.Group();book.name='Castle_open_book_emblem';book.position.set(0,4.20,.16);book.rotation.x=.12;front.add(book);
+ for(const sign of [-1,1]){const page=new THREE.Group();page.rotation.y=sign*.18;book.add(page);box(1.02,.80,.09,m.gold,page,sign*.50,0,0);box(.94,.73,.10,m.paper,page,sign*.49,.01,.045);for(let i=0;i<7;i++)box(.74,.012,.012,m.base,page,sign*.49,.27-i*.085,.104,'Castle_book_page_line')}
+ rod([0,-.41,.10],[0,.42,.10],.045,m.gold,book);
+ for(const x of [-1.57,4.85])window(group,x,1.80,6.47,.29,.86);
+ for(const [x,z,angle] of [[-3.24,2.2,-Math.PI/2],[6.47,2.2,Math.PI/2],[1.6,-2.05,Math.PI]]){const side=face(x,z,angle);for(const a of [-2,2])window(side,a,1.82,0,.28,.86)}
+ for(const x of [.40,2.90]){const g=new THREE.Group();g.position.set(x,1.93,6.65);g.name='Castle_entrance_lantern';group.add(g);box(.07,.38,.08,m.gold,g,0,.2,-.08);box(.22,.29,.19,m.paper,g,0,0,.05);for(const xx of [-.12,.12])for(const zz of [-.055,.155])box(.025,.33,.025,m.gold,g,xx,0,zz);cylinder(0,.19,.16,m.gold,g,0,.25,.05);box(.29,.045,.25,m.gold,g,0,-.18,.05)}
+ group.updateWorldMatrix(true,true);return {group,towers,tiers,bounds:new THREE.Box3().setFromObject(group)};
 }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import * as THREE from '../vendor/three.module.min.js';
+import {BALLOON_ISLANDS,BalloonJourney} from '../balloon-route.js';
 
 // Resolve the browser's existing import map for Node without npm packages.
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
@@ -94,16 +95,23 @@ test('the generated family textures are bundled as small browser-readable WebP a
 });
 
 
-test('the castle has four roofed turrets, a closed roof and a single mobile material batch',()=>{
- assert.equal(room.castle.towers.length,4);assert.ok(room.castle.group.getObjectByName('Castle_closed_hipped_roof'));assert.ok(room.castle.group.getObjectByName('Castle_entrance_gable'));
+test('the map castle has stacked storeys, eight domed towers and a single mobile material batch',()=>{
+ assert.equal(room.castle.towers.length,8);assert.equal(room.castle.tiers.length,3);for(const name of ['Castle_information_emblem','Castle_central_library_spire','Castle_gold_crown_emblem','Castle_open_book_emblem'])assert.ok(room.castle.group.getObjectByName(name));
  let triangles=0;const materials=new Set(),inside=new THREE.Box3(new THREE.Vector3(-2.79,.03,-1.59),new THREE.Vector3(5.99,3.74,5.99));
  room.castle.group.traverse(o=>{if(!o.isMesh)return;materials.add(o.material);triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;assert.equal(o.geometry.attributes.color.count,o.geometry.attributes.position.count);
   const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++){const v=new THREE.Vector3().fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld);assert.ok(!inside.containsPoint(v),`castle detail enters the antique interior: ${o.name}`)}
  });
- assert.equal(materials.size,1);assert.ok(triangles<26000);assert.ok(room.bounds.max.y>7.5);assert.ok(room.bounds.min.x< -4.5);assert.ok(room.bounds.max.x>7.5);
+ assert.equal(materials.size,1);assert.ok(triangles<50000,`castle triangle budget: ${triangles}`);assert.ok(room.bounds.max.y>19);assert.ok(room.bounds.min.x< -4.5);assert.ok(room.bounds.max.x>7.5);
 });
 
 test('the complete balloon entrance stays open at walking height and has solid stone sides',()=>{
  const ray=new THREE.Raycaster();for(const x of [1.30,1.65,1.98])for(const y of [.32,1.10,1.75,2.35]){ray.set(new THREE.Vector3(x,y,7.8),new THREE.Vector3(0,0,-1));ray.far=2;assert.equal(ray.intersectObject(room.castle.group,true).length,0,`castle blocks the doorway at ${x},${y}`)}
  for(const x of [.25,3.05]){ray.set(new THREE.Vector3(x,1.2,7.8),new THREE.Vector3(0,0,-1));ray.far=2;assert.ok(ray.intersectObject(room.castle.group,true).length>0)}
+});
+
+
+test('the full map castle is framed during balloon arrival on a tablet viewport',()=>{
+ const island=BALLOON_ISLANDS.find(i=>i.slug==='honkhub'),home=new THREE.Vector3(...island.home),outward=home.clone().sub(new THREE.Vector3(...island.anchor)).setY(0).normalize(),journey=new BalloonJourney(home,outward),p=journey.raised;
+ const camera=new THREE.PerspectiveCamera(66,4/3,.035,1100);camera.position.set(p.x,p.y+1.78,p.z);camera.lookAt(p.x-outward.x*8,p.y+1.7,p.z-outward.z*8);camera.updateMatrixWorld();
+ room.castle.group.traverse(o=>{if(!o.isMesh)return;const positions=o.geometry.attributes.position;for(let i=0;i<positions.count;i++){const p=new THREE.Vector3().fromBufferAttribute(positions,i).applyMatrix4(o.matrixWorld).project(camera);assert.ok(Math.abs(p.x)<1&&Math.abs(p.y)<1&&p.z> -1&&p.z<1,`arrival clips ${o.name}`)}});
 });
