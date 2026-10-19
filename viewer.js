@@ -32,8 +32,8 @@ import {prepareGalleryMemes} from './gallery-memes.js?v=93';
 import {prepareGalleryInterior} from './gallery-interior.js?v=72';
 import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=49';
 import {mountGalleryLift} from './gallery-lift.js?v=72';
-import {prepareIslandTransport} from './island-transport-world.js?v=71';
-import {mountIslandTransport} from './island-transport.js?v=72';
+import {prepareIslandTransport} from './island-transport-world.js?v=98';
+import {mountIslandTransport} from './island-transport.js?v=98';
 import {loadHonkKartHead} from './kart-driver.js?v=59';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
@@ -128,7 +128,7 @@ export class IslandViewer {
  floorAt(x,z,top,far=2){
   this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;
   let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObjects(this.padNav?[this.nav,this.padNav]:[this.nav],false)[0]?.point.y??null;
-  const cabin=this.gallery?.floorAt(x,z,top,far);return cabin!==null&&cabin!==undefined?floor===null?cabin:Math.max(floor,cabin):floor;
+  for(const extension of [this.gallery,this.islandTransportWorld]){const cabin=extension?.floorAt?.(x,z,top,far);if(cabin!==null&&cabin!==undefined)floor=floor===null?cabin:Math.max(floor,cabin)}return floor;
  }
  canStand(x,z,floor){if(this.architectureCollision&&!this.architectureCollision.canStand(x,z,floor,this.config.eye))return false;if(this.islandTransportWorld&&!this.islandTransportWorld.canStand(x,z,floor))return false;if(this.arenaCircus&&!this.arenaCircus.canStand(x,z,floor,this.config.eye))return false;if(this.gallery&&!this.gallery.canStand(x,z,floor))return false;const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
  stepTo(x,z){if(this.physics){const floor=this.physics.step(x,z,this.foot);if(floor===null)return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}const floor=this.floorAt(x,z,this.foot+.49,1.2);if(floor===null||floor-this.foot>.48||this.foot-floor>.65||!this.canStand(x,z,floor))return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}

@@ -57,9 +57,22 @@ function setup(kind='cable'){
  const viewer={active:true,mode:'walk',camera,foot:kind==='cable'?.19:.04,yaw:0,pitch:0,motion:new WalkMotion(),config:{eye:1.65},keys:new Set(),stick:{x:0,y:0},boxes:[],floorAt:()=>.04,canStand:(x,z)=>world.canStand(x,z),clearWalkInput(){this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop()}};
  const controller=mountIslandTransport(viewer,world);return {viewer,world,controller,panel:host.children.find(e=>e.className==='ride-controls'),window,host};
 }
-test('cabin touch controls deliver to the summit, exit safely and summon from the other station',()=>{
- const {viewer,controller,panel}=setup();panel.querySelector('.ride-board').click();assert.equal(controller.active,true);assert.equal(panel.querySelector('.ride-exit').disabled,true);advance(controller,14);assert.equal(controller.model.station,1);assert.equal(panel.querySelector('.ride-exit').disabled,false);panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(controller.active,false);assert.equal(viewer.foot,CABLE_STATIONS[1].y);assert.equal(viewer.camera.position.x,CABLE_STATIONS[1].x-1.55);
- viewer.foot=.19;viewer.camera.position.set(CABLE_STATIONS[0].x-1.7,1.84,13.25);advance(controller,.2);panel.querySelector('.ride-board').click();assert.equal(controller.active,false);assert.equal(controller.model.moving,true);advance(controller,14);assert.equal(controller.model.station,0);panel.querySelector('.ride-board').click();assert.equal(controller.active,true);advance(controller,3);controller.cancel();assert.equal(controller.active,false);assert.equal(viewer.foot,.19);assert.equal(controller.model.station,0);controller.dispose();assert.equal(panel.removed,true);
+test('cabin doors open on arrival and automatically restore walking without an Exit click',()=>{
+ const {viewer,world,controller,panel,host}=setup();assert.equal(world.doorOpen,1);panel.querySelector('.ride-board').click();assert.equal(controller.active,true);assert.equal(panel.querySelector('.ride-exit').disabled,true);
+ advance(controller,2);assert.equal(world.doorOpen,0);assert.ok(controller.model.moving);advance(controller,12);assert.equal(controller.model.station,1);assert.equal(controller.model.door,0);
+ advance(controller,1.2);assert.equal(world.doorOpen,1);assert.equal(controller.active,false);assert.equal(viewer.foot,CABLE_STATIONS[1].y+.10);assert.equal(viewer.camera.position.x,CABLE_STATIONS[1].x);assert.equal(viewer.yaw,Math.PI/2);assert.equal(host.classes.has('in-island-ride'),false);
+ viewer.foot=.19;viewer.camera.position.set(CABLE_STATIONS[0].x-1.7,1.84,13.25);advance(controller,.2);panel.querySelector('.ride-board').click();assert.equal(controller.active,false);assert.equal(controller.model.moving,true);advance(controller,14.6);assert.equal(controller.model.station,0);assert.equal(world.doorOpen,1);
+ panel.querySelector('.ride-board').click();assert.equal(controller.active,true);advance(controller,3);controller.cancel();assert.equal(controller.active,false);assert.equal(viewer.foot,.19);assert.equal(controller.model.station,0);assert.equal(world.doorOpen,1);controller.dispose();assert.equal(panel.removed,true);
+});
+test('the visible speed button doubles the cable trip and keeps doors closed until the destination',()=>{
+ const {viewer,world,controller,panel}=setup();panel.querySelector('.ride-board').click();const speed=panel.querySelector('.ride-speed');assert.equal(speed.hidden,false);speed.click();assert.equal(controller.model.speedMultiplier,2);
+ advance(controller,3.5);assert.ok(controller.model.t>0&&controller.model.t<1);assert.equal(world.doorOpen,0);assert.equal(controller.active,true);advance(controller,3.5);assert.equal(controller.model.station,1);assert.equal(world.doorOpen,0);advance(controller,1.2);assert.equal(world.doorOpen,1);assert.equal(controller.active,false);assert.equal(viewer.foot,CABLE_STATIONS[1].y+.10);
+ panel.querySelector('.ride-board').click();speed.click();assert.equal(controller.model.speedMultiplier,1);advance(controller,7);assert.ok(controller.model.moving);advance(controller,8.2);assert.equal(controller.model.station,0);assert.equal(controller.active,false);controller.dispose();
+});
+test('speed changes keep the cabin position continuous and match across refresh rates',()=>{
+ for(const hz of [30,60,120]){
+  const model=new CableTransit();model.travel(1);advance(model,.2,hz);assert.equal(model.t,0);assert.equal(model.door,1);advance(model,.6,hz);assert.equal(model.t,0);assert.ok(model.door>0&&model.door<1);advance(model,2.2,hz);const p=model.t;model.setSpeed(2);assert.equal(model.t,p);advance(model,5.5,hz);assert.equal(model.station,1);assert.equal(model.moving,false);advance(model,.6,hz);assert.equal(model.door,1);model.reset();assert.equal(model.phase,'parked');assert.equal(model.door,1);
+ }
 });
 test('outside cable camera uses the spatial collision index without scanning the whole mountain',()=>{
  const {viewer,controller,panel}=setup();let indexed=0;
@@ -149,10 +162,17 @@ test('the complete cabin clears the actual mountain and both station exits conne
    for(let j=0;j<count;j+=3){triangle.a.fromBufferAttribute(attr,index?index.getX(j):j).applyMatrix4(mesh.matrixWorld);triangle.b.fromBufferAttribute(attr,index?index.getX(j+1):j+1).applyMatrix4(mesh.matrixWorld);triangle.c.fromBufferAttribute(attr,index?index.getX(j+2):j+2).applyMatrix4(mesh.matrixWorld);assert.equal(probe.intersectsTriangle(triangle),false,`cabin intersects ${mesh.name} (${mesh.material.name}, bounds ${bounds.min.toArray()} / ${bounds.max.toArray()}) at ${n/200}`)}
   }}
  }
- const ray=new THREE.Raycaster(),floorAt=(x,z,top,far)=>{ray.set(new THREE.Vector3(x,top,z),new THREE.Vector3(0,-1,0));ray.far=far;return ray.intersectObjects([nav,extra])[0]?.point.y??null};
+ const ray=new THREE.Raycaster(),floorAt=(x,z,top,far)=>{ray.set(new THREE.Vector3(x,top,z),new THREE.Vector3(0,-1,0));ray.far=far;const terrain=ray.intersectObjects([nav,extra])[0]?.point.y??null,cabin=world.floorAt(x,z,top,far);return cabin===null?terrain:terrain===null?cabin:Math.max(terrain,cabin)};
  for(let i=0;i<=100;i++){const p=cablePosition(i/100);for(const x of [p.x-.76,p.x,p.x+.76])for(const z of [p.z-.76,p.z,p.z+.76]){ray.set(new THREE.Vector3(x,30,z),new THREE.Vector3(0,-1,0));ray.far=40;const rock=ray.intersectObjects(rocks)[0];assert.ok(!rock||rock.point.y<p.y+.04,'cabin enters the mountain')}}
- const boxes=world.extraBoxes,physics=new MountainWalkPhysics({eye:1.65,floorAt,canStand:(x,z,f)=>!boxes.some(b=>x>b.min.x-.17&&x<b.max.x+.17&&z>b.min.z-.17&&z<b.max.z+.17&&f+1.5>b.min.y&&f+.22<b.max.y),collision:createMountainCollision(root)});
- for(const [from,to,y] of [[[CABLE_STATIONS[0].x-1.65,13.25],[0,13.25],CABLE_STATIONS[0].y],[[CABLE_STATIONS[1].x-1.55,4.8],[0,1.5],CABLE_STATIONS[1].y]]){assert.ok(Math.abs(floorAt(...from,y+.3,.6)-y)<1e-5);for(let i=0;i<=100;i++){const x=from[0]+(to[0]-from[0])*i/100,z=from[1]+(to[1]-from[1])*i/100;assert.ok(physics.clearAt(x,z,y),`blocked station path at ${x},${z}`)}}physics.dispose();
+ const boxes=world.extraBoxes,physics=new MountainWalkPhysics({eye:1.65,floorAt,canStand:(x,z,f)=>world.canStand(x,z,f)&&!boxes.some(b=>x>b.min.x-.17&&x<b.max.x+.17&&z>b.min.z-.17&&z<b.max.z+.17&&f+1.5>b.min.y&&f+.22<b.max.y),collision:createMountainCollision(root)});
+ for(const [from,to,y] of [[[CABLE_STATIONS[0].x-1.65,13.25],[0,13.25],CABLE_STATIONS[0].y],[[CABLE_STATIONS[1].x-1.55,4.8],[0,1.5],CABLE_STATIONS[1].y]]){assert.ok(Math.abs(floorAt(...from,y+.3,.6)-y)<1e-5);for(let i=0;i<=100;i++){const x=from[0]+(to[0]-from[0])*i/100,z=from[1]+(to[1]-from[1])*i/100;assert.ok(physics.clearAt(x,z,y),`blocked station path at ${x},${z}`)}}
+ for(const station of CABLE_STATIONS){
+  world.setPose(station);world.setDoors(1);let foot=station.y+.10;
+  for(let i=0;i<=80;i++){const x=station.x-1.55*i/80,z=station.z-.10,next=physics.step(x,z,foot);assert.notEqual(next,null,`open cabin exit blocked at ${x},${z}`);foot=next}
+  assert.ok(Math.abs(foot-station.y)<1e-5);
+  world.setDoors(0);assert.equal(world.floorAt(station.x,station.z,station.y+.5,1),null);assert.equal(world.canStand(station.x-.72,station.z,station.y),false);
+ }
+ physics.dispose();
 });
 
 test('the track has continuous floors, an open entrance and solid edge barriers',()=>{

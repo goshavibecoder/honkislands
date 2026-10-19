@@ -4,10 +4,18 @@ export const CABLE_STATIONS=[{x:6.8,y:.24,z:13.25},{x:6.8,y:11.19,z:4.8}];
 export function cablePosition(t){if(t===0||t===1)return {...CABLE_STATIONS[t]};const a=CABLE_STATIONS[0],b=CABLE_STATIONS[1];return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t-.22*Math.sin(Math.PI*t),z:a.z+(b.z-a.z)*t}}
 
 export class CableTransit{
- constructor(){this.reset()}
- reset(station=0){this.t=station;this.station=station;this.moving=false;this.elapsed=0;this.destination=station;return this}
- travel(destination){if(this.moving||destination===this.station||![0,1].includes(destination))return false;this.from=this.t;this.destination=destination;this.elapsed=0;this.duration=14;this.moving=true;return true}
- update(dt){if(!this.moving)return;this.elapsed=Math.min(this.duration,this.elapsed+clamp(dt,0,.25));this.t=this.from+(this.destination-this.from)*smooth(this.elapsed/this.duration);if(this.elapsed+1e-9>=this.duration){this.t=this.destination;this.station=this.destination;this.moving=false}}
+ constructor(){this.speedMultiplier=1;this.reset()}
+ reset(station=0){this.t=station;this.station=station;this.moving=false;this.elapsed=0;this.destination=station;this.door=1;this.phase='parked';this.doorElapsed=.55;return this}
+ travel(destination){if(this.moving||destination===this.station||![0,1].includes(destination))return false;this.from=this.t;this.destination=destination;this.elapsed=0;this.duration=14;this.moving=true;this.phase='closing';this.doorElapsed=0;return true}
+ setSpeed(multiplier){this.speedMultiplier=multiplier===2?2:1;return this}
+ update(dt){
+  const step=clamp(dt,0,.25);
+  if(!this.moving){if(this.door<1){this.doorElapsed=Math.min(.55,this.doorElapsed+step);this.door=smooth(this.doorElapsed/.55);if(this.door===1)this.phase='parked'}return}
+  this.elapsed=Math.min(this.duration,this.elapsed+step*this.speedMultiplier);
+  this.door=1-smooth(clamp((this.elapsed-.45)/.55,0,1));this.phase=this.elapsed<1?'closing':'moving';
+  const progress=clamp((this.elapsed-1)/(this.duration-1),0,1);this.t=this.from+(this.destination-this.from)*smooth(progress);
+  if(this.elapsed+1e-9>=this.duration){this.t=this.destination;this.station=this.destination;this.moving=false;this.door=0;this.doorElapsed=0;this.phase='opening'}
+ }
  get position(){return cablePosition(this.t)}
 }
 

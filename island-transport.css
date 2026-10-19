@@ -12,3 +12,8 @@
 #world.driving-kart .ride-controls{bottom:calc(126px + env(safe-area-inset-bottom))}
 @media(max-width:600px){.kart-game-stick{left:16px;bottom:calc(18px + env(safe-area-inset-bottom));width:132px;height:132px}.kart-turn-left,.kart-turn-right{top:56px}.kart-pedals{right:14px;gap:8px}.kart-pedals button{width:72px;min-height:78px;font-size:11px}.kart-game-knob{width:60px;height:60px;margin:-30px 0 0 -30px}}
 @media(orientation:landscape) and (max-height:550px){.kart-game-stick{width:120px;height:120px;bottom:14px}.kart-turn-left,.kart-turn-right{top:50px}.kart-pedals{bottom:16px}.kart-pedals button{min-height:70px;width:74px}#world.driving-kart .ride-controls{bottom:104px;max-height:calc(100svh - 180px)}#world.driving-kart .ride-dashboard{padding:9px}#world.driving-kart .ride-status{font-size:10px}}
+
+.ride-controls .ride-speed{display:block;width:100%;margin:7px 0;padding:10px 12px;border:1px solid #c48d32;color:#912640;background:#fff4d7;font-weight:800}.ride-controls .ride-speed[aria-pressed="true"]{background:#b92442;color:#fff6e0}
+
+@media(max-width:600px),(max-width:1000px) and (max-height:600px){#world.in-island-ride .ride-controls.cable-ride .ride-dashboard{top:110px;max-height:calc(100svh - 340px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}
+@media(orientation:landscape) and (max-height:600px) and (max-width:1000px){#world.in-island-ride .ride-controls.cable-ride .ride-dashboard{max-height:calc(100svh - 204px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}

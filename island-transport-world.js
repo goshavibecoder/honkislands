@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,kartSteeringAngle} from './island-transport-motion.js?v=71';
+import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,kartSteeringAngle} from './island-transport-motion.js?v=98';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createHonkKartDriver} from './kart-driver.js?v=59';
 
@@ -21,14 +21,15 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  function rail(a,b,y){rod([a[0],y+.95,a[1]],[b[0],y+.95,b[1]],.032,m.gold);rod([a[0],y+.42,a[1]],[b[0],y+.42,b[1]],.022,m.dark)}
  function dynamic(g){g.traverse(o=>{o.userData.islandRide=true})}
  function collider(o){o.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(o))}
- let vehicle,driver=null,wheels=[],steering=[],kind=slug==='goat-mountain'?'cable':'kart';
+ let vehicle,driver=null,wheels=[],steering=[],doors=[],doorOpen=1,kind=slug==='goat-mountain'?'cable':'kart';
  if(kind==='cable'){
   for(let i=0;i<2;i++){
    const s=CABLE_STATIONS[i],left=s.x-(i===1?2.4:2.1),right=s.x+1.3;
    // Side docks leave the inclined cabin approach completely open. A slab
    // across this lane used to cut through the roof before reaching the stop.
    for(const [a,b] of [[left,s.x-.88],[s.x+.88,right]]){const center=(a+b)/2,width=b-a;box(width,.22,2.4,m.stone,group,center,s.y-.11,s.z,'Cable_station_platform');floorRect(center,s.y,s.z,width,2.4)}
-   for(const x of [s.x-1.2,s.x+1.2]){const p=box(.13,4.45,.13,m.red,group,x,s.y+2.225,s.z);collider(p);box(.20,.15,.20,m.gold,group,x,s.y+.075,s.z)}
+   for(const [dx,dz] of [[-1.2,-.94],[-1.2,.94],[1.2,0]]){const x=s.x+dx,z=s.z+dz,p=box(.13,4.45,.13,m.red,group,x,s.y+2.225,z,'Cable_station_support');collider(p);box(.20,.15,.20,m.gold,group,x,s.y+.075,z)}
+   rod([s.x-1.2,s.y+4.38,s.z-.94],[s.x-1.2,s.y+4.38,s.z+.94],.075,m.dark);
    // Split awnings leave a real opening for the moving hanger and cables.
    for(const x of [s.x-1.4,s.x+1.4]){rounded(.62,.32,2.1,.12,m.red,group,x,s.y+3.27,s.z);box(.58,.05,2.0,m.cream,group,x,s.y+3.47,s.z)}
    for(const z of [s.z-1.1,s.z+1.1]){for(const x of [s.x-1.2,s.x+1.2])post(x,s.y,z);rail([s.x-1.2,z],[s.x-.98,z],s.y);rail([s.x+.98,z],[s.x+1.2,z],s.y)}
@@ -65,11 +66,24 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
   for(const sign of [-1,1]){const z=lower.z+sign*.67;rail([0,z],[lowerEdge,z],lower.y);for(let i=0;i<=4;i++)post(lowerEdge*i/4,lower.y,z)}
   for(const x of [lower.x-.58,lower.x+.58]){const points=[];for(let i=0;i<=40;i++){const p=cablePosition(i/40);points.push(new THREE.Vector3(x,p.y+3.55,p.z))}mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),64,.022,6,false),m.dark,group,0,0,0,'Cable_guide_wire')}
   vehicle=new THREE.Group();vehicle.name='Honk_scenic_cable_cabin';group.add(vehicle);
-  rounded(1.46,.65,1.5,.15,m.red,vehicle,0,.40,0);box(1.33,.07,1.4,m.dark,vehicle,0,.04,0);
+  rounded(1.46,.12,1.5,.055,m.red,vehicle,0,.04,0);box(1.33,.04,1.4,m.dark,vehicle,0,.08,0);
+  for(const z of [-.70,.70])rounded(1.46,.62,.10,.045,m.red,vehicle,0,.41,z);
+  rounded(.10,.62,1.32,.045,m.red,vehicle,.70,.41,0);
   rounded(1.57,.16,1.60,.07,m.cream,vehicle,0,2.17,0);
   for(const x of [-.67,.67])for(const z of [-.68,.68])rod([x,.68,z],[x,2.1,z],.038,m.gold,vehicle);
   for(const z of [-.71,.71])mesh(new THREE.PlaneGeometry(1.27,1.33),m.glass,vehicle,0,1.42,z,'Cable_cabin_window');
-  for(const x of [-.70,.70]){const o=mesh(new THREE.PlaneGeometry(1.32,1.33),m.glass,vehicle,x,1.42,0,'Cable_cabin_window');o.rotation.y=Math.PI/2;rod([x,.8,0],[x,2.10,0],.025,m.cream,vehicle)}
+  const rightWindow=mesh(new THREE.PlaneGeometry(1.32,1.33),m.glass,vehicle,.70,1.42,0,'Cable_cabin_window');rightWindow.rotation.y=Math.PI/2;rod([.70,.8,0],[.70,2.10,0],.025,m.cream,vehicle);
+  // Two framed leaves swing away from the open platform corridor.
+  for(const sign of [-1,1]){
+   const hinge=new THREE.Group();hinge.name=sign<0?'Cable_front_door':'Cable_rear_door';hinge.position.set(-.735,0,sign*.60);vehicle.add(hinge);doors.push({hinge,sign});
+   const center=-sign*.30;box(.065,.61,.60,m.red,hinge,0,.405,center,'Cable_door_lower_panel');
+   const pane=mesh(new THREE.PlaneGeometry(.54,1.30),m.glass,hinge,0,1.39,center,'Cable_door_glass');pane.rotation.y=Math.PI/2;
+   for(const z of [-sign*.015,-sign*.585])rod([0,.11,z],[0,2.10,z],.025,m.cream,hinge);
+   for(const y of [.10,.72,2.08])rod([0,y,0],[0,y,-sign*.60],.025,m.cream,hinge);
+   rod([-.06,.96,-sign*.51],[-.06,1.18,-sign*.51],.018,m.gold,hinge);
+  }
+  const sill=box(.32,.025,1.04,m.dark,vehicle,-.84,.0375,0,'Cable_open_door_threshold');sill.rotation.z=Math.atan(.10/.32);
+
   rounded(1.14,.13,.40,.055,m.blue,vehicle,0,.56,.42);rounded(1.14,.39,.10,.055,m.blue,vehicle,0,.82,.57);
   rod([0,2.20,0],[0,3.30,0],.055,m.dark,vehicle);rod([-.58,3.48,0],[.58,3.48,0],.055,m.gold,vehicle);
   for(const x of [-.29,.29])sphere(x,.44,.77,.14,.09,.035,m.cream,vehicle);sphere(0,.43,.82,.13,.13,.10,m.red,vehicle);
@@ -105,11 +119,23 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  group.updateWorldMatrix(true,true);
  const bounds=new THREE.Box3().setFromObject(group);
  function setPose(p,yaw=0,spin=0,steer=0,speed=0){vehicle.position.set(p.x,p.y,p.z);vehicle.rotation.y=yaw;for(const w of wheels){w.pivot.rotation.y=w.front?kartSteeringAngle(steer,speed):0;w.tire.rotation.x=spin;w.hub.rotation.x=spin}for(const s of steering)s.rotation.z=steer*.65;driver?.steer(steer)}
- function canStand(x,z){
-  if(kind==='cable')return true;
+ function setDoors(value){doorOpen=THREE.MathUtils.clamp(value,0,1);for(const {hinge,sign} of doors)hinge.rotation.y=sign*doorOpen*Math.PI/2}
+ function floorAt(x,z,top,far=2){
+  if(kind!=='cable'||doorOpen<.98)return null;
+  const p=vehicle.position,dx=x-p.x,dz=z-p.z;if(dx< -1.0||dx>.65||Math.abs(dz)>.54)return null;
+  const y=p.y+.10*THREE.MathUtils.clamp((dx+1)/.32,0,1);return y<=top&&top-y<=far?y:null;
+ }
+ function canStand(x,z,foot=vehicle.position.y){
+  if(kind==='cable'){
+   const p=vehicle.position,dx=x-p.x,dz=z-p.z;
+   if(foot>p.y+2.3||foot+1.65<p.y||Math.abs(dx)>1.0||Math.abs(dz)>1.0)return true;
+   if(dx>.48&&Math.abs(dz)<.88||Math.abs(dz)>.44&&Math.abs(dx)<.90)return false;
+   return !(dx<-.48&&doorOpen<.98);
+  }
   const near=(rx,rz)=>Math.abs(Math.hypot(x/rx,z/rz)-1)*Math.min(rx,rz)<.25;
   if(near(KART_TRACK.rx+KART_TRACK.railOffset,KART_TRACK.rz+KART_TRACK.railOffset)&&!(z>10&&Math.abs(x)<.4)||near(KART_TRACK.rx-KART_TRACK.railOffset,KART_TRACK.rz-KART_TRACK.railOffset)&&!(z>5&&Math.abs(x)<2.1))return false;
   const dx=x-vehicle.position.x,dz=z-vehicle.position.z,c=Math.cos(vehicle.rotation.y),s=Math.sin(vehicle.rotation.y);return !(Math.abs(dx*c-dz*s)<.77&&Math.abs(dx*s+dz*c)<1.17);
  }
- return {kind,group,vehicle,driver,navPositions,extraBoxes,bounds,setPose,canStand};
+ setDoors(1);
+ return {kind,group,vehicle,driver,doors,navPositions,extraBoxes,bounds,setPose,setDoors,floorAt,canStand,get doorOpen(){return doorOpen}};
 }
