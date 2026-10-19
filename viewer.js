@@ -12,13 +12,15 @@ import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
 import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=95';
-import {prepareMountainSnow} from './mountain-snow.js?v=95';
-import {rebuildMountainStairs} from './mountain-stairs.js?v=23';
+import {prepareMountainSnow} from './mountain-snow.js?v=96';
+import {createSkiHonk} from './ski-honk.js?v=96';
+import {mountMountainSki} from './mountain-ski.js?v=96';
+import {rebuildMountainStairs} from './mountain-stairs.js?v=96';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {addClownHelicopter} from './clown-helicopter.js?v=59';
 import {mountHelicopterFlight} from './helicopter-flight.js?v=72';
 import {createHelicopterCollision,createHelicopterExplosion} from './helicopter-world.js?v=40';
-import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=21';
+import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=96';
 import {createWorldTargets} from './world-links.js?v=75';
 import {prepareArenaCircus} from './arena-circus.js?v=72';
 import {attachTapGesture} from './tap-gesture.js?v=27';
@@ -110,19 +112,19 @@ export class IslandViewer {
    else if(light.isDirectionalLight)light.color.set(light.position.x>0?(circus?0xffdfaa:0xfff1d2):(circus?0xffe5c2:0xb5dfff));
   }
   this.antiqueRoom?.mountLights(this.scene);
-  this.renderer.toneMappingExposure=this.config.exposure;this.mountainStorm=slug==='goat-mountain'?mountMountainStorm(this,stormAnchor):null;this.reset();this.setMode('walk');this.galleryLift=this.gallery?mountGalleryLift(this,this.gallery):null;this.helicopterExplosion=this.helicopter?createHelicopterExplosion(this.root):null;this.helicopterFlight=this.helicopter?mountHelicopterFlight(this,this.helicopter,{collision:this.helicopterCollision,effects:this.helicopterExplosion}):null;this.islandTransport=this.islandTransportWorld?mountIslandTransport(this,this.islandTransportWorld):null;this.balloonTravel=this.balloonWorld?mountBalloonTravel(this,this.balloonWorld):null;this.resize();progress(.96,'Almost there…');await this.renderer.compileAsync(this.scene,this.camera);this.renderer.render(this.scene,this.camera);progress(1,'Welcome');
+  this.renderer.toneMappingExposure=this.config.exposure;this.mountainStorm=slug==='goat-mountain'?mountMountainStorm(this,stormAnchor):null;this.reset();this.setMode('walk');this.galleryLift=this.gallery?mountGalleryLift(this,this.gallery):null;this.helicopterExplosion=this.helicopter?createHelicopterExplosion(this.root):null;this.helicopterFlight=this.helicopter?mountHelicopterFlight(this,this.helicopter,{collision:this.helicopterCollision,effects:this.helicopterExplosion}):null;this.islandTransport=this.islandTransportWorld?mountIslandTransport(this,this.islandTransportWorld):null;this.balloonTravel=this.balloonWorld?mountBalloonTravel(this,this.balloonWorld):null;this.mountainSki=this.mountainSnow?mountMountainSki(this,this.mountainSnow,createSkiHonk(this.mountainSnow.group,await loadHonkKartHead())):null;this.resize();progress(.96,'Almost there…');await this.renderer.compileAsync(this.scene,this.camera);this.renderer.render(this.scene,this.camera);progress(1,'Welcome');
  }
  reset(){
-  if(!this.config||!this.nav)return;this.balloonTravel?.cancel();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel();this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,this.physics?this.config.spawn[1]-this.config.eye+.43:100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
+  if(!this.config||!this.nav)return;this.mountainSki?.cancel();this.balloonTravel?.cancel();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel();this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,this.physics?this.config.spawn[1]-this.config.eye+.43:100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
   this.physics?.reset();this.mountainStorm?.reset();this.arenaCircus?.arrival.reset({x:this.config.spawn[0],z:this.config.spawn[2]});this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.clearWalkInput();
  }
  clearWalkInput(){const drag=this.drag;this.drag=null;this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop();this.touchStick?.reset();this.gameTaps?.reset();if(drag){const canvas=this.renderer.domElement;try{if(canvas.hasPointerCapture(drag.id))canvas.releasePointerCapture(drag.id)}catch{}}}
- setMode(mode){if(!this.bounds||this.mode===mode)return;this.balloonTravel?.cancel();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel();this.clearWalkInput();this.mode=mode;this.controls.enabled=mode==='orbit';document.getElementById('knob').style.transform='';
+ setMode(mode){if(!this.bounds||this.mode===mode)return;this.mountainSki?.cancel();this.balloonTravel?.cancel();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel();this.clearWalkInput();this.mode=mode;this.controls.enabled=mode==='orbit';document.getElementById('knob').style.transform='';
   if(mode==='orbit'){
    this.walkPosition=this.camera.position.clone();this.walkRotation=this.camera.rotation.clone();const size=this.bounds.getSize(new THREE.Vector3());const center=this.bounds.getCenter(new THREE.Vector3());center.y=Math.max(.8,this.bounds.min.y+size.y*.55);this.controls.target.copy(center);const extent=Math.max(size.x,size.z,size.y*.8);this.camera.position.set(center.x+extent*.92,center.y+extent*.58,center.z+extent*1.25);this.controls.maxDistance=extent*3.8;this.controls.minDistance=extent*.08;this.camera.lookAt(center);this.controls.update();
   }else if(this.walkPosition){this.camera.position.copy(this.walkPosition);this.camera.rotation.copy(this.walkRotation);this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.walkPosition=null}
  }
- setActive(value){if(!value){this.mountainStorm?.stop();this.arenaCircus?.stop();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel()}this.active=value;this.previous=0;this.clearWalkInput();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
+ setActive(value){if(!value){this.mountainSki?.cancel();this.mountainStorm?.stop();this.arenaCircus?.stop();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel()}this.active=value;this.previous=0;this.clearWalkInput();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
  floorAt(x,z,top,far=2){
   this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;
   let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObjects(this.padNav?[this.nav,this.padNav]:[this.nav],false)[0]?.point.y??null;
@@ -131,11 +133,12 @@ export class IslandViewer {
  canStand(x,z,floor){if(this.architectureCollision&&!this.architectureCollision.canStand(x,z,floor,this.config.eye))return false;if(this.islandTransportWorld&&!this.islandTransportWorld.canStand(x,z,floor))return false;if(this.arenaCircus&&!this.arenaCircus.canStand(x,z,floor,this.config.eye))return false;if(this.gallery&&!this.gallery.canStand(x,z,floor))return false;const r=.17,lo=floor+.22,hi=floor+this.config.eye-.12;for(const b of this.boxes){if(hi>b.min.y&&lo<b.max.y&&x>b.min.x-r&&x<b.max.x+r&&z>b.min.z-r&&z<b.max.z+r)return false}return true}
  stepTo(x,z){if(this.physics){const floor=this.physics.step(x,z,this.foot);if(floor===null)return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}const floor=this.floorAt(x,z,this.foot+.49,1.2);if(floor===null||floor-this.foot>.48||this.foot-floor>.65||!this.canStand(x,z,floor))return false;this.camera.position.x=x;this.camera.position.z=z;this.foot=floor;return true}
  tick(time){this.frame=0;if(!this.active)return;const dt=Math.min((time-(this.previous||time))/1000,.08);this.previous=time;this.renderQuality?.update(dt);
+  const skiing=this.mountainSki?.active;this.mountainSki?.update(dt);
   const ballooning=this.balloonTravel?.active;this.balloonTravel?.update(dt);
   const riding=this.galleryLift?.active;this.galleryLift?.update(dt);
   const flying=this.helicopterFlight?.active;this.helicopterFlight?.update(dt);
   const transporting=this.islandTransport?.active;this.islandTransport?.update(dt);
-  if(this.mode==='walk'&&this.nav&&!riding&&!flying&&!transporting&&!ballooning&&!this.balloonTravel?.mapOpen){
+  if(this.mode==='walk'&&this.nav&&!riding&&!flying&&!transporting&&!ballooning&&!skiing&&!this.balloonTravel?.mapOpen){
    let sx=this.stick.x+(this.keys.has('KeyD')||this.keys.has('ArrowRight')?1:0)-(this.keys.has('KeyA')||this.keys.has('ArrowLeft')?1:0),sy=-this.stick.y+(this.keys.has('KeyW')||this.keys.has('ArrowUp')?1:0)-(this.keys.has('KeyS')||this.keys.has('ArrowDown')?1:0);const length=Math.hypot(sx,sy);if(length>1){sx/=length;sy/=length}
    const motion=this.motion.update(dt,sx,sy,this.config.speed*(this.keys.has('ShiftLeft')?1.5:1));this.yaw=motion.yaw;this.pitch=motion.pitch;
    const {dx,dz}=motion;
@@ -144,7 +147,7 @@ export class IslandViewer {
    }
    if(this.physics){this.foot=this.physics.fall(this.camera.position.x,this.camera.position.z,this.foot,dt);if(this.foot<this.bounds.min.y-8)this.reset()}
    this.camera.position.y=this.physics&&!this.physics.grounded?this.foot+this.config.eye:THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
-  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!flying&&!transporting&&!ballooning)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCrowd?.update(dt,this.camera.position);this.groypAir?.update(dt,this.mode==='walk'&&!ballooning?this.camera.position:null);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.mountainStorm?.update(dt,this.mode==='walk'?this.camera.position:null);this.antiqueRoom?.updateLighting?.(this.camera.position,this.mode);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
+  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!flying&&!transporting&&!ballooning&&!skiing)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCrowd?.update(dt,this.camera.position);this.groypAir?.update(dt,this.mode==='walk'&&!ballooning?this.camera.position:null);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.mountainStorm?.update(dt,this.mode==='walk'?this.camera.position:null);this.antiqueRoom?.updateLighting?.(this.camera.position,this.mode);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
  }
  gameAt(clientX,clientY){
   if(!this.active)return null;
@@ -154,7 +157,7 @@ export class IslandViewer {
   return this.arcadeTargets?.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean),this.mode==='walk'&&this.slug!=='goat-mountain'?12:Infinity);
  }
  launchGame(clientX,clientY){
-  if(this.balloonTravel?.active||this.galleryLift?.active||this.helicopterFlight?.active||this.islandTransport?.active||Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size||Math.hypot(this.motion.vx,this.motion.vz)>.12)return;
+  if(this.mountainSki?.active||this.balloonTravel?.active||this.galleryLift?.active||this.helicopterFlight?.active||this.islandTransport?.active||Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size||Math.hypot(this.motion.vx,this.motion.vz)>.12)return;
   const game=this.gameAt(clientX,clientY);if(!game)return;
   this.clearWalkInput();
   if(game.action==='balloon-map')return this.balloonTravel?.openMap();
@@ -170,7 +173,7 @@ export class IslandViewer {
   canvas.addEventListener('pointerdown',e=>{if(!this.active||this.mode!=='walk'||this.drag||(e.pointerType==='mouse'&&e.button!==0))return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
   canvas.addEventListener('pointermove',e=>{if(!this.active||!this.drag||e.pointerId!==this.drag.id||this.mode!=='walk')return;this.motion.turn(e.clientX-this.drag.x,e.clientY-this.drag.y);this.drag.x=e.clientX;this.drag.y=e.clientY});
   const end=e=>{if(this.drag?.id===e.pointerId)this.drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);canvas.addEventListener('lostpointercapture',end);
-  window.addEventListener('keydown',e=>{if(!this.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)||(this.helicopterFlight?.active&&/^(Space|KeyC)$/.test(e.code))||(this.islandTransport?.active&&e.code==='Space')){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>this.clearWalkInput());
+  window.addEventListener('keydown',e=>{if(!this.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)||(this.helicopterFlight?.active&&/^(Space|KeyC)$/.test(e.code))||((this.islandTransport?.active||this.mountainSki?.active)&&e.code==='Space')){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>this.clearWalkInput());
   this.touchStick=createTouchStick(document.getElementById('joystick'),document.getElementById('knob'),(x,y)=>{this.stick.x=x;this.stick.y=y});
   const codes={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'};document.querySelectorAll('[data-move]').forEach(b=>{b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);this.keys.add(codes[b.dataset.move])});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>this.keys.delete(codes[b.dataset.move]))});
  }
@@ -180,6 +183,7 @@ export class IslandViewer {
   this.balloonTravel?.dispose();this.balloonTravel=null;this.balloonWorld?.dispose();this.balloonWorld=null;
   this.islandTransport?.dispose();this.islandTransport=null;this.islandTransportWorld=null;
   this.antiqueRoom?.dispose();this.antiqueRoom=null;
+  this.mountainSki?.dispose();this.mountainSki=null;
   this.mountainStorm?.dispose();this.mountainStorm=null;this.mountainSnow=null;
   this.helicopterFlight?.dispose();this.helicopterFlight=null;this.galleryLift?.dispose();this.galleryLift=null;this.gallery=null;this.helicopter=null;
   this.helicopterCollision?.dispose();this.helicopterCollision=null;this.helicopterExplosion?.dispose();this.helicopterExplosion=null;

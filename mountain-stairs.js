@@ -114,6 +114,16 @@ export function rebuildMountainStairs(root,shell){
  // no surviving mountain object still references it.
  root.traverse(object=>{if(object.geometry)disposed.delete(object.geometry)});for(const geometry of disposed)geometry.dispose();
  const trimmed=applySealedMountain(root,shell);
+ // Fill the exposed outside notch at the final two treads. The new threshold
+ // is wider than the source cut and sits just above its old surfaces.
+ const final=specs.at(-1),fdir=new THREE.Vector3(...final.direction),fside=new THREE.Vector3(...final.side),fstart=new THREE.Vector3(...final.start),basis=new THREE.Matrix4().makeBasis(fside,UP,fdir);
+ for(const step of [3,4]){
+  const center=fstart.clone().addScaledVector(fdir,(step+.5)*final.spacing);center.y=final.start[1]-.006+(step+1)*final.rise+.028-.15;
+  box([2.05,.30,final.spacing+.012],center,basis,landingMaterial||stone,`Mountain_summit_stair_threshold_${step}`);
+ }
+ const apron=new THREE.Vector3(...final.end).addScaledVector(fdir,.28);apron.y=final.end[1]+.022-.15;
+ box([2.05,.30,.62],apron,basis,landingMaterial||stone,'Mountain_summit_stair_threshold_apron');
+
  // The offline union already contains the opaque treads and decks. Keeping
  // these construction meshes too would render the same faces twice.
  if(shell.mergedStairs)for(const mesh of [...group.children])if(/^(Mountain_entry_landing|Mountain_solid_stair_flight_|Mountain_stair_mouth_|Mountain_stair_turn_landing_)/.test(mesh.name)){mesh.removeFromParent();mesh.geometry.dispose()}

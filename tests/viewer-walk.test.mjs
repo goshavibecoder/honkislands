@@ -94,3 +94,11 @@ test('island rides own the camera and restore walking before overview and deacti
  v.keys.add('KeyW');v.physics={fall(){throw Error('Gravity must not run in a balloon')}};v.tick(1016);assert.equal(v.camera.position.y,7.2);assert.equal(v.camera.position.z,10);
  v.setActive(false);assert.equal(cancelled,0);assert.equal(v.balloonTravel.active,true);v.setMode('orbit');assert.equal(cancelled,1);
  });
+
+test('skiing owns the camera and cancels cleanly before overview or leaving the island',()=>{
+ const {v}=setup();let cancelled=0;v.mountainSki={active:true,update(){v.camera.position.set(-4,8,-8)},cancel(){cancelled++;this.active=false;v.camera.position.set(0,12,-4)}};
+ v.keys.add('KeyW');v.physics={fall(){throw Error('Walking gravity must not run while skiing')}};
+ v.tick(1016);assert.equal(v.camera.position.y,8);assert.equal(v.camera.position.z,-8);
+ v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.z,-4);
+ v.setActive(false);assert.equal(cancelled,2);
+});

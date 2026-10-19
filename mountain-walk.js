@@ -7,7 +7,7 @@ import {Capsule} from './vendor/Capsule.js';
 export function createMountainNavigation(root){
  root.updateMatrixWorld(true);const positions=[],a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),normal=new THREE.Vector3();
  root.traverse(o=>{
-  if(!o.isMesh||!/^(Mountain_entry_landing$|Mountain_stair_mouth_|Mountain_solid_stair_flight_|Mountain_stair_turn_landing_|Unified_supported_landing_|Summit_circular_terrace(?:_\d+)?$|Shrine_rock_support(?:_\d+)?$)/.test(o.name))return;
+  if(!o.isMesh||!/^(Mountain_entry_landing$|Mountain_stair_mouth_|Mountain_summit_stair_threshold_|Mountain_solid_stair_flight_|Mountain_stair_turn_landing_|Unified_supported_landing_|Summit_circular_terrace(?:_\d+)?$|Shrine_rock_support(?:_\d+)?$)/.test(o.name))return;
   const geometry=o.geometry.clone().applyMatrix4(o.matrixWorld),p=geometry.attributes.position,index=geometry.index,total=index?index.count:p.count;
   for(let i=0;i<total;i+=3){a.fromBufferAttribute(p,index?index.getX(i):i);b.fromBufferAttribute(p,index?index.getX(i+1):i+1);c.fromBufferAttribute(p,index?index.getX(i+2):i+2);new THREE.Triangle(a,b,c).getNormal(normal);if(normal.y>.99)positions.push(...a.toArray(),...b.toArray(),...c.toArray())}geometry.dispose();
  });

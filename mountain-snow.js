@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // A supported, walkable route on the back of the real mountain, clear of the
 // existing front stairs and cable car. Coordinates are world aligned.
-export function prepareMountainSnow(root,{flagTexture=null}={}){
+export function prepareMountainSnow(root,{flagTexture=null,balloonExit=new THREE.Vector3(-3.154,.253,15.254)}={}){
  root.updateMatrixWorld(true);const rocks=[],terraces=[];
  root.traverse(o=>{if(!o.isMesh)return;if(/^(Faceted_mountain_(?!cloud)|Angular_flank_rock)/.test(o.name))rocks.push(o);if(/^Summit_circular_terrace(?:_\d+)?$/.test(o.name))terraces.push(o)});
  if(!rocks.length||!terraces.length)throw Error('Mountain snow route needs the real rock surface');
@@ -20,12 +20,18 @@ export function prepareMountainSnow(root,{flagTexture=null}={}){
  curve([-2.8,-10.35],[-1.4,-10.35],[1.4,-10.85],[2.8,-10.85]);
  curve([2.8,-10.85],[2.8+k,-10.85],[4,-12.05+k],[4,-12.05]);curve([4,-12.05],[4,-12.05-k],[2.8+k,-13.25],[2.8,-13.25]);
  curve([2.8,-13.25],[1.4,-13.25],[-1.4,-14.55],[-2.8,-14.55]);
- const points=path.getSpacedPoints(300),half=.73,outer=.96,side=[],distance=[0],minimum=[];
+ const descent=path.getSpacedPoints(300),descentEnd=descent.length-1;
+ // Continue around the low western foot of the island to the balloon's open
+ // boarding approach, outside the stairs, cable line and basket.
+ const runout=new THREE.CatmullRomCurve3([point(-2.8,-14.55),point(-9,-13.8),point(-15.8,-8.8),point(-17.8,-.5),point(-15.7,7),point(-10,12.4),point(-6,12.8),point(-4.2,12.3),point(-1.4,12.8),point(-1.5,14.0),point(balloonExit.x,balloonExit.z)],false,'centripetal');
+ const points=descent.concat(runout.getSpacedPoints(520).slice(1)),half=.73,outer=.96,side=[],distance=[0],minimum=[];
  for(let i=0;i<points.length;i++){
   const tangent=points[Math.min(points.length-1,i+1)].clone().sub(points[Math.max(0,i-1)]).normalize();side.push(new THREE.Vector3(tangent.z,0,-tangent.x));if(i)distance.push(distance[i-1]+points[i].distanceTo(points[i-1]));
-  const x=points[i].x,z=points[i].z;let h=-.05;for(const across of [-outer,-half,-.35,0,.35,half,outer])h=Math.max(h,ground(x+side[i].x*across,z+side[i].z*across));minimum.push(h+.38);
+  const x=points[i].x,z=points[i].z;let h=-.05;for(const across of [-outer,-half,-.35,0,.35,half,outer])h=Math.max(h,ground(x+side[i].x*across,z+side[i].z*across));minimum.push(i>descentEnd?Math.max(.30,h+.25):h+.38);
  }
  const length=distance.at(-1),startY=summit+.025;
+ // The final open approach meets the balloon deck exactly.
+ for(let i=points.length-35;i<points.length;i++)minimum[i]=THREE.MathUtils.lerp(minimum[points.length-35],balloonExit.y,(i-(points.length-35))/34);
  const heights=minimum.slice();heights[0]=startY;
  function constrain(){for(let i=heights.length-2;i>=0;i--)heights[i]=Math.max(heights[i],heights[i+1]+(distance[i+1]-distance[i])*.002);for(let i=1;i<heights.length;i++)heights[i]=Math.max(heights[i],heights[i-1]-(distance[i]-distance[i-1])*(i>245?1.10:.75))}
  constrain();for(let pass=0;pass<4;pass++){const smooth=heights.map((_,i)=>{let sum=0,count=0;for(let j=Math.max(0,i-5);j<=Math.min(heights.length-1,i+5);j++){sum+=heights[j];count++}return sum/count});for(let i=1;i<heights.length-1;i++)heights[i]=Math.max(minimum[i],smooth[i]);constrain()}
@@ -63,17 +69,18 @@ export function prepareMountainSnow(root,{flagTexture=null}={}){
  rockGeometry.setAttribute('color',new THREE.Float32BufferAttribute(rockColors,3));
  mesh(geometry(top),m.snow,'Snow_walkable_rear_descent');navPositions.push(...top);mesh(geometry(banks),m.bank,'Snow_raised_safety_banks');mesh(geometry(skirts),m.ice,'Snow_terrain_supported_ice_sides');mesh(rockGeometry,m.rock,'Snow_faceted_mountain_support');mesh(geometry(trackPositions),m.tracks,'Snow_parallel_ski_tracks');
  // A broad, level finish remains on the rear foot of the mountain.
- const finish=points.at(-1).clone(),landing=new THREE.CylinderGeometry(1,1.02,.20,40);landing.scale(1.4,1,.65);const deck=mesh(landing,m.snow,'Snow_finish_landing');deck.position.copy(finish);deck.position.y-=.10;
- for(let i=0;i<40;i++){const a=i*Math.PI*2/40,b=(i+1)*Math.PI*2/40;upward(navPositions,finish,new THREE.Vector3(finish.x+Math.sin(a)*1.4,finish.y,finish.z+Math.cos(a)*.65),new THREE.Vector3(finish.x+Math.sin(b)*1.4,finish.y,finish.z+Math.cos(b)*.65))}
+ const finish=points.at(-1).clone(),landing=new THREE.CylinderGeometry(1,1.02,.20,40);landing.scale(.95,1,.65);const deck=mesh(landing,m.snow,'Snow_finish_landing');deck.position.copy(finish);deck.position.y-=.10;
+ for(let i=0;i<40;i++){const a=i*Math.PI*2/40,b=(i+1)*Math.PI*2/40;upward(navPositions,finish,new THREE.Vector3(finish.x+Math.sin(a)*.95,finish.y,finish.z+Math.cos(a)*.65),new THREE.Vector3(finish.x+Math.sin(b)*.95,finish.y,finish.z+Math.cos(b)*.65))}
  // Match the uploaded GRAM sticker's blue emblem on pale cloth.
  flagTexture??=createGramSnowFlag();const flagMaterial=new THREE.MeshStandardMaterial({map:flagTexture,color:0xffffff,side:THREE.DoubleSide,roughness:.82,emissive:0xffffff,emissiveMap:flagTexture,emissiveIntensity:.12}),flags=[];
- for(let j=0;j<9;j++){
-  const index=Math.round(9+j*(points.length-22)/8),sign=j%2?1:-1,position=at(index,sign*.88,.13),flag=new THREE.Group();flag.name='Snow_GRAM_route_flag';flag.position.copy(position);flag.rotation.y=j%2?-.20:.14;group.add(flag);flags.push(flag);
+ const flagCount=27;
+ for(let j=0;j<flagCount;j++){
+  const index=Math.round(9+j*(points.length-45)/(flagCount-1)),sign=j%2?1:-1,position=at(index,sign*.88,.13),flag=new THREE.Group();flag.name='Snow_GRAM_route_flag';flag.position.copy(position);flag.rotation.y=j%2?-.20:.14;group.add(flag);flags.push(flag);
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(.020,.027,1.25,10),m.pole);pole.name='Snow_flag_pole';pole.position.y=.625;flag.add(pole);const cap=new THREE.Mesh(new THREE.SphereGeometry(.038,8,5),m.gold);cap.position.y=1.27;flag.add(cap);
   const cloth=new THREE.PlaneGeometry(.72,.43,14,4),p=cloth.attributes.position;for(let n=0;n<p.count;n++){const u=p.getX(n)+.36;p.setXYZ(n,u+.018,p.getY(n)+1.025,Math.sin(u*9+j*.6)*u*.085)}cloth.computeVertexNormals();const banner=new THREE.Mesh(cloth,flagMaterial);banner.name='Snow_white_blue_GRAM_banner';flag.add(banner);
   const snowFoot=new THREE.Mesh(new THREE.SphereGeometry(.11,10,6),m.snow);snowFoot.scale.y=.35;snowFoot.position.y=-.015;flag.add(snowFoot);pole.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(pole));
  }
- group.updateWorldMatrix(true,true);return {group,navPositions,extraBoxes,flags,centerline:points,side,halfWidth:half,length,bounds:new THREE.Box3().setFromObject(group),start:points[0].clone(),finish};
+ group.updateWorldMatrix(true,true);return {group,navPositions,extraBoxes,flags,centerline:points,side,halfWidth:half,length,bounds:new THREE.Box3().setFromObject(group),start:points[0].clone(),finish,descentEnd};
 }
 
 function createGramSnowFlag(){
