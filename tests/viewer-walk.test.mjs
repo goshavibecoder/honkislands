@@ -102,3 +102,10 @@ test('skiing owns the camera and cancels cleanly before overview or leaving the 
  v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.z,-4);
  v.setActive(false);assert.equal(cancelled,2);
 });
+
+test('a second finger can orbit the ski camera while joystick steering stays separate',()=>{
+ const {v,canvas}=setup(),moves=[];v.mountainSki={active:true,look:(x,y)=>moves.push([x,y])};v.stick.x=.6;
+ canvas.emit('pointerdown',{pointerId:4,clientX:10,clientY:20});canvas.emit('pointermove',{pointerId:4,clientX:110,clientY:50});
+ assert.deepEqual(moves,[[100,30]]);assert.equal(v.motion.targetYaw,0);assert.equal(v.stick.x,.6);
+ canvas.emit('pointerup',{pointerId:4});assert.equal(v.drag,null);
+});

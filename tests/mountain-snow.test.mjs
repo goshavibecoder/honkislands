@@ -19,8 +19,8 @@ const floorAt=(x,z,top,far)=>{ray.set(new THREE.Vector3(x,top,z),new THREE.Vecto
 const canStand=(x,z,floor)=>transport.canStand(x,z,floor)&&!boxes.some(b=>floor+1.53>b.min.y&&floor+.22<b.max.y&&x>b.min.x-.17&&x<b.max.x+.17&&z>b.min.z-.17&&z<b.max.z+.17);
 const physics=new MountainWalkPhysics({floorAt,canStand,eye:1.65,collision:createMountainCollision(root)});
 test('rear snow descent connects the summit and is walkable both ways across its full width',()=>{
- for(const offset of [-.28,0,.28])for(const direction of [1,-1]){
-  const ordered=snow.centerline.map((p,i)=>p.clone().addScaledVector(snow.side[i],offset));if(direction<0)ordered.reverse();
+ for(const offset of [-1,0,1])for(const direction of [1,-1]){
+  const ordered=snow.centerline.map((p,i)=>p.clone().addScaledVector(snow.side[i],offset*(snow.widths[i]-.45)));if(direction<0)ordered.reverse();
   let foot=ordered[0].y;
   for(let i=0;i<ordered.length-1;i++)for(let j=0;j<3;j++){
    const p=ordered[i].clone().lerp(ordered[i+1],j/3),next=physics.step(p.x,p.z,foot);
@@ -31,15 +31,15 @@ test('rear snow descent connects the summit and is walkable both ways across its
  assert.ok(snow.finish.y<1.4,'snow must reach the rear foothills');
 });
 test('route reaches the balloon, has GRAM flags throughout and stays within the mobile geometry budget',()=>{
- assert.equal(snow.flags.length,27);assert.equal(snow.extraBoxes.length,27);assert.ok(snow.start.z<0);assert.ok(snow.finish.distanceTo(new THREE.Vector3(-3.154,.253,15.254))<.03);assert.ok(snow.flags.some(f=>f.position.z>10));
+ assert.equal(snow.flags.length,27);assert.equal(snow.extraBoxes.length,27);assert.ok(snow.start.z<0);assert.ok(snow.widths.filter(w=>w>1.8).length>snow.widths.length*.7);assert.ok(snow.finish.distanceTo(new THREE.Vector3(-3.154,.253,15.254))<.03);assert.ok(snow.flags.some(f=>f.position.z>10));
  let triangles=0;snow.group.traverse(o=>{if(o.isMesh)triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3});
  assert.ok(triangles<30000);assert.ok(snow.bounds.containsPoint(snow.start));assert.ok(snow.bounds.containsPoint(snow.finish));
 });
 
 const {SkiMotion}=await import(moduleURL(new URL('../ski-motion.js',import.meta.url)));
-test('manual steering can complete every hairpin and reach the balloon using real collision geometry',()=>{
+test('manual steering can complete the broad sweep and reach the balloon using real collision geometry',()=>{
  for(const fps of [30,60]){
-  const model=new SkiMotion(snow.centerline,{canStand:(x,z,y)=>physics.clearAt(x,z,y)});
+  const model=new SkiMotion(snow.centerline,{widthAt:(i,t)=>THREE.MathUtils.lerp(snow.widths[i],snow.widths[i+1],t),canStand:(x,z,y)=>physics.clearAt(x,z,y)});
   for(let frame=0;frame<fps*240&&!model.finished;frame++){
    const goal=snow.centerline[Math.min(model.segment+5,snow.centerline.length-1)],yaw=Math.atan2(goal.x-model.position.x,goal.z-model.position.z),error=Math.atan2(Math.sin(yaw-model.yaw),Math.cos(yaw-model.yaw));
    model.update(1/fps,{steer:-Math.max(-1,Math.min(1,error*3)),drive:1,brake:model.speed>1.5});
@@ -67,6 +67,8 @@ const {createSkiHonk}=await import(moduleURL(new URL('../ski-honk.js',import.met
 test('the skier retains the original HONK face and joined body, with two skis and no invalid geometry',()=>{
  const data=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url)))),skier=createSkiHonk(new THREE.Group(),data);
  assert.ok(skier.head.children.length);assert.ok(skier.group.getObjectByName('Honk_right_ski'));assert.ok(skier.group.getObjectByName('Honk_left_ski'));
- skier.pose(snow.start,1,2,.5,.7);assert.ok(skier.group.position.distanceTo(snow.start)<1e-8);
+ const headPosition=skier.head.position.clone(),headRotation=skier.head.quaternion.clone();
+ skier.pose(snow.start,1,2,.5,.7);assert.ok(skier.head.position.equals(headPosition));assert.ok(skier.head.quaternion.equals(headRotation));
+ skier.pose(snow.start,-1,3,-1,0);assert.ok(skier.head.position.equals(headPosition));assert.ok(skier.head.quaternion.equals(headRotation));assert.ok(skier.group.position.distanceTo(snow.start)<1e-8);
  skier.group.traverse(o=>{if(o.isMesh){assert.ok(o.userData.islandRide);for(const n of o.geometry.attributes.position.array)assert.ok(Number.isFinite(n))}});
 });

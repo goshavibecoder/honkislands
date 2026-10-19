@@ -19,17 +19,25 @@ function setup(){
  const world={centerline:[new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,10),new THREE.Vector3(0,0,20)],start:new THREE.Vector3(0,1,0)};
  const viewer={active:true,mode:'walk',foot:1,yaw:.4,pitch:.1,keys:new Set(),stick:{x:0,y:0},config:{eye:1.65},camera:new THREE.PerspectiveCamera(),motion:new WalkMotion(),physics:{clearAt:()=>true},canStand:()=>true,clearWalkInput(){this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop()}};
  viewer.camera.position.set(.1,2.65,0);const skier={group:new THREE.Group(),pose(p){this.group.position.copy(p)}};
- const controller=mountMountainSki(viewer,world,skier);return {viewer,world,controller,host,panel:host.child};
+ const controller=mountMountainSki(viewer,world,skier);return {viewer,world,controller,host,skier,panel:host.child};
 }
 test('touch start, push, brake hold, pointer cancellation and exit restore a supported walking pose',()=>{
- const {viewer,controller,panel,host}=setup();panel.querySelector('.ski-start').emit('click');assert.ok(controller.active);assert.ok(host.classes.has('skiing'));
+ const {viewer,controller,panel,host,skier}=setup();assert.equal(skier.group.visible,false);panel.querySelector('.ski-start').emit('click');assert.ok(controller.active);assert.equal(skier.group.visible,true);assert.ok(host.classes.has('skiing'));
  viewer.stick.y=-1;for(let i=0;i<60;i++)controller.update(1/60);assert.ok(controller.model.speed>1);assert.ok(controller.model.position.z>0);
  panel.querySelector('.ski-brake').emit('pointerdown');for(let i=0;i<60;i++)controller.update(1/60);assert.equal(controller.model.speed,0);
  panel.querySelector('.ski-brake').emit('pointercancel');for(let i=0;i<30;i++)controller.update(1/60);assert.ok(controller.model.speed>0);
- const position={...controller.model.position};panel.querySelector('.ski-exit').emit('click');assert.equal(controller.active,false);assert.equal(viewer.camera.position.y,position.y+viewer.config.eye);assert.equal(viewer.camera.position.z,position.z);assert.equal(viewer.stick.y,0);assert.ok(!host.classes.has('skiing'));
+ const position={...controller.model.position};panel.querySelector('.ski-exit').emit('click');assert.equal(controller.active,false);assert.equal(viewer.camera.position.y,position.y+viewer.config.eye);assert.equal(viewer.camera.position.z,position.z);assert.equal(viewer.stick.y,0);assert.ok(!host.classes.has('skiing'));assert.equal(skier.group.visible,false);
  controller.dispose();assert.ok(panel.removed);
 });
 test('cancelling a run restores the pre-ski pose and disposed controls remove global handlers',()=>{
  const {viewer,controller,panel}=setup(),position=viewer.camera.position.clone();panel.querySelector('.ski-start').emit('click');viewer.keys.add('KeyW');controller.update(.08);controller.cancel();assert.ok(viewer.camera.position.equals(position));assert.equal(viewer.yaw,.4);assert.equal(viewer.pitch,.1);assert.equal(viewer.foot,1);
  controller.dispose();assert.equal(window.events.blur.length,0);assert.equal(window.events.keydown.length,0);
+});
+
+test('dragging rotates the ski camera independently of steering and keeps the view finite at its pitch limits',()=>{
+ const {viewer,controller,panel,skier}=setup();controller.look(300,100);assert.equal(skier.group.visible,false);
+ panel.querySelector('.ski-start').emit('click');controller.update(.08);const position=viewer.camera.position.clone(),heading=controller.model.yaw;
+ controller.look(300,100);controller.update(.08);assert.ok(Math.abs(viewer.camera.position.x-position.x)>.2);assert.equal(controller.model.yaw,heading);assert.equal(viewer.motion.targetYaw,viewer.motion.yaw);
+ controller.look(100000,100000);controller.update(.08);assert.ok(viewer.camera.position.toArray().every(Number.isFinite));assert.ok(viewer.camera.position.y>controller.model.position.y);
+ controller.cancel();assert.equal(skier.group.visible,false);controller.dispose();
 });

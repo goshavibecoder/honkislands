@@ -33,5 +33,5 @@ export function createSkiHonk(parent,headData){
  batchRideMeshes(body);group.traverse(o=>o.userData.islandRide=true);
  // Dispose only the discarded body; the original head remains owned by group.
  const discard=new Set(),materials=new Set();original.group.traverse(o=>{if(o.geometry)discard.add(o.geometry);if(o.material)materials.add(o.material)});for(const g of discard)g.dispose();for(const m of materials)m.dispose();
- return {group,head,body,pose(position,yaw,speed,turn,slope=0){group.position.copy(position);group.rotation.set(Math.atan(slope),yaw,0,'YXZ');body.rotation.z=turn*Math.min(.16,speed*.045);head.rotation.z=body.rotation.z*.5}};
+ return {group,head,body,pose(position,yaw,speed,turn,slope=0){group.position.copy(position);group.rotation.set(Math.atan(slope),yaw,0,'YXZ');body.rotation.set(0,0,0);head.rotation.set(0,0,0)}};
 }

@@ -12,28 +12,27 @@ export function prepareMountainSnow(root,{flagTexture=null,balloonExit=new THREE
  const navPositions=[],extraBoxes=[],ray=new THREE.Raycaster(),down=new THREE.Vector3(0,-1,0);
  const ground=(x,z)=>{ray.set(new THREE.Vector3(x,22,z),down);ray.far=30;return ray.intersectObjects(rocks,false)[0]?.point.y??-.05};
  const path=new THREE.CurvePath(),point=(x,z)=>new THREE.Vector3(x,0,z),curve=(a,b,c,d)=>path.add(new THREE.CubicBezierCurve3(point(...a),point(...b),point(...c),point(...d)));
- const r=1.20,k=r*.55228475;
- curve([0,-4.18],[0,-4.85],[1.45,-5.05],[2.8,-5.05]);
- curve([2.8,-5.05],[2.8+k,-5.05],[4,-6.25+k],[4,-6.25]);curve([4,-6.25],[4,-6.25-k],[2.8+k,-7.45],[2.8,-7.45]);
- curve([2.8,-7.45],[1.4,-7.45],[-1.4,-7.95],[-2.8,-7.95]);
- curve([-2.8,-7.95],[-2.8-k,-7.95],[-4,-9.15+k],[-4,-9.15]);curve([-4,-9.15],[-4,-9.15-k],[-2.8-k,-10.35],[-2.8,-10.35]);
- curve([-2.8,-10.35],[-1.4,-10.35],[1.4,-10.85],[2.8,-10.85]);
- curve([2.8,-10.85],[2.8+k,-10.85],[4,-12.05+k],[4,-12.05]);curve([4,-12.05],[4,-12.05-k],[2.8+k,-13.25],[2.8,-13.25]);
- curve([2.8,-13.25],[1.4,-13.25],[-1.4,-14.55],[-2.8,-14.55]);
+ // One broad sweep replaces the repeated reversing hairpins.
+ curve([0,-4.18],[0,-8],[-1,-13],[-5,-13]);
+ curve([-5,-13],[-7,-13],[-8.5,-12.827586],[-10,-12]);
  const descent=path.getSpacedPoints(300),descentEnd=descent.length-1;
  // Continue around the low western foot of the island to the balloon's open
  // boarding approach, outside the stairs, cable line and basket.
- const runout=new THREE.CatmullRomCurve3([point(-2.8,-14.55),point(-9,-13.8),point(-15.8,-8.8),point(-17.8,-.5),point(-15.7,7),point(-10,12.4),point(-6,12.8),point(-4.2,12.3),point(-1.4,12.8),point(-1.5,14.0),point(balloonExit.x,balloonExit.z)],false,'centripetal');
- const points=descent.concat(runout.getSpacedPoints(520).slice(1)),half=.73,outer=.96,side=[],distance=[0],minimum=[];
+ const runout=new THREE.CatmullRomCurve3([point(-10,-12),point(-15.8,-8.8),point(-17.8,-.5),point(-15.7,7),point(-10,12.4),point(-6,12.8),point(-4.2,12.3),point(-1.4,12.8),point(-1.5,14.0),point(balloonExit.x,balloonExit.z)],false,'centripetal');
+ const points=descent.concat(runout.getSpacedPoints(520).slice(1)),half=1.9,side=[],distance=[0],minimum=[],widths=[];
+ const halfAt=i=>widths[i],outerAt=i=>widths[i]+.23;
  for(let i=0;i<points.length;i++){
   const tangent=points[Math.min(points.length-1,i+1)].clone().sub(points[Math.max(0,i-1)]).normalize();side.push(new THREE.Vector3(tangent.z,0,-tangent.x));if(i)distance.push(distance[i-1]+points[i].distanceTo(points[i-1]));
-  const x=points[i].x,z=points[i].z;let h=-.05;for(const across of [-outer,-half,-.35,0,.35,half,outer])h=Math.max(h,ground(x+side[i].x*across,z+side[i].z*across));minimum.push(i>descentEnd?Math.max(.30,h+.25):h+.38);
+  // Keep only the last harbour approach narrow enough to clear its rails.
+  const nearHarbour=THREE.MathUtils.smoothstep(points[i].x,-11,-7.5),startWidth=THREE.MathUtils.lerp(.73,half,THREE.MathUtils.smoothstep(distance[i],0,4));
+  widths.push(THREE.MathUtils.lerp(startWidth,.73,points[i].z>10?nearHarbour:0));
+  const outer=outerAt(i),x=points[i].x,z=points[i].z;let h=-.05;for(const across of [-outer,-halfAt(i),-.35,0,.35,halfAt(i),outer])h=Math.max(h,ground(x+side[i].x*across,z+side[i].z*across));minimum.push(i>descentEnd?Math.max(.30,h+.25):h+.38);
  }
  const length=distance.at(-1),startY=summit+.025;
  // The final open approach meets the balloon deck exactly.
  for(let i=points.length-35;i<points.length;i++)minimum[i]=THREE.MathUtils.lerp(minimum[points.length-35],balloonExit.y,(i-(points.length-35))/34);
  const heights=minimum.slice();heights[0]=startY;
- function constrain(){for(let i=heights.length-2;i>=0;i--)heights[i]=Math.max(heights[i],heights[i+1]+(distance[i+1]-distance[i])*.002);for(let i=1;i<heights.length;i++)heights[i]=Math.max(heights[i],heights[i-1]-(distance[i]-distance[i-1])*(i>245?1.10:.75))}
+ function constrain(){for(let i=heights.length-2;i>=0;i--)heights[i]=Math.max(heights[i],heights[i+1]+(distance[i+1]-distance[i])*.002);for(let i=1;i<heights.length;i++)heights[i]=Math.max(heights[i],heights[i-1]-(distance[i]-distance[i-1])*.70)}
  constrain();for(let pass=0;pass<4;pass++){const smooth=heights.map((_,i)=>{let sum=0,count=0;for(let j=Math.max(0,i-5);j<=Math.min(heights.length-1,i+5);j++){sum+=heights[j];count++}return sum/count});for(let i=1;i<heights.length-1;i++)heights[i]=Math.max(minimum[i],smooth[i]);constrain()}
  if(heights[0]>startY+.02)throw Error('The snow approach would rise through the summit');heights[0]=startY;
  points.forEach((p,i)=>p.y=heights[i]);
@@ -43,9 +42,10 @@ export function prepareMountainSnow(root,{flagTexture=null,balloonExit=new THREE
  function geometry(positions){const g=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.computeVertexNormals();g.computeBoundingSphere();return g}
  const top=[],skirts=[],supports=[],banks=[],trackPositions=[];
  for(let i=0;i<points.length-1;i++){
-  const a=at(i,-half),b=at(i,half),c=at(i+1,-half),d=at(i+1,half);upward(top,a,b,c);upward(top,b,d,c);
+  const half=halfAt(i),nextHalf=halfAt(i+1),outer=outerAt(i),nextOuter=outerAt(i+1);
+  const a=at(i,-half),b=at(i,half),c=at(i+1,-nextHalf),d=at(i+1,nextHalf);upward(top,a,b,c);upward(top,b,d,c);
   for(const sign of [-1,1]){
-   const innerA=at(i,sign*half),innerB=at(i+1,sign*half),outerA=at(i,sign*outer,.11),outerB=at(i+1,sign*outer,.11);upward(banks,innerA,outerA,innerB);upward(banks,outerA,outerB,innerB);
+   const innerA=at(i,sign*half),innerB=at(i+1,sign*nextHalf),outerA=at(i,sign*outer,.11),outerB=at(i+1,sign*nextOuter,.11);upward(banks,innerA,outerA,innerB);upward(banks,outerA,outerB,innerB);
    const edgeA=outerA.clone().addScaledVector(side[i],sign*.035),edgeB=outerB.clone().addScaledVector(side[i+1],sign*.035);edgeA.y-=.22;edgeB.y-=.22;
    const facing=(array,a,b,c)=>{const n=new THREE.Triangle(a,b,c).getNormal(new THREE.Vector3());if(n.dot(side[i])*sign<0)triangle(array,a,c,b);else triangle(array,a,b,c)};
    facing(skirts,outerA,edgeA,outerB);facing(skirts,outerB,edgeA,edgeB);
@@ -57,11 +57,11 @@ export function prepareMountainSnow(root,{flagTexture=null,balloonExit=new THREE
  // Broad rock facets blend the supported trail into the mountain instead of
  // producing hundreds of thin vertical strips beneath the snow.
  for(let i=0;i<points.length-1;i+=10)for(const sign of [-1,1]){
-  const j=Math.min(i+10,points.length-1),a=at(i,sign*(outer+.035),-.11),b=at(j,sign*(outer+.035),-.11),c=at(i,sign*(outer+.30)),d=at(j,sign*(outer+.30));
+  const j=Math.min(i+10,points.length-1),a=at(i,sign*(outerAt(i)+.035),-.11),b=at(j,sign*(outerAt(j)+.035),-.11),c=at(i,sign*(outerAt(i)+.30)),d=at(j,sign*(outerAt(j)+.30));
   c.y=Math.min(a.y,ground(c.x,c.z)+.015);d.y=Math.min(b.y,ground(d.x,d.z)+.015);
   const middle=a.clone().add(b).add(c).add(d).multiplyScalar(.25).addScaledVector(side[Math.round((i+j)/2)],sign*.24);
   const face=(a,b,c)=>{const n=new THREE.Triangle(a,b,c).getNormal(new THREE.Vector3());if(n.dot(side[i])*sign<0)triangle(supports,a,c,b);else triangle(supports,a,b,c)};
-  for(let k=i;k<j;k++)face(at(k,sign*(outer+.035),-.11),middle,at(k+1,sign*(outer+.035),-.11));
+  for(let k=i;k<j;k++)face(at(k,sign*(outerAt(k)+.035),-.11),middle,at(k+1,sign*(outerAt(k+1)+.035),-.11));
   face(b,middle,d);face(d,middle,c);face(c,middle,a);
  }
  const rockGeometry=geometry(supports),rockColors=[],low=new THREE.Color(0x8c7763),high=new THREE.Color(0xc9bca7);
@@ -75,12 +75,12 @@ export function prepareMountainSnow(root,{flagTexture=null,balloonExit=new THREE
  flagTexture??=createGramSnowFlag();const flagMaterial=new THREE.MeshStandardMaterial({map:flagTexture,color:0xffffff,side:THREE.DoubleSide,roughness:.82,emissive:0xffffff,emissiveMap:flagTexture,emissiveIntensity:.12}),flags=[];
  const flagCount=27;
  for(let j=0;j<flagCount;j++){
-  const index=Math.round(9+j*(points.length-45)/(flagCount-1)),sign=j%2?1:-1,position=at(index,sign*.88,.13),flag=new THREE.Group();flag.name='Snow_GRAM_route_flag';flag.position.copy(position);flag.rotation.y=j%2?-.20:.14;group.add(flag);flags.push(flag);
+  const index=Math.round(9+j*(points.length-45)/(flagCount-1)),sign=j%2?1:-1,position=at(index,sign*(halfAt(index)+.15),.13),flag=new THREE.Group();flag.name='Snow_GRAM_route_flag';flag.position.copy(position);flag.rotation.y=j%2?-.20:.14;group.add(flag);flags.push(flag);
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(.020,.027,1.25,10),m.pole);pole.name='Snow_flag_pole';pole.position.y=.625;flag.add(pole);const cap=new THREE.Mesh(new THREE.SphereGeometry(.038,8,5),m.gold);cap.position.y=1.27;flag.add(cap);
   const cloth=new THREE.PlaneGeometry(.72,.43,14,4),p=cloth.attributes.position;for(let n=0;n<p.count;n++){const u=p.getX(n)+.36;p.setXYZ(n,u+.018,p.getY(n)+1.025,Math.sin(u*9+j*.6)*u*.085)}cloth.computeVertexNormals();const banner=new THREE.Mesh(cloth,flagMaterial);banner.name='Snow_white_blue_GRAM_banner';flag.add(banner);
   const snowFoot=new THREE.Mesh(new THREE.SphereGeometry(.11,10,6),m.snow);snowFoot.scale.y=.35;snowFoot.position.y=-.015;flag.add(snowFoot);pole.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(pole));
  }
- group.updateWorldMatrix(true,true);return {group,navPositions,extraBoxes,flags,centerline:points,side,halfWidth:half,length,bounds:new THREE.Box3().setFromObject(group),start:points[0].clone(),finish,descentEnd};
+ group.updateWorldMatrix(true,true);return {group,navPositions,extraBoxes,flags,centerline:points,side,halfWidth:half,widths,length,bounds:new THREE.Box3().setFromObject(group),start:points[0].clone(),finish,descentEnd};
 }
 
 function createGramSnowFlag(){
