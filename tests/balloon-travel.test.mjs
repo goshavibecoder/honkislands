@@ -71,6 +71,11 @@ test('all six real islands have supported, unobstructed approaches to their ball
    let foot=end.y;
    for(let segment=1;segment<path.length;segment++){const a=path[segment-1],b=path[segment],steps=Math.ceil(a.distanceTo(b)/.025);for(let n=1;n<=steps;n++){const p=a.clone().lerp(b,n/steps),floor=floorAt(p.x,p.z,foot+.49,1.2);assert.notEqual(floor,null,`arrival route has no floor at ${p.toArray()}`);assert.ok(floor-foot<=.48&&foot-floor<=.65,`arrival route has an impassable step ${foot} -> ${floor}`);assert.ok(canStand(p.x,p.z,floor),`arrival route blocks walking at ${p.toArray()}`);foot=floor}}
   }
+  if(island.slug==='honkhub'){
+   // The causeway rails must end before the boarding deck so its map is reachable.
+   const approach=[end,end.clone().setX(world.mapPosition.x),world.mapPosition.clone().add(new THREE.Vector3(0,0,-.75))];
+   for(let i=1;i<approach.length;i++)for(let n=0;n<=50;n++){const p=approach[i-1].clone().lerp(approach[i],n/50),foot=floorAt(p.x,p.z,end.y+.35,.8);assert.notEqual(foot,null);assert.ok(canStand(p.x,p.z,foot),'castle causeway traps the player behind its rails')}
+  }
   assert.ok(floorAt(end.x,end.z,end.y+.35,.8)!==null);assert.ok(world.bounds.containsPoint(world.home));let draws=0;world.vehicle.traverse(o=>{if(o.isMesh)draws++});assert.ok(draws<20,`balloon draw budget: ${draws}`);
   architecture?.dispose();physics?.dispose();surfaces?.dispose();world.dispose();room?.dispose();
  }

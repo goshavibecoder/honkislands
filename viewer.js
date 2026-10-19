@@ -3,7 +3,7 @@ import {createArchitectureCollision} from './walk-architecture.js?v=77';
 import {prepareArenaAudience} from './arena-crowd.js?v=88';
 import {prepareGroypAir} from './groyp-air.js?v=81';
 import {prepareVisualQuality} from './visual-quality.js?v=72';
-import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=90';
+import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=91';
 import {mountBalloonTravel} from './balloon-travel.js?v=90';
 import {MobileRenderQuality} from './mobile-render-quality.js?v=59';
 import { GLTFLoader } from './vendor/GLTFLoader.js';

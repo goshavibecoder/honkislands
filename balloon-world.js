@@ -31,9 +31,10 @@ export function prepareBalloonWorld(root,slug,{mapImages=[]}={}){
   bridge.material=m.cream;
   const approach=new THREE.Group();approach.name='Library_castle_balloon_causeway';approach.position.copy(mid);approach.rotation.y=yaw;group.add(approach);
   box(1.80,.28,length+.50,m.cream,approach,0,-.16,0,'Library_stone_bridge_deck');box(.68,.012,length+.48,m.colors[4],approach,0,.008,0,'Library_blue_arrival_runner');
+  const railStart=-length/2-.24,railEnd=length/2-depth/2-.30;
   for(const sign of [-1,1]){
-   const rail=box(.065,.055,length+.48,m.gold,approach,sign*.86,.80,0,'Library_bridge_handrail');rail.updateWorldMatrix(true,false);const collider=new THREE.Box3().setFromObject(rail);collider.min.y=home.y+.10;extraBoxes.push(collider);
-   for(let z=-length/2;z<=length/2;z+=1.10){box(.09,.77,.09,m.cream,approach,sign*.86,.39,z);mesh(new THREE.SphereGeometry(.065,8,5),m.gold,approach,sign*.86,.82,z)}
+   const rail=box(.065,.055,railEnd-railStart,m.gold,approach,sign*.86,.80,(railStart+railEnd)/2,'Library_bridge_handrail');rail.updateWorldMatrix(true,false);const collider=new THREE.Box3().setFromObject(rail);collider.min.y=home.y+.10;extraBoxes.push(collider);
+   for(let z=railStart;z<=railEnd;z+=1.10){box(.09,.77,.09,m.cream,approach,sign*.86,.39,z);mesh(new THREE.SphereGeometry(.065,8,5),m.gold,approach,sign*.86,.82,z)}
    const side=new THREE.Group();side.position.x=sign*.80;side.rotation.y=Math.PI/2;approach.add(side);const span=length/4,r=span*.38;
    for(let k=0;k<4;k++){
     const center=-length/2+span*(k+.5);for(let i=0;i<12;i++){const a=(i+.5)*Math.PI/12,stone=box(r*Math.PI/12+.025,.24,.18,m.cream,side,center+Math.cos(a)*r,-r-.32+Math.sin(a)*r,0,'Library_bridge_arch_stone');stone.rotation.z=a-Math.PI/2}
