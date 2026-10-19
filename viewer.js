@@ -3,7 +3,7 @@ import {createArchitectureCollision} from './walk-architecture.js?v=77';
 import {prepareArenaAudience} from './arena-crowd.js?v=88';
 import {prepareGroypAir} from './groyp-air.js?v=81';
 import {prepareVisualQuality} from './visual-quality.js?v=72';
-import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=91';
+import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=95';
 import {mountBalloonTravel} from './balloon-travel.js?v=90';
 import {MobileRenderQuality} from './mobile-render-quality.js?v=59';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
@@ -11,7 +11,8 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
-import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=76';
+import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=95';
+import {prepareMountainSnow} from './mountain-snow.js?v=95';
 import {rebuildMountainStairs} from './mountain-stairs.js?v=23';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {addClownHelicopter} from './clown-helicopter.js?v=59';
@@ -24,7 +25,7 @@ import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
 import {loadHonkFamilyPictures} from './family-wall.js?v=72';
-import {prepareAntiqueRoom} from './antique-room.js?v=93';
+import {prepareAntiqueRoom} from './antique-room.js?v=95';
 import {prepareGalleryMemes} from './gallery-memes.js?v=93';
 import {prepareGalleryInterior} from './gallery-interior.js?v=72';
 import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=49';
@@ -58,7 +59,7 @@ export class IslandViewer {
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Opening the 3D world…');
   const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures(),balloonDoor:true}):null;if(slug==='carnival')await prepareGalleryMemes(this.root);this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
   let mountainShell=null;if(slug==='goat-mountain'){const sealed=await this.fetchBinary('./models/goat-mountain-shell-v22.bin?v=22');mountainShell=await new Response(new Blob([sealed]).stream().pipeThrough(new DecompressionStream('gzip'))).json()}
-  this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;
+  this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;this.mountainSnow=slug==='goat-mountain'?prepareMountainSnow(this.root):null;
   this.islandTransportWorld=prepareIslandTransport(this.root,slug,{driverHead:slug==='arcade-district'?await loadHonkKartHead():null});
   this.helicopter=slug==='citadel'?addClownHelicopter(this.root):null;
   this.balloonWorld=prepareBalloonWorld(this.root,slug,{mapImages:await loadBalloonMapImages()});
@@ -96,10 +97,10 @@ export class IslandViewer {
   this.mixers=[];if(gltf.animations.length){const mixer=new THREE.AnimationMixer(this.root);for(const clip of gltf.animations)mixer.clipAction(clip).play();this.mixers.push(mixer)}
   if(!this.nav){const navBytes=await this.fetchBinary(`./models/${slug}.nav.bin?v=9`);const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.BufferAttribute(new Float32Array(navBytes.buffer,navBytes.byteOffset,navBytes.byteLength/4),3));ng.computeBoundingSphere();this.nav=new THREE.Mesh(ng,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));this.nav.updateMatrixWorld()}
   if(this.gallery){const bridge=new THREE.BufferGeometry();bridge.setAttribute('position',new THREE.Float32BufferAttribute(this.gallery.bridgePositions,3));const old=this.nav.geometry;this.nav.geometry=mergeGeometries([old,bridge],false);old.dispose();bridge.dispose();this.nav.geometry.computeBoundingSphere()}
-  for(const extension of [this.islandTransportWorld,this.balloonWorld,this.groypAir].filter(Boolean)){const extra=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(extension.navPositions,3)),old=this.nav.geometry;this.nav.geometry=mergeGeometries([old,extra],false);old.dispose();extra.dispose();this.nav.geometry.computeBoundingSphere()}
+  for(const extension of [this.islandTransportWorld,this.balloonWorld,this.groypAir,this.mountainSnow].filter(Boolean)){const extra=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(extension.navPositions,3)),old=this.nav.geometry;this.nav.geometry=mergeGeometries([old,extra],false);old.dispose();extra.dispose();this.nav.geometry.computeBoundingSphere()}
   this.boxes=this.manifest.collisionBoxes.map(([lo,hi])=>new THREE.Box3(new THREE.Vector3(...lo),new THREE.Vector3(...hi)));this.boxes.push(...(this.arenaCircus?.extraBoxes||[]),...(this.arenaCrowd?.extraBoxes||[]),...(this.gallery?.extraBoxes||[]),...(this.helicopter?.extraBoxes||[]),...(this.antiqueRoom?.extraBoxes||[]));this.bounds=this.antiqueRoom?.bounds.clone()||new THREE.Box3(new THREE.Vector3(...this.manifest.bounds[0]),new THREE.Vector3(...this.manifest.bounds[1]));
-  this.floorIndex=['carnival','goat-mountain','arena'].includes(slug)?createFloorIndex(this.nav,{doubleSided:slug==='arena'}):null;
-  for(const extension of [this.islandTransportWorld,this.balloonWorld,this.groypAir].filter(Boolean)){this.boxes.push(...extension.extraBoxes);this.bounds.union(extension.bounds)}
+  this.floorIndex=['carnival','goat-mountain','arena'].includes(slug)?createFloorIndex(this.nav,{doubleSided:slug==='arena',minNormalY:slug==='goat-mountain'?.3:.5}):null;
+  for(const extension of [this.islandTransportWorld,this.balloonWorld,this.groypAir,this.mountainSnow].filter(Boolean)){this.boxes.push(...extension.extraBoxes);this.bounds.union(extension.bounds)}
   const Physics=slug==='goat-mountain'?MountainWalkPhysics:WalkPhysics;
   this.physics=['carnival','goat-mountain'].includes(slug)?new Physics({floorAt:(...args)=>this.floorAt(...args),canStand:(...args)=>this.canStand(...args),eye:this.config.eye,collision:this.walkCollision}):null;
   // Reset the lighting on every visit so the mountain's warm circus light
@@ -179,7 +180,7 @@ export class IslandViewer {
   this.balloonTravel?.dispose();this.balloonTravel=null;this.balloonWorld?.dispose();this.balloonWorld=null;
   this.islandTransport?.dispose();this.islandTransport=null;this.islandTransportWorld=null;
   this.antiqueRoom?.dispose();this.antiqueRoom=null;
-  this.mountainStorm?.dispose();this.mountainStorm=null;
+  this.mountainStorm?.dispose();this.mountainStorm=null;this.mountainSnow=null;
   this.helicopterFlight?.dispose();this.helicopterFlight=null;this.galleryLift?.dispose();this.galleryLift=null;this.gallery=null;this.helicopter=null;
   this.helicopterCollision?.dispose();this.helicopterCollision=null;this.helicopterExplosion?.dispose();this.helicopterExplosion=null;
   if(this.padNav){this.padNav.geometry.dispose();this.padNav.material.dispose();this.padNav=null}

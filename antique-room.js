@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {addAntiqueCastle} from './antique-castle.js?v=93';
+import {addAntiqueCastle} from './antique-castle.js?v=95';
 import {hangFamilyPictures} from './family-wall.js?v=72';
 import {addClownTeaCabinet,rearrangeWorkshopNotes} from './antique-details.js?v=53';
 

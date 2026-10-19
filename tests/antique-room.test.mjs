@@ -123,3 +123,15 @@ test('the curved manuscript pages face the balloon and remain unobstructed above
  const camera=new THREE.PerspectiveCamera(66,4/3,.035,1100);camera.position.set(1.65,7.345,20.2);camera.lookAt(1.65,7.265,12.2);camera.updateMatrixWorld();
  for(const page of pages){const p=page.geometry.attributes.position,center=[0,1,2].reduce((v,i)=>v.add(new THREE.Vector3().fromBufferAttribute(p,page.geometry.index.getX((4*18+8)*6+i))),new THREE.Vector3()).multiplyScalar(1/3).applyMatrix4(page.matrixWorld),ray=new THREE.Raycaster(camera.position,center.clone().sub(camera.position).normalize(),0,30),hit=ray.intersectObject(room.castle.group,true)[0];assert.equal(hit?.object.uuid,page.uuid,`a facade detail hides the book page: ${hit?.object.name}`);const b=new THREE.Box3().setFromObject(page),corners=[new THREE.Vector3(b.min.x,b.min.y,b.max.z),new THREE.Vector3(b.max.x,b.max.y,b.max.z)].map(p=>p.project(camera));assert.ok(Math.abs(corners[0].x-corners[1].x)>.12&&Math.abs(corners[0].y-corners[1].y)>.12,'manuscript is too small to read during arrival')}
 });
+
+test('the book has an opaque decorated rear, a closed spine, and outward-facing top and bottom edges',()=>{
+ const book=room.castle.group.getObjectByName('Castle_open_book_emblem'),pages=[];book.traverse(o=>{if(o.name==='Castle_curved_manuscript_page')pages.push(o)});
+ function hitFrom(a,b){const source=book.localToWorld(new THREE.Vector3(...a)),target=book.localToWorld(new THREE.Vector3(...b));return new THREE.Raycaster(source,target.sub(source).normalize(),0,6).intersectObject(book,true)[0]?.object.name}
+ for(const page of pages){
+  const sign=page.geometry.attributes.position.getX(0)>0?1:-1,p=page.geometry.attributes.position;
+  for(const u of [2,8,14])for(const v of [1,4,7]){const center=[0,1,2].reduce((sum,i)=>sum.add(new THREE.Vector3().fromBufferAttribute(p,page.geometry.index.getX((v*18+u)*6+i))),new THREE.Vector3()).multiplyScalar(1/3);assert.match(hitFrom([center.x,center.y,-1.5],[center.x,center.y,1.5])||'',/^Castle_book_(solid_back_cover|back_cover_)/,'the back of a page is open')}
+  const x=sign*1.20,z=.335;for(const y of [-2,2])assert.equal(hitFrom([x,y,z],[x,0,z]),'Castle_thick_book_page_edges','a top or bottom edge faces inward');
+  assert.equal(hitFrom([sign*3,0,.17],[0,0,.17]),'Castle_thick_book_page_edges','the outer fore-edge is open');
+ }
+ assert.equal(hitFrom([0,0,-1.5],[0,0,1.5]),'Castle_book_closed_blue_spine');
+});

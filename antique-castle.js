@@ -109,21 +109,34 @@ export function addAntiqueCastle(parent,extraBoxes){
  mesh(new THREE.ShapeGeometry(arch(.74,0)),m.dark,front,0,2.88,-.10,'Castle_portal_fanlight');
  const book=new THREE.Group();book.name='Castle_open_book_emblem';book.position.set(0,4.98,1.05);book.rotation.x=-.18;front.add(book);
  function leafPoint(sign,u,v,offset=0){return new THREE.Vector3(sign*(.045+u*2.31),(v-.5)*1.84+.055*Math.sin(Math.PI*u),.10+.23*Math.sin(Math.PI*u)+.12*u+offset)}
- function leafSurface(sign,offset,c,name,expand=1){const positions=[],indices=[],nu=18,nv=10;
+ function leafSurface(sign,offset,c,name,expand=1,back=false){const positions=[],indices=[],nu=18,nv=back?1:10;
   for(let v=0;v<=nv;v++)for(let u=0;u<=nu;u++){const p=leafPoint(sign,u/nu,v/nv,offset);positions.push(p.x*expand,p.y*expand,p.z)}
-  for(let v=0;v<nv;v++)for(let u=0;u<nu;u++){const a=v*(nu+1)+u,b=a+1,c=a+nu+1,d=c+1;indices.push(...(sign>0?[a,b,c,b,d,c]:[a,c,b,b,c,d]))}
+  for(let v=0;v<nv;v++)for(let u=0;u<nu;u++){const a=v*(nu+1)+u,b=a+1,c=a+nu+1,d=c+1;indices.push(...((sign>0)!==back?[a,b,c,b,d,c]:[a,c,b,b,c,d]))}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return mesh(g,c,book,0,0,0,name);
  }
+ function leafEdgeShell(sign,frontOffset,backOffset,c,name,expand=1){
+  const outline=[],nu=18,nv=10,positions=[];
+  for(let i=0;i<nu;i++)outline.push([i/nu,0]);for(let i=0;i<nv;i++)outline.push([1,i/nv]);for(let i=nu;i>0;i--)outline.push([i/nu,1]);for(let i=nv;i>0;i--)outline.push([0,i/nv]);
+  function point(uv,offset){const p=leafPoint(sign,...uv,offset);p.x*=expand;p.y*=expand;return p}
+  for(let i=0;i<outline.length;i++){const a=point(outline[i],frontOffset),b=point(outline[(i+1)%outline.length],frontOffset),aa=point(outline[i],backOffset),bb=point(outline[(i+1)%outline.length],backOffset);for(const p of sign>0?[a,aa,bb,a,bb,b]:[a,bb,aa,a,b,bb])positions.push(...p.toArray())}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.computeVertexNormals();return mesh(g,c,book,0,0,0,name);
+ }
  for(const sign of [-1,1]){
-  leafSurface(sign,-.14,m.gold,'Castle_curved_gilded_book_cover',1.035);leafSurface(sign,-.055,m.paperEdge,'Castle_book_page_stack');leafSurface(sign,0,m.paper,'Castle_curved_manuscript_page');
-  const edgePositions=[];function edge(a,b){for(const p of [a,b,b.clone().add(new THREE.Vector3(0,0,-.11)),a,b.clone().add(new THREE.Vector3(0,0,-.11)),a.clone().add(new THREE.Vector3(0,0,-.11))])edgePositions.push(...p.toArray())}
-  for(const v of [0,1])for(let i=0;i<18;i++)edge(leafPoint(sign,i/18,v),leafPoint(sign,(i+1)/18,v));for(let i=0;i<10;i++)edge(leafPoint(sign,1,i/10),leafPoint(sign,1,(i+1)/10));const edges=new THREE.BufferGeometry();edges.setAttribute('position',new THREE.Float32BufferAttribute(edgePositions,3));edges.computeVertexNormals();mesh(edges,m.paperEdge,book,0,0,0,'Castle_thick_book_page_edges');
+  leafSurface(sign,-.14,m.gold,'Castle_curved_gilded_book_cover',1.035);leafSurface(sign,-.20,m.blue,'Castle_book_solid_back_cover',1.035,true);leafEdgeShell(sign,-.14,-.20,m.gold,'Castle_book_gilded_cover_rim',1.035);leafSurface(sign,-.055,m.paperEdge,'Castle_book_page_stack');leafSurface(sign,0,m.paper,'Castle_curved_manuscript_page');leafSurface(sign,-.11,m.paperEdge,'Castle_book_page_block_back',1,true);leafEdgeShell(sign,0,-.11,m.paperEdge,'Castle_thick_book_page_edges');
+
   function stroke(u0,u1,v,c=m.ink,r=.009){for(let i=0;i<9;i++){const a=leafPoint(sign,u0+(u1-u0)*i/9,v,.018),b=leafPoint(sign,u0+(u1-u0)*(i+1)/9,v,.018);rod(a.toArray(),b.toArray(),r,c,book,'Castle_book_page_line')}}
   for(let row=0;row<7;row++)for(let word=0;word<3;word++){const u=.12+word*.27,end=u+.20-((row+word)%3)*.018;stroke(u,end,.18+row*.09)}
   stroke(.11,.91,.88,m.gold,.018);stroke(.11,.91,.10,m.gold,.012);
   for(const [u,v] of [[.10,.10],[.93,.10],[.10,.90],[.93,.90]]){const p=leafPoint(sign,u,v,.04);ball(.038,m.gold,book,...p.toArray(),'Castle_book_gilt_illuminated_corner')}
+  // The reverse has a finished cobalt cover and embossed gold decoration.
+  function backPoint(u,v){const p=leafPoint(sign,u,v,-.235);p.x*=1.035;p.y*=1.035;return p}
+  for(const v of [.10,.90])for(let i=0;i<12;i++)rod(backPoint(.09+i*.84/12,v).toArray(),backPoint(.09+(i+1)*.84/12,v).toArray(),.012,m.gold,book,'Castle_book_back_cover_tooling');
+  for(const u of [.09,.93])rod(backPoint(u,.10).toArray(),backPoint(u,.90).toArray(),.012,m.gold,book,'Castle_book_back_cover_tooling');
+  for(const [u,v] of [[.09,.10],[.93,.10],[.09,.90],[.93,.90]])ball(.035,m.gold,book,...backPoint(u,v).toArray(),'Castle_book_back_cover_stud');
+  const seal=backPoint(.51,.50);seal.z-=.025;mesh(new THREE.TorusGeometry(.16,.018,5,24),m.gold,book,...seal.toArray(),'Castle_book_back_cover_medallion');ball(.055,m.rose,book,seal.x,seal.y,seal.z-.025,'Castle_book_back_cover_jewel');
   for(let layer=1;layer<=4;layer++)for(let i=0;i<8;i++){const a=leafPoint(sign,1,i/8,-layer*.022),b=leafPoint(sign,1,(i+1)/8,-layer*.022);rod(a.toArray(),b.toArray(),.004,m.paper,book,'Castle_individual_page_edge')}
  }
+ box(.115,1.96,.30,m.blue,book,0,0,.015,'Castle_book_closed_blue_spine');
  rod([0,-.97,.14],[0,.99,.14],.055,m.gold,book,'Castle_book_gold_binding');
  const ribbon=box(.13,.32,.025,m.blue,book,.10,-.94,.16,'Castle_blue_bookmark_ribbon');ribbon.rotation.z=.12;
  for(const sign of [-1,1])rod([sign*.75,3.89,.08],[sign*1.35,4.08,1.08],.055,m.gold,front,'Castle_book_carved_lectern_bracket');
