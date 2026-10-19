@@ -21,3 +21,19 @@ test('the huge spray layer follows the outside shell without covering its openin
 test('the final mobile texture retains transparency and stays below one megabyte',()=>{
  const image=readFileSync(new URL('../assets/gallery-honk-graffiti-v99.webp',import.meta.url));assert.equal(image.toString('ascii',0,4),'RIFF');assert.equal(image.toString('ascii',8,12),'WEBP');assert.ok(image.includes(Buffer.from('ALPH')));assert.ok(image.length<1000000);
 });
+
+test('the outside window is primed and carries the same uninterrupted paint while its indoor face remains original',()=>{
+ assert.equal(mural.windowCoats.length,3);
+ const pane=mural.windowCoats.find(o=>o.source.name==='Arched_window_daylight_glazing');assert.ok(pane);assert.equal(pane.source.material.name,'Window daylight');assert.equal(pane.paint.material,mural.mesh.material);assert.equal(pane.base.material.transparent,false);
+ for(const {source,paint,base} of mural.windowCoats){
+  const position=paint.geometry.attributes.position,uv=paint.geometry.attributes.uv,undercoat=base.geometry.attributes.position;
+  for(let i=0;i<position.count;i++){
+   const p=new THREE.Vector3().fromBufferAttribute(position,i),q=new THREE.Vector3().fromBufferAttribute(undercoat,i),angle=Math.atan2(p.x,p.z);
+   assert.ok(Math.abs(uv.getX(i)-(angle-mural.start)/mural.span)<1e-6);assert.ok(Math.abs(uv.getY(i)-((p.y-new THREE.Box3().setFromObject(root.getObjectByName('Curved_white_gallery_wall')).getCenter(new THREE.Vector3()).y)/mural.height+.5))<1e-6);
+   assert.ok(Math.hypot(p.x,p.z)>Math.hypot(q.x,q.z));
+  }
+ }
+ const g=pane.paint.geometry.attributes.position,t=new THREE.Triangle(new THREE.Vector3().fromBufferAttribute(g,0),new THREE.Vector3().fromBufferAttribute(g,1),new THREE.Vector3().fromBufferAttribute(g,2)),center=t.getMidpoint(new THREE.Vector3()),normal=t.getNormal(new THREE.Vector3()),ray=new THREE.Raycaster(center.clone().addScaledVector(normal,2),normal.clone().negate());
+ const hit=ray.intersectObjects([pane.paint,pane.base,pane.source],false)[0];assert.equal(hit.object,pane.paint);
+ ray.set(center.clone().addScaledVector(normal,-.5),normal);assert.equal(ray.intersectObjects([pane.paint,pane.base],false).length,0);
+});
