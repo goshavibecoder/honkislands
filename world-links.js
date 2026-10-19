@@ -18,7 +18,7 @@ export const NOTE_LINKS=Object.freeze({
  Goat:'https://t.me/goattrending',
  DeDust:'https://dedust.io/swap/GRAM/EQAmWanX8ohlsG6qBpfL2ritCQ7tr7MlJpEK64Khm-O4742K',
  Topblast:'https://topblast.lol/?token=EQAmWanX8ohlsG6qBpfL2ritCQ7tr7MlJpEK64Khm-O4742K',
- HonkHub:'https://honkler.org'
+ HonkHub:'https://honkhub.io/'
 });
 export function createWorldTargets(root,slug){
  root.updateMatrixWorld(true);
@@ -26,7 +26,8 @@ export function createWorldTargets(root,slug){
  root.traverse(o=>{
   if(!o.isMesh)return;let title,url;
   if(slug==='citadel'){
-   if(/^(Violet_GRAM_hanging_flag|GRAM_(diamond|star)_flag_face|GRAM_flag_cyan_hem)/.test(o.name)){title='Gram';url=NOTE_LINKS.Gram}
+   if(/^HONK_hub_terminal_original_logo_display(?:_\d+)?$/.test(o.name)){title='HonkHub';url=NOTE_LINKS.HonkHub}
+   else if(/^(Violet_GRAM_hanging_flag|GRAM_(diamond|star)_flag_face|GRAM_flag_cyan_hem)/.test(o.name)){title='Gram';url=NOTE_LINKS.Gram}
    else if(/^(Telegram_plane_plaque_ornament|Curved_Telegram_banner)/.test(o.name)){title='Telegram';url=NOTE_LINKS.TG}
    else if(/^Curved_X_(banner|white_insignia)/.test(o.name)){title='X';url=NOTE_LINKS.X}
   }

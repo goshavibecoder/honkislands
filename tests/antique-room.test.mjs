@@ -58,7 +58,7 @@ test('relocated sticky notes stay readable, clear the picture frames, and keep p
   assert.ok(art.every(a=>!a.intersectsBox(paper)),`note ${note.name} overlaps a picture frame`);
  }
  for(let i=0;i<linked.length;i++)for(let j=i+1;j<linked.length;j++)assert.ok(!new THREE.Box3().setFromObject(linked[i].paper).intersectsBox(new THREE.Box3().setFromObject(linked[j].paper)),'linked notes overlap');
- const targets=createWorldTargets(gltf.scene,'honkhub');assert.equal(targets.targets.length,30);
+ const targets=createWorldTargets(gltf.scene,'honkhub');assert.equal(targets.targets.length,30);const hub=targets.targets.filter(t=>t.userData.title==='HonkHub');assert.equal(hub.length,2);assert.ok(hub.every(t=>t.userData.url==='https://honkhub.io/'));
  for(const note of linked){const target=targets.targets.find(t=>t.name===note.paper.name);assert.ok(target);const a=new THREE.Box3().setFromObject(target),b=new THREE.Box3().setFromObject(note.paper);assert.ok(a.min.distanceTo(b.min)<1e-6&&a.max.distanceTo(b.max)<1e-6);assert.ok(target.userData.url.startsWith('https://'))}targets.dispose();
 });
 

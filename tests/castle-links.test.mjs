@@ -18,8 +18,9 @@ const {scene}=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOff
 const picker=createWorldTargets(scene,'citadel');
 
 test('the real castle emblems map to the supplied Gram and existing HONK social links',()=>{
- assert.deepEqual([...new Set(picker.targets.map(o=>o.userData.title))].sort(),['Gram','Telegram','X']);
+ assert.deepEqual([...new Set(picker.targets.map(o=>o.userData.title))].sort(),['Gram','HonkHub','Telegram','X']);
  assert.equal(NOTE_LINKS.Gram,'https://gram.org/jetton/EQAmWanX8ohlsG6qBpfL2ritCQ7tr7MlJpEK64Khm-O4742K');
+ assert.equal(NOTE_LINKS.HonkHub,'https://honkhub.io/');
  assert.equal(NOTE_LINKS.TG,'https://t.me/HonkHonkler');assert.equal(NOTE_LINKS.X,'https://x.com/HonklerX');
  for(const title of ['Gram','Telegram','X'])assert.ok(picker.targets.some(o=>o.userData.title===title&&/hanging_flag|banner/.test(o.name)));
  assert.equal(createWorldTargets(scene,'honkhub').targets.length,0);
@@ -27,7 +28,7 @@ test('the real castle emblems map to the supplied Gram and existing HONK social 
 
 test('each castle link can be tapped on its visible geometry and is blocked by a nearer wall',()=>{
  const center=new THREE.Vector2(),camera=new THREE.PerspectiveCamera(66,1,.035,100);
- for(const title of ['Gram','Telegram','X']){
+ for(const title of ['Gram','Telegram','X','HonkHub']){
   let visible=null;
   for(const mesh of picker.targets.filter(o=>o.userData.title===title)){
    const p=mesh.geometry.attributes.position,idx=mesh.geometry.index,triangle=new THREE.Triangle();
