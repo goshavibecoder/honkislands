@@ -88,7 +88,7 @@ export function addAntiqueCastle(parent,extraBoxes){
  for(const sign of [-1,1]){solid(box(.28,2.80,.34,m.trim,front,sign*.94,1.39,.08,'Castle_entrance_pier'));box(.43,.17,.46,m.gold,front,sign*.94,.09,.10);box(.40,.15,.42,m.gold,front,sign*.94,2.73,.10)}
  for(let i=0;i<9;i++){const a=(i+.5)*Math.PI/9,o=box(.22,.26,.24,i===4?m.gold:m.stone[0],front,Math.cos(a)*.925,2.785+Math.sin(a)*.925,.12,'Castle_arch_voussoir');o.rotation.z=a-Math.PI/2}
  mesh(new THREE.ShapeGeometry(arch(.74,0)),m.dark,front,0,2.88,-.10,'Castle_portal_fanlight');
- const book=new THREE.Group();book.name='Castle_open_book_emblem';book.position.set(0,4.20,.16);book.rotation.x=.12;front.add(book);
+ const book=new THREE.Group();book.name='Castle_open_book_emblem';book.position.set(0,4.85,.78);book.scale.setScalar(2.2);book.rotation.x=.12;front.add(book);
  for(const sign of [-1,1]){const page=new THREE.Group();page.rotation.y=sign*.18;book.add(page);box(1.02,.80,.09,m.gold,page,sign*.50,0,0);box(.94,.73,.10,m.paper,page,sign*.49,.01,.045);for(let i=0;i<7;i++)box(.74,.012,.012,m.base,page,sign*.49,.27-i*.085,.104,'Castle_book_page_line')}
  rod([0,-.41,.10],[0,.42,.10],.045,m.gold,book);
  for(const x of [-1.57,4.85])window(group,x,1.80,6.47,.29,.86);
