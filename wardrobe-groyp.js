@@ -23,30 +23,48 @@ export function createWardrobeGroyp(parent,m,actorScene=null){
   batchRideMeshes(hinge);hinge.traverse(o=>o.userData.wardrobeDynamic=true);
  }
  let groyp=null,grip=null;const arms=[],legs=[];let bladeGroup=null,shaftStart=null,contactInGrip=null;
- const axisRotation=new THREE.Quaternion(),parentRotation=new THREE.Quaternion(),jointPosition=new THREE.Vector3(),handPosition=new THREE.Vector3(),targetPosition=new THREE.Vector3(),from=new THREE.Vector3(),to=new THREE.Vector3();
+ const axisRotation=new THREE.Quaternion(),parentRotation=new THREE.Quaternion(),inverseRotation=new THREE.Quaternion(),jointPosition=new THREE.Vector3(),handPosition=new THREE.Vector3(),targetPosition=new THREE.Vector3(),from=new THREE.Vector3(),to=new THREE.Vector3(),elbowPosition=new THREE.Vector3(),pole=new THREE.Vector3(),bodyRotation=new THREE.Quaternion(),wristBack=new THREE.Vector3();
+ function rotateJoint(joint,oldDirection,newDirection){axisRotation.setFromUnitVectors(oldDirection.normalize(),newDirection.normalize());joint.parent.getWorldQuaternion(parentRotation);inverseRotation.copy(parentRotation).invert();axisRotation.premultiply(inverseRotation).multiply(parentRotation);joint.quaternion.premultiply(axisRotation);joint.updateWorldMatrix(false,true)}
  function solveArms(){
-  if(!groyp)return;groyp.updateWorldMatrix(true,true);
-  for(const arm of arms){for(const joint of arm.joints)joint.quaternion.copy(arm.rest.get(joint));groyp.updateWorldMatrix(true,true);targetPosition.copy(arm.target);grip.localToWorld(targetPosition);
-   for(let pass=0;pass<8;pass++)for(const joint of arm.joints){joint.getWorldPosition(jointPosition);arm.hand.getWorldPosition(handPosition);from.copy(handPosition).sub(jointPosition).normalize();to.copy(targetPosition).sub(jointPosition).normalize();axisRotation.setFromUnitVectors(from,to);joint.parent.getWorldQuaternion(parentRotation);axisRotation.premultiply(parentRotation.clone().invert()).multiply(parentRotation);joint.quaternion.premultiply(axisRotation);joint.updateWorldMatrix(false,true)}
+  if(!groyp)return;groyp.updateWorldMatrix(true,true);groyp.getWorldQuaternion(bodyRotation);
+  for(const arm of arms){
+   const [lower,upper]=arm.joints;upper.quaternion.copy(arm.rest.get(upper));lower.quaternion.copy(arm.rest.get(lower));lower.scale.copy(arm.scale);groyp.updateWorldMatrix(true,true);
+   targetPosition.copy(arm.palmTarget);grip.localToWorld(targetPosition);wristBack.set(arm.sign*.012,-.016,-.075).applyQuaternion(bodyRotation);targetPosition.add(wristBack);arm.target.copy(targetPosition);grip.worldToLocal(arm.target);
+   upper.getWorldPosition(jointPosition);lower.getWorldPosition(elbowPosition);arm.hand.getWorldPosition(handPosition);const first=jointPosition.distanceTo(elbowPosition),second=elbowPosition.distanceTo(handPosition),distance=jointPosition.distanceTo(targetPosition),stretch=THREE.MathUtils.clamp((distance-first+.006)/second,1,1.15);lower.scale.multiplyScalar(stretch);lower.updateWorldMatrix(false,true);
+   to.copy(targetPosition).sub(jointPosition).normalize();const d=Math.min(distance,first+second*stretch-.003),along=(first*first-(second*stretch)**2+d*d)/(2*d),bend=Math.sqrt(Math.max(0,first*first-along*along));pole.set(arm.sign*.32,-.34,.08).applyQuaternion(bodyRotation);pole.addScaledVector(to,-pole.dot(to)).normalize();elbowPosition.copy(jointPosition).addScaledVector(to,along).addScaledVector(pole,bend);
+   lower.getWorldPosition(handPosition);from.copy(handPosition).sub(jointPosition);to.copy(elbowPosition).sub(jointPosition);rotateJoint(upper,from,to);
+   lower.getWorldPosition(jointPosition);arm.hand.getWorldPosition(handPosition);from.copy(handPosition).sub(jointPosition);to.copy(targetPosition).sub(jointPosition);rotateJoint(lower,from,to);
+   arm.hand.getWorldPosition(from);groyp.worldToLocal(from);to.copy(arm.palmTarget);grip.localToWorld(to);groyp.worldToLocal(to);const delta=targetPosition.copy(to).sub(from);arm.wrist.position.copy(from).add(to).multiplyScalar(.5);arm.wrist.scale.set(1,delta.length(),1);arm.wrist.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
   }
  }
+
  if(actorScene){
   actorScene.removeFromParent();actorScene.updateWorldMatrix(true,true);const initial=new THREE.Box3().setFromObject(actorScene),size=initial.getSize(new THREE.Vector3()),center=initial.getCenter(new THREE.Vector3()),scale=1.75/size.y;
   groyp=new THREE.Group();groyp.name='GROYP_hidden_in_wardrobe';groyp.position.y=.26;group.add(groyp);
   const model=new THREE.Group();model.name='Wardrobe_original_GROYP_model';model.scale.setScalar(scale);model.position.set(-center.x*scale,-initial.min.y*scale,-center.z*scale);model.add(actorScene);groyp.add(model);
-  actorScene.traverse(o=>{if(o.isSkinnedMesh)o.frustumCulled=false});
-  const clothes={wood:m.wood,metal:new THREE.MeshStandardMaterial({color:0x9ba5aa,roughness:.38,metalness:.72})};
+  // The source has open, unrigged fingers. Replace those faces with closed
+  // palms around the tool, keeping the supplied forearms and their skinning.
+  actorScene.traverse(o=>{if(!o.isSkinnedMesh)return;o.frustumCulled=false;const g=o.geometry,idx=g.index,handVertex=[];for(let i=0;i<g.attributes.position.count;i++){handVertex[i]=false;for(let k=0;k<4;k++)if(g.attributes.skinWeight.getComponent(i,k)>.5&&/^hand_[lr]$/.test(o.skeleton.bones[g.attributes.skinIndex.getComponent(i,k)].name))handVertex[i]=true}const kept=[];for(let i=0;i<(idx?.count||g.attributes.position.count);i+=3){const tri=[0,1,2].map(k=>idx?idx.getX(i+k):i+k);if(!tri.some(v=>handVertex[v]))kept.push(...tri)}g.setIndex(kept)});
+  const clothes={skin:new THREE.MeshStandardMaterial({color:0x56650c,roughness:.85}),wood:m.wood,metal:new THREE.MeshStandardMaterial({color:0x9ba5aa,roughness:.38,metalness:.72})};
   // Pivot at the bottom of the raised handle. A forward swing keeps every
   // part of the tool ahead of the torso instead of sweeping through the belly.
-  grip=new THREE.Group();grip.name='GROYP_two_handed_shovel_swing';grip.position.set(.05,1.24,.35);groyp.add(grip);
-  const a=new THREE.Vector3(.05,1.24,.35),b=new THREE.Vector3(.32,1.62,.35),axis=b.clone().sub(a).normalize(),origin=grip.position.clone();
-  rod(a.clone().sub(origin).toArray(),b.clone().sub(origin).toArray(),.025,clothes.wood,grip);
-  for(const [side,t] of [['l',.30],['r',.0]]){const hand=actorScene.getObjectByName('hand_'+side),joints=['lowerarm_','upperarm_'].map(prefix=>actorScene.getObjectByName(prefix+side));if(hand&&joints.every(Boolean))arms.push({hand,joints,rest:new Map(joints.map(j=>[j,j.quaternion.clone()])),target:a.clone().lerp(b,t).sub(origin)})}
+  grip=new THREE.Group();grip.name='GROYP_two_handed_shovel_swing';grip.position.set(.05,1.24,.38);groyp.add(grip);
+  const a=new THREE.Vector3(.05,1.24,.38),b=new THREE.Vector3(.32,1.62,.38),axis=b.clone().sub(a).normalize(),origin=a.clone().addScaledVector(axis,-.055);grip.position.copy(origin);
+  rod([0,0,0],b.clone().sub(origin).toArray(),.025,clothes.wood,grip);
+  for(const [side,t,sign] of [['l',.42,1],['r',0,-1]]){
+   const hand=actorScene.getObjectByName('hand_'+side),joints=['lowerarm_','upperarm_'].map(prefix=>actorScene.getObjectByName(prefix+side));if(!hand||!joints.every(Boolean))continue;
+   const palmTarget=a.clone().lerp(b,t).sub(origin),fist=new THREE.Group();fist.name='GROYP_closed_grip_'+side;fist.position.copy(palmTarget);fist.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);grip.add(fist);
+   ball(0,0,-.04,.056,.065,.032,clothes.skin,fist);
+   for(const y of [-.045,-.015,.015,.045]){const curve=new THREE.CatmullRomCurve3(Array.from({length:9},(_,i)=>{const angle=-2.75+i*4.2/8;return new THREE.Vector3(Math.cos(angle)*.038,y,Math.sin(angle)*.038)}));const finger=new THREE.Mesh(new THREE.TubeGeometry(curve,10,.013,6,false),clothes.skin);fist.add(finger)}
+   ball(sign*.043,-.035,.005,.022,.035,.023,clothes.skin,fist);batchRideMeshes(fist);fist.traverse(o=>o.userData.groypHand=true);
+   const wrist=new THREE.Mesh(new THREE.CylinderGeometry(.032,.035,1,10),clothes.skin);wrist.name='GROYP_wrist_'+side;wrist.userData.groypHand=true;groyp.add(wrist);
+   arms.push({hand,joints,sign,wrist,palmTarget,target:palmTarget.clone(),scale:joints[0].scale.clone(),rest:new Map(joints.map(j=>[j,j.quaternion.clone()]))});
+  }
   bladeGroup=new THREE.Group();bladeGroup.name='GROYP_shovel_blade';bladeGroup.position.copy(b).sub(origin);bladeGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);grip.add(bladeGroup);
   const shape=new THREE.Shape();shape.moveTo(-.075,0);shape.lineTo(-.17,.12);shape.lineTo(-.17,.32);shape.quadraticCurveTo(0,.47,.17,.32);shape.lineTo(.17,.12);shape.lineTo(.075,0);shape.closePath();
   const blade=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.035,bevelEnabled:true,bevelSize:.012,bevelThickness:.009,bevelSegments:1,curveSegments:5}),clothes.metal);blade.position.z=-.018;bladeGroup.add(blade);box(.025,.24,.028,clothes.metal,bladeGroup,0,.15,.024);
-  const handle=new THREE.Mesh(new THREE.TorusGeometry(.075,.018,6,16,Math.PI),clothes.wood);handle.position.copy(a).sub(origin).addScaledVector(axis,.045);handle.rotation.z=-Math.atan2(axis.x,axis.y);grip.add(handle);
-  bladeGroup.updateMatrix();shaftStart=a.clone();contactInGrip=new THREE.Vector3(0,.22,.017).applyMatrix4(bladeGroup.matrix);
+  const handle=new THREE.Mesh(new THREE.TorusGeometry(.075,.018,6,16,Math.PI),clothes.wood);handle.position.set(0,0,0).addScaledVector(axis,.045);handle.rotation.z=-Math.atan2(axis.x,axis.y);grip.add(handle);
+  bladeGroup.updateMatrix();shaftStart=origin.clone();contactInGrip=new THREE.Vector3(0,.22,.017).applyMatrix4(bladeGroup.matrix);
   for(const [name,sign] of [['thigh_l',1],['thigh_r',-1],['calf_l',-1],['calf_r',1]]){const bone=actorScene.getObjectByName(name);if(bone)legs.push({bone,sign,rest:bone.quaternion.clone()})}
   batchRideMeshes(grip);batchRideMeshes(bladeGroup);groyp.traverse(o=>o.userData.wardrobeDynamic=true);
  }

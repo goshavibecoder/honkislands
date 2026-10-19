@@ -9,7 +9,7 @@ async function cover(){transition.className='active';transition.setAttribute('ar
 async function reveal(){transition.classList.add('depart');await wait(reduced?220:1000);transition.className='';transition.setAttribute('aria-hidden','true')}
 function progress(value,label){$('progress').style.width=`${Math.round(value*100)}%`;$('load-label').textContent=label||'Flying to the island…'}
 async function enter(slug,button){if(busy)return;entryIntro?.finish();busy=true;lastButton=button||lastButton;activeWorld=slug;const current=++epoch;$('error').hidden=true;progress(0);const curtain=cover();try{
- const module=await import('./viewer.js?v=104');viewer??=new module.IslandViewer($('viewport'));viewer.onBalloonTravel=flyByBalloon;viewer.onWardrobeKnockout=respawnAtColosseum;await curtain;
+ const module=await import('./viewer.js?v=105');viewer??=new module.IslandViewer($('viewport'));viewer.onBalloonTravel=flyByBalloon;viewer.onWardrobeKnockout=respawnAtColosseum;await curtain;
  world.hidden=false;map.hidden=true;world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');
  await viewer.open(slug,progress);if(current!==epoch)return;
  viewer.setActive(true);history.replaceState(null,'',`#${slug}`);await reveal();busy=false;$('viewport').focus({preventScroll:true});showHint();
@@ -40,8 +40,10 @@ async function respawnAtColosseum(){
  transition.className='active knockout-transfer';transition.style.opacity='1';transition.setAttribute('aria-hidden','true');
  try{
   activeWorld='arena';await viewer.open('arena',()=>{});if(current!==epoch)return;
-  world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');viewer.setActive(!document.hidden);history.replaceState(null,'','#arena');
-  const fade=transition.animate([{opacity:1},{opacity:0}],{duration:1000,easing:'ease-out',fill:'both'});await fade.finished;fade.cancel();transition.className='';transition.style.opacity='';busy=false;if(viewer.active!==!document.hidden)viewer.setActive(!document.hidden);$('viewport').focus({preventScroll:true});showHint();
+  world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');
+  // Start on the floor behind closed eyelids before revealing the new world.
+  const waking=viewer.knockoutRecovery.begin();viewer.setActive(!document.hidden);history.replaceState(null,'','#arena');transition.className='';transition.style.opacity='';
+  await waking;if(current!==epoch)return;busy=false;if(viewer.active!==!document.hidden)viewer.setActive(!document.hidden);$('viewport').focus({preventScroll:true});showHint();
  }catch(e){console.error(e);transition.className='';transition.style.opacity='';busy=false;$('error-message').textContent='Could not reach the Colosseum. Try again or return to the map.';$('error').hidden=false}
 }
 async function back(){if(busy)return;busy=true;++epoch;$('error').hidden=true;progress(1,'Returning to the map…');await cover();viewer?.setActive(false);world.hidden=true;map.hidden=false;history.replaceState(null,'',location.pathname);await reveal();busy=false;lastButton?.focus({preventScroll:true})}
@@ -51,7 +53,7 @@ function mode(name){viewer?.setMode(name);world.classList.toggle('overview',name
 $('walk').onclick=()=>mode('walk');$('orbit').onclick=()=>mode('orbit');$('reset').onclick=()=>{viewer?.reset();mode('walk')};
 let hintTimer;function showHint(orbit=false){clearTimeout(hintTimer);$('hint').textContent=orbit?'Drag to orbit · Pinch or scroll to zoom':matchMedia('(pointer:fine)').matches?'WASD or arrows to move · Drag to look · Esc for map':'Move on the left · Swipe to look around';if(activeWorld==='citadel')$('hint').textContent+=' · Board the helicopter beside the helipad';if(activeWorld==='arcade-district')$('hint').textContent+=' · Tap arcade machines to play · Kart circuit outside · GROYP AIR desk beside the balloon';if(activeWorld==='goat-mountain')$('hint').textContent+=' · Cable car to the right of the entrance · Statue opens Goat Trending';if(activeWorld==='carnival')$('hint').textContent+=' · Art opens HONK Memes · Elevator left of the column';if(activeWorld==='honkhub')$('hint').textContent+=' · Tap the colorful notes to open links';if(activeWorld==='arena')$('hint').textContent+=' · Tap red noses to honk · Trophy opens Honkster';$('hint').textContent+=' · Use the balloon map to travel between islands';$('hint').classList.remove('fade');hintTimer=setTimeout(()=>$('hint').classList.add('fade'),6500)}
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!world.hidden&&!busy)back()});
-document.addEventListener('visibilitychange',()=>viewer?.setActive(!document.hidden&&!world.hidden&&(!busy||viewer?.balloonTravel?.active)));
+document.addEventListener('visibilitychange',()=>viewer?.setActive(!document.hidden&&!world.hidden&&(!busy||viewer?.balloonTravel?.active||viewer?.knockoutRecovery?.active)));
 window.addEventListener('pagehide',()=>viewer?.setActive(false));
 
 

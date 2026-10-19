@@ -119,3 +119,8 @@ test('wardrobe ambush freezes walking and look, then cancels on overview or leav
  v.launchGame(0,0);assert.equal(opened,1);v.setMode('orbit');assert.equal(closed,1);assert.equal(v.wardrobeAmbush.active,false);
  v.wardrobeAmbush.active=true;v.setActive(false);assert.equal(closed,2);assert.equal(v.wardrobeAmbush.active,false);
 });
+
+test('arena recovery owns the camera and pauses across backgrounding, with ordinary movement restored after recovery',()=>{
+ const {v,canvas,window}=setup();let cancelled=0;v.knockoutRecovery={active:true,update(){v.camera.position.y=.2},cancel(){cancelled++;this.active=false}};window.emit('keydown',{code:'KeyW'});assert.equal(v.keys.size,0);canvas.emit('pointerdown',{pointerId:8,clientX:0,clientY:0});assert.equal(v.drag,null);v.stick.y=-1;v.tick(1016);assert.equal(v.camera.position.y,.2);assert.equal(v.camera.position.z,0);
+ v.setActive(false);assert.equal(cancelled,0);assert.equal(v.knockoutRecovery.active,true);v.setActive(true);v.knockoutRecovery.active=false;v.knockoutRecovery.update=()=>{};v.keys.add('KeyW');v.tick(1032);v.tick(1048);assert.ok(v.camera.position.z<0);v.setMode('orbit');assert.equal(cancelled,1);
+});
