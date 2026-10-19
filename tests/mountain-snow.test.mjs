@@ -27,7 +27,7 @@ test('rear snow descent connects the summit and is walkable both ways across its
    assert.notEqual(next,null,JSON.stringify({offset,direction,i,j,p:p.toArray(),foot,clear:physics.clearAt(p.x,p.z,p.y),box:canStand(p.x,p.z,p.y),support:Array.from({length:8},(_,n)=>floorAt(p.x+Math.cos(n*Math.PI/4)*.17,p.z+Math.sin(n*Math.PI/4)*.17,p.y+.42,.84)),hit:physics.collision.capsuleIntersect(physics.capsule)}));foot=next;
   }
  }
- let foot=11.14;for(let z=-3.3;z>=-4.2;z-=.025){const next=physics.step(0,z,foot);assert.notEqual(next,null,'summit approach '+z);foot=next}
+ let foot=11.14;for(let z=-3.3;z>=-5.3;z-=.025){const next=physics.step(0,z,foot);assert.notEqual(next,null,'summit approach '+z);foot=next}
  assert.ok(snow.finish.y<1.4,'snow must reach the rear foothills');
 });
 test('route reaches the balloon, has GRAM flags throughout and stays within the mobile geometry budget',()=>{
@@ -71,4 +71,26 @@ test('the skier retains the original HONK face and joined body, with two skis an
  skier.pose(snow.start,1,2,.5,.7);assert.ok(skier.head.position.equals(headPosition));assert.ok(skier.head.quaternion.equals(headRotation));
  skier.pose(snow.start,-1,3,-1,0);assert.ok(skier.head.position.equals(headPosition));assert.ok(skier.head.quaternion.equals(headRotation));assert.ok(skier.group.position.distanceTo(snow.start)<1e-8);
  skier.group.traverse(o=>{if(o.isMesh){assert.ok(o.userData.islandRide);for(const n of o.geometry.attributes.position.array)assert.ok(Number.isFinite(n))}});
+});
+
+
+test('snow terrain and ski grooves leave the summit and boarding platforms uncovered',()=>{
+ assert.ok(snow.platformExclusions.some(p=>p.name==='Summit_circular_terrace_2'));
+ assert.ok(snow.platformExclusions.some(p=>p.name==='Balloon_access_walkway'));
+ const terrain=[];snow.group.traverse(o=>{if(o.isMesh&&/^Snow_(walkable|raised|terrain|faceted|parallel|finish)/.test(o.name))terrain.push(o)});
+ let checked=0;
+ for(const mesh of terrain){const p=mesh.geometry.attributes.position;for(let i=0;i<p.count;i+=3){const vertices=[0,1,2].map(k=>new THREE.Vector3().fromBufferAttribute(p,i+k).applyMatrix4(mesh.matrixWorld));for(const cut of snow.platformExclusions){if(!vertices.some(v=>v.x>=cut.bounds.min.x&&v.x<=cut.bounds.max.x&&v.z>=cut.bounds.min.z&&v.z<=cut.bounds.max.z))continue;for(const weights of [[1/3,1/3,1/3],[.5,.5,0],[0,.5,.5],[.5,0,.5]]){const point=new THREE.Vector3();vertices.forEach((v,k)=>point.addScaledVector(v,weights[k]));const inside=cut.polygon.every((a,j)=>{const b=cut.polygon[(j+1)%cut.polygon.length];return (b.x-a.x)*(point.z-a.z)-(b.z-a.z)*(point.x-a.x)>2e-6*Math.hypot(b.x-a.x,b.z-a.z)});assert.equal(inside,false,JSON.stringify({mesh:mesh.name,cut:cut.name,point:point.toArray(),sides:cut.polygon.map((a,j)=>{const b=cut.polygon[(j+1)%cut.polygon.length];return (b.x-a.x)*(point.z-a.z)-(b.z-a.z)*(point.x-a.x)})}));checked++}}}}
+ assert.ok(checked>100);
+});
+
+test('double-pole strokes keep wrists, elbows and grips connected without turning the head',()=>{
+ const data=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url)))),skier=createSkiHonk(new THREE.Group(),data),rest=skier.arms[0].hand.position.clone(),head=skier.head.position.clone();
+ const endpoint=(mesh,y)=>new THREE.Vector3(0,y,0).applyMatrix4(mesh.matrix);
+ for(const phase of [0,.15,.22,.4,.67,.84,1,-1]){
+  skier.pose(snow.start,.3,3,.2,.4,phase);skier.group.updateMatrixWorld(true);
+  assert.ok(skier.head.position.equals(head));assert.equal(skier.head.rotation.y,0);
+  for(const arm of skier.arms){assert.ok(endpoint(arm.upper,-.5).distanceTo(arm.shoulder)<1e-7);assert.ok(endpoint(arm.upper,.5).distanceTo(arm.elbow.position)<1e-7);assert.ok(endpoint(arm.forearm,-.5).distanceTo(arm.elbow.position)<1e-7);assert.ok(endpoint(arm.forearm,.5).distanceTo(arm.hand.position)<1e-7);assert.ok(endpoint(arm.pole,.5).distanceTo(arm.hand.position)<1e-7);assert.ok(arm.hand.position.distanceTo(arm.shoulder)<.5)}
+  if(phase===.67)assert.ok(skier.arms[0].hand.position.distanceTo(rest)>.5);
+ }
+ assert.ok(skier.arms[0].hand.position.equals(rest));
 });

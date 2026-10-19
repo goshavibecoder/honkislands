@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SkiMotion} from './ski-motion.js?v=97';
+import {SkiMotion} from './ski-motion.js?v=106';
 
 export function mountMountainSki(viewer,world,skier){
  const host=document.getElementById('world'),panel=document.createElement('aside');panel.className='ski-controls';panel.hidden=true;
@@ -31,7 +31,7 @@ export function mountMountainSki(viewer,world,skier){
    if(disposed)return;
    if(saved){
     const keys=viewer.keys,steer=viewer.stick.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),drive=-viewer.stick.y+(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0);
-    model.update(dt,{steer,drive,brake:braking||keys.has('Space')});const p=model.position,tangent=model.nearest(p.x,p.z);skier.pose(p,model.yaw,model.speed,model.turn,tangent.slope*(tangent.dx*Math.sin(model.yaw)+tangent.dz*Math.cos(model.yaw)));
+    model.update(dt,{steer,drive,brake:braking||keys.has('Space')});const p=model.position,tangent=model.nearest(p.x,p.z);skier.pose(p,model.yaw,model.speed,model.turn,tangent.slope*(tangent.dx*Math.sin(model.yaw)+tangent.dz*Math.cos(model.yaw)),model.polePhase);
     // Dragging orbits the camera independently from the skier and joystick.
     // Indexed rock queries keep both the desired and eased camera outside scenery.
     const angle=model.yaw+orbitYaw,range=3.3,horizontal=range*Math.cos(orbitPitch);

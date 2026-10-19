@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {mountainSnowPlatforms,trimMountainSnow} from './snow-platform-trim.js?v=106';
 
 // A supported, walkable route on the back of the real mountain, clear of the
 // existing front stairs and cable car. Coordinates are world aligned.
@@ -28,7 +29,7 @@ export function prepareMountainSnow(root,{flagTexture=null,balloonExit=new THREE
   widths.push(THREE.MathUtils.lerp(startWidth,.73,points[i].z>10?nearHarbour:0));
   const outer=outerAt(i),x=points[i].x,z=points[i].z;let h=-.05;for(const across of [-outer,-halfAt(i),-.35,0,.35,halfAt(i),outer])h=Math.max(h,ground(x+side[i].x*across,z+side[i].z*across));minimum.push(i>descentEnd?Math.max(.30,h+.25):h+.38);
  }
- const length=distance.at(-1),startY=summit+.025;
+ const length=distance.at(-1),startY=summit+.005;
  // The final open approach meets the balloon deck exactly.
  for(let i=points.length-35;i<points.length;i++)minimum[i]=THREE.MathUtils.lerp(minimum[points.length-35],balloonExit.y,(i-(points.length-35))/34);
  const heights=minimum.slice();heights[0]=startY;
@@ -80,7 +81,7 @@ export function prepareMountainSnow(root,{flagTexture=null,balloonExit=new THREE
   const cloth=new THREE.PlaneGeometry(.72,.43,14,4),p=cloth.attributes.position;for(let n=0;n<p.count;n++){const u=p.getX(n)+.36;p.setXYZ(n,u+.018,p.getY(n)+1.025,Math.sin(u*9+j*.6)*u*.085)}cloth.computeVertexNormals();const banner=new THREE.Mesh(cloth,flagMaterial);banner.name='Snow_white_blue_GRAM_banner';flag.add(banner);
   const snowFoot=new THREE.Mesh(new THREE.SphereGeometry(.11,10,6),m.snow);snowFoot.scale.y=.35;snowFoot.position.y=-.015;flag.add(snowFoot);pole.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(pole));
  }
- group.updateWorldMatrix(true,true);return {group,navPositions,extraBoxes,flags,centerline:points,side,halfWidth:half,widths,length,bounds:new THREE.Box3().setFromObject(group),start:points[0].clone(),finish,descentEnd};
+ const platformExclusions=mountainSnowPlatforms(root,terraces),trimmedNav=trimMountainSnow(group,navPositions,platformExclusions);group.updateWorldMatrix(true,true);return {group,navPositions:trimmedNav,platformExclusions,extraBoxes,flags,centerline:points,side,halfWidth:half,widths,length,bounds:new THREE.Box3().setFromObject(group).expandByPoint(points[0]).expandByPoint(finish),start:points[0].clone(),finish,descentEnd};
 }
 
 function createGramSnowFlag(){

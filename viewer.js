@@ -12,9 +12,9 @@ import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
 import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=95';
-import {prepareMountainSnow} from './mountain-snow.js?v=97';
-import {createSkiHonk} from './ski-honk.js?v=97';
-import {mountMountainSki} from './mountain-ski.js?v=97';
+import {prepareMountainSnow} from './mountain-snow.js?v=106';
+import {createSkiHonk} from './ski-honk.js?v=106';
+import {mountMountainSki} from './mountain-ski.js?v=106';
 import {rebuildMountainStairs} from './mountain-stairs.js?v=96';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {addClownHelicopter} from './clown-helicopter.js?v=59';
@@ -68,10 +68,10 @@ export class IslandViewer {
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Opening the 3D world…');
   const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures(),balloonDoor:true,wardrobeActor:await this.loadGroypActor()}):null;if(slug==='carnival')await Promise.all([prepareGalleryMemes(this.root),prepareGalleryGraffiti(this.root)]);this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
   let mountainShell=null;if(slug==='goat-mountain'){const sealed=await this.fetchBinary('./models/goat-mountain-shell-v22.bin?v=22');mountainShell=await new Response(new Blob([sealed]).stream().pipeThrough(new DecompressionStream('gzip'))).json()}
-  this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;this.mountainSnow=slug==='goat-mountain'?prepareMountainSnow(this.root):null;
+  this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;this.mountainSnow=null;
   this.islandTransportWorld=prepareIslandTransport(this.root,slug,{driverHead:slug==='arcade-district'?await loadHonkKartHead():null});
   this.helicopter=slug==='citadel'?addClownHelicopter(this.root):null;
-  this.balloonWorld=prepareBalloonWorld(this.root,slug,{mapImages:await loadBalloonMapImages()});
+  this.balloonWorld=prepareBalloonWorld(this.root,slug,{mapImages:await loadBalloonMapImages()});this.mountainSnow=slug==='goat-mountain'?prepareMountainSnow(this.root,{balloonExit:this.balloonWorld.exit}):null;
   if(slug==='arcade-district')this.groypAir=prepareGroypAir(this.root,this.balloonWorld,await this.loadGroypActor());
   this.arenaCrowd=slug==='arena'?await prepareArenaAudience(this.root):null;
   this.helicopterCollision=this.helicopter?createHelicopterCollision(this.root,this.helicopter.scale):null;
