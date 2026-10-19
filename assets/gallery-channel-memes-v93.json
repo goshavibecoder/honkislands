@@ -1,0 +1,163 @@
+{
+  "version": 93,
+  "channel": "https://t.me/honklermemes",
+  "atlas": "gallery-channel-memes-v93.webp",
+  "width": 2048,
+  "height": 2048,
+  "existingPerceptualHashes": [
+    "16a4e1fe36d6c909",
+    "83675b9e3c78e281",
+    "247039d7cb6e25c9",
+    "cc992672cd9c2373",
+    "cdccc9cc8d663233",
+    "293ad95a428d23fd",
+    "a14a6761a5852f77",
+    "765c4cb373d84217",
+    "e9eac1c88d18f353",
+    "43d18d07560fd277",
+    "396ca18c277edca1",
+    "85c8b92705357af5",
+    "d9b191266756988f",
+    "d0941db6352de5a9",
+    "9662a94c99996d97",
+    "6cceccd458722739",
+    "f0dd0674f0e12f0b",
+    "9c32674c079c9b73",
+    "0f4bd2af87607361",
+    "ec9c7342a1b30b5d",
+    "4af24666b49d98d9",
+    "c34fccd62d26930b",
+    "63cafc4b3cb418e1",
+    "b2a5dc29dc42237d",
+    "e9c92772c9890377",
+    "e4668c8c9c36f369"
+  ],
+  "pictures": [
+    {
+      "slot": 27,
+      "source": "https://t.me/honklermemes/661",
+      "sourceSha256": "527202eb1bf710a33c1b659d3564689873234b5df66502953b9d9991030176fa",
+      "perceptualHash": "34c3c3c3878687cf",
+      "nearestExistingHamming": 24,
+      "frameAspect": 1.0,
+      "tile": {
+        "x": 32,
+        "y": 32,
+        "width": 640,
+        "height": 640
+      }
+    },
+    {
+      "slot": 28,
+      "source": "https://t.me/honklermemes/662",
+      "sourceSha256": "ae8295ff3269c93cca993bbb44b7749eec64053af8360ae57ecf38a5c4ef03b9",
+      "perceptualHash": "ec3ce82cbe350ac3",
+      "nearestExistingHamming": 24,
+      "frameAspect": 1.01992036,
+      "tile": {
+        "x": 704,
+        "y": 32,
+        "width": 640,
+        "height": 640
+      }
+    },
+    {
+      "slot": 29,
+      "source": "https://t.me/honklermemes/672",
+      "sourceSha256": "821e731851ff59a026842f7f473e5d703d65578101700180c59a948e210b5c14",
+      "perceptualHash": "13f1d210d64f69ad",
+      "nearestExistingHamming": 24,
+      "frameAspect": 0.809375,
+      "tile": {
+        "x": 1376,
+        "y": 32,
+        "width": 640,
+        "height": 640
+      }
+    },
+    {
+      "slot": 30,
+      "source": "https://t.me/honklermemes/664",
+      "sourceSha256": "fef208a95c8f1e657d0592b6e7d5b8389ef4e4408d55368095e5eae7e143ccff",
+      "perceptualHash": "9d0dfad42e50c1b5",
+      "nearestExistingHamming": 24,
+      "frameAspect": 1.0,
+      "tile": {
+        "x": 32,
+        "y": 704,
+        "width": 640,
+        "height": 640
+      }
+    },
+    {
+      "slot": 31,
+      "source": "https://t.me/honklermemes/670",
+      "sourceSha256": "57233b8f02592d9c08126d1f811f04850ce134fe0de82ab96f2476eeaf942aa4",
+      "perceptualHash": "bdf8e31e39820e0b",
+      "nearestExistingHamming": 24,
+      "frameAspect": 1.0,
+      "tile": {
+        "x": 704,
+        "y": 704,
+        "width": 640,
+        "height": 640
+      }
+    },
+    {
+      "slot": 32,
+      "source": "https://t.me/honklermemes/677",
+      "sourceSha256": "6e16340f4808c1ace593f391f1a4a24762b1b810ba75bfeccc0ae7e87e706567",
+      "perceptualHash": "3b41bfd20414cbaf",
+      "nearestExistingHamming": 22,
+      "frameAspect": 0.71323528,
+      "tile": {
+        "x": 1376,
+        "y": 704,
+        "width": 640,
+        "height": 640
+      }
+    },
+    {
+      "slot": 33,
+      "source": "https://t.me/honklermemes/671",
+      "sourceSha256": "53acf9d8648b8bba84e97064078dd0958c1d28334a3451048135a71f0fb98e6f",
+      "perceptualHash": "2b74753956a8a647",
+      "nearestExistingHamming": 26,
+      "frameAspect": 1.03420521,
+      "tile": {
+        "x": 32,
+        "y": 1376,
+        "width": 640,
+        "height": 640
+      }
+    },
+    {
+      "slot": 34,
+      "source": "https://t.me/honklermemes/674",
+      "sourceSha256": "8f9001f5d82ca29848b73a51796778227538961c56b6641bae9b10f9b4eb2cbe",
+      "perceptualHash": "1959e6acc4ec3c35",
+      "nearestExistingHamming": 24,
+      "frameAspect": 1.01185774,
+      "tile": {
+        "x": 704,
+        "y": 1376,
+        "width": 640,
+        "height": 640
+      }
+    },
+    {
+      "slot": 35,
+      "source": "https://t.me/honklermemes/667",
+      "sourceSha256": "931c628d718fd30049eed63edf8b7e2d032710dbffd15d4208b8b280d2869762",
+      "perceptualHash": "eeca2ae62bce20c5",
+      "nearestExistingHamming": 24,
+      "frameAspect": 1.0,
+      "tile": {
+        "x": 1376,
+        "y": 1376,
+        "width": 640,
+        "height": 640
+      }
+    }
+  ]
+}

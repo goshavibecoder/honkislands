@@ -24,7 +24,8 @@ import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
 import {loadHonkFamilyPictures} from './family-wall.js?v=72';
-import {prepareAntiqueRoom} from './antique-room.js?v=92';
+import {prepareAntiqueRoom} from './antique-room.js?v=93';
+import {prepareGalleryMemes} from './gallery-memes.js?v=93';
 import {prepareGalleryInterior} from './gallery-interior.js?v=72';
 import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=49';
 import {mountGalleryLift} from './gallery-lift.js?v=72';
@@ -55,7 +56,7 @@ export class IslandViewer {
   const bytes=new Uint8Array(payloads.reduce((n,a)=>n+a.length,0));let offset=0;for(const a of payloads){bytes.set(a,offset);offset+=a.length}
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Opening the 3D world…');
-  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures(),balloonDoor:true}):null;this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
+  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures(),balloonDoor:true}):null;if(slug==='carnival')await prepareGalleryMemes(this.root);this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
   let mountainShell=null;if(slug==='goat-mountain'){const sealed=await this.fetchBinary('./models/goat-mountain-shell-v22.bin?v=22');mountainShell=await new Response(new Blob([sealed]).stream().pipeThrough(new DecompressionStream('gzip'))).json()}
   this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;
   this.islandTransportWorld=prepareIslandTransport(this.root,slug,{driverHead:slug==='arcade-district'?await loadHonkKartHead():null});
@@ -142,7 +143,7 @@ export class IslandViewer {
    }
    if(this.physics){this.foot=this.physics.fall(this.camera.position.x,this.camera.position.z,this.foot,dt);if(this.foot<this.bounds.min.y-8)this.reset()}
    this.camera.position.y=this.physics&&!this.physics.grounded?this.foot+this.config.eye:THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
-  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!flying&&!transporting&&!ballooning)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCrowd?.update(dt,this.camera.position);this.groypAir?.update(dt,this.mode==='walk'&&!ballooning?this.camera.position:null);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.mountainStorm?.update(dt,this.mode==='walk'?this.camera.position:null);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
+  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!flying&&!transporting&&!ballooning)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCrowd?.update(dt,this.camera.position);this.groypAir?.update(dt,this.mode==='walk'&&!ballooning?this.camera.position:null);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.mountainStorm?.update(dt,this.mode==='walk'?this.camera.position:null);this.antiqueRoom?.updateLighting?.(this.camera.position,this.mode);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
  }
  gameAt(clientX,clientY){
   if(!this.active)return null;

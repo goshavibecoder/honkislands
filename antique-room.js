@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {addAntiqueCastle} from './antique-castle.js?v=92';
+import {addAntiqueCastle} from './antique-castle.js?v=93';
 import {hangFamilyPictures} from './family-wall.js?v=72';
 import {addClownTeaCabinet,rearrangeWorkshopNotes} from './antique-details.js?v=53';
 
@@ -92,9 +92,14 @@ export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false}={}
  for(let i=0;i<5;i++){const a=i*Math.PI*2/5,x=Math.cos(a)*.54,z=Math.sin(a)*.54;rod([0,3.18,0],[x,2.95,z],.015,m.brass,chandelier);cyl(.075,.035,m.brass,chandelier,x,2.96,z);cyl(.035,.19,m.wax,chandelier,x,3.06,z);ball(x,3.20,z,.017,.057,.017,m.flame,chandelier)}
  const positions=new Float32Array([left,.028,rear,left,.028,front,right,.028,rear,right,.028,rear,left,.028,front,right,.028,front]),nav=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(positions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Antique_room_expanded_navigation';nav.updateMatrixWorld(true);
  const castle=addAntiqueCastle(group,extraBoxes);
- const bounds=new THREE.Box3(new THREE.Vector3(-3.0,-.21,-1.82),new THREE.Vector3(6.24,4.0,6.24)).union(castle.bounds);let lighting=null;
+ const bounds=new THREE.Box3(new THREE.Vector3(-3.0,-.21,-1.82),new THREE.Vector3(6.24,4.0,6.24)).union(castle.bounds);let lighting=null,lightBlend=-1;const indoorTint=new THREE.Color(0xffdbaf);
  return {group,nav,extraBoxes,bounds,furniture,wallArt,teaCabinet,notes,castle,
-  mountLights(scene){if(lighting)return;lighting={scene,environment:scene.environmentIntensity,items:scene.children.filter(o=>o.isHemisphereLight||o.isDirectionalLight).map(light=>({light,intensity:light.intensity,color:light.color.clone()}))};scene.environmentIntensity=.35;for(const item of lighting.items){item.light.intensity*=item.light.isHemisphereLight?.64:.22;item.light.color.set(0xffdbaf)}for(const [x,y,z,intensity,color] of [[1.7,2.92,2.35,12,0xffcf8c],[4.7,2.30,-.5,4,0xffd7a0],[5.60,2.3,.5,3,0xb1bdb5]]){const light=new THREE.PointLight(color,intensity,7,2);light.position.set(x,y,z);scene.add(light);lights.push(light)}},
+  mountLights(scene){if(lighting)return;lightBlend=-1;lighting={scene,environment:scene.environmentIntensity,items:scene.children.filter(o=>o.isHemisphereLight||o.isDirectionalLight).map(light=>({light,intensity:light.intensity,color:light.color.clone()}))};scene.environmentIntensity=.35;for(const item of lighting.items){item.light.intensity*=item.light.isHemisphereLight?.64:.22;item.light.color.set(0xffdbaf)}for(const [x,y,z,intensity,color] of [[1.7,2.92,2.35,12,0xffcf8c],[4.7,2.30,-.5,4,0xffd7a0],[5.60,2.3,.5,3,0xb1bdb5]]){const light=new THREE.PointLight(color,intensity,7,2);light.position.set(x,y,z);scene.add(light);lights.push(light)}},
+  updateLighting(position,mode='walk'){
+   if(!lighting)return;const smooth=THREE.MathUtils.smoothstep,blend=mode==='orbit'?1:Math.max(smooth(position.z,5.45,7.10),smooth(position.y,3.45,4.40),smooth(position.x,6.05,6.70),smooth(-position.x,2.85,3.5),smooth(-position.z,1.70,2.4));
+   if(Math.abs(lightBlend-blend)<.002)return;lightBlend=blend;lighting.scene.environmentIntensity=THREE.MathUtils.lerp(.35,.72,blend);
+   for(const item of lighting.items){item.light.intensity=item.intensity*THREE.MathUtils.lerp(item.light.isHemisphereLight?.64:.22,item.light.isHemisphereLight?1.04:1.10,blend);item.light.color.copy(indoorTint).lerp(item.color,blend)}
+  },
   dispose(){for(const light of lights){light.removeFromParent();light.dispose()}lights.length=0;if(lighting){lighting.scene.environmentIntensity=lighting.environment;for(const item of lighting.items){item.light.intensity=item.intensity;item.light.color.copy(item.color)}lighting=null}}
  };
 }
