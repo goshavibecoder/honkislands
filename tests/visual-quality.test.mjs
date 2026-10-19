@@ -13,8 +13,10 @@ const {GLTFLoader}=await import(moduleURL(new URL('../vendor/GLTFLoader.js',impo
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,height:1,close(){}});
 globalThis.document={createElement:()=>({getContext:()=>({createRadialGradient:()=>({addColorStop(){}}),fillRect(){},fillText(){}})})};
 
-test('all shipped interface strings and scene labels are English',()=>{
- for(const name of readdirSync(new URL('../',import.meta.url))){if(!/\.(js|html|css)$/.test(name))continue;assert.equal(/[А-Яа-яЁёІіЇїЄє]/.test(readFileSync(new URL('../'+name,import.meta.url),'utf8')),false,`untranslated text in ${name}`)}
+const awaitStory=await import('../grandma-story.js');
+test('the shared interface is English and the story has explicit RU / EN translations',()=>{
+ for(const name of readdirSync(new URL('../',import.meta.url))){if(!/\.(js|html|css)$/.test(name)||name==='grandma-story.js')continue;assert.equal(/[А-Яа-яЁёІіЇїЄє]/.test(readFileSync(new URL('../'+name,import.meta.url),'utf8')),false,`untranslated text in ${name}`)}
+ const {HONK_STORY}=awaitStory;assert.ok(HONK_STORY.ru.paragraphs.every(p=>/[А-Яа-я]/.test(p)));assert.ok(HONK_STORY.en.paragraphs.every(p=>!/[А-Яа-я]/.test(p)));assert.deepEqual(Object.keys(HONK_STORY.ru),Object.keys(HONK_STORY.en));
  assert.match(readFileSync(new URL('../index.html',import.meta.url),'utf8'),/<html lang="en">/);
 });
 

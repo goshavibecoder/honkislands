@@ -109,3 +109,13 @@ test('a second finger can orbit the ski camera while joystick steering stays sep
  assert.deepEqual(moves,[[100,30]]);assert.equal(v.motion.targetYaw,0);assert.equal(v.stick.x,.6);
  canvas.emit('pointerup',{pointerId:4});assert.equal(v.drag,null);
 });
+
+test('grandma conversation freezes walking and look, then closes on overview or leaving',()=>{
+ const {v,canvas,window}=setup();let opened=0,closed=0,updated=0;
+ v.grandmaStory={active:false,open(){opened++;this.active=true},close(){closed++;this.active=false},update(){updated++}};
+ v.gameAt=()=>({action:'grandma-story'});v.launchGame(0,0);assert.equal(opened,1);assert.equal(v.grandmaStory.active,true);
+ window.emit('keydown',{code:'KeyW'});assert.equal(v.keys.size,0);canvas.emit('pointerdown',{pointerId:3,clientX:0,clientY:0});assert.equal(v.drag,null);
+ const position=v.camera.position.clone();v.stick.y=-1;v.tick(1016);assert.deepEqual(v.camera.position,position);assert.equal(updated,1);
+ v.launchGame(0,0);assert.equal(opened,1);v.setMode('orbit');assert.equal(closed,1);assert.equal(v.grandmaStory.active,false);
+ v.grandmaStory.active=true;v.setActive(false);assert.equal(closed,2);assert.equal(v.grandmaStory.active,false);
+});

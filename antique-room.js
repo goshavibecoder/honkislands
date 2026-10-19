@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import {addAntiqueCastle} from './antique-castle.js?v=95';
+import {createGrandmaHonk} from './grandma-honk.js?v=101';
+import {addAntiqueCastle} from './antique-castle.js?v=101';
 import {hangFamilyPictures} from './family-wall.js?v=72';
 import {addClownTeaCabinet,rearrangeWorkshopNotes} from './antique-details.js?v=53';
 
-export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false}={}){
+export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false,grandmaHead=null}={}){
  root.updateMatrixWorld(true);const sources=new Map(),posters=[],original=[];
  root.traverse(o=>{if(!o.isMesh)return;original.push(o);if(!sources.has(o.material.name))sources.set(o.material.name,o.material);if(/^Poster_artwork_/.test(o.name))posters.push(o)});
  const material=(color,roughness=.85,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
@@ -30,21 +31,21 @@ export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false}={}
  function wall(name,w,d,x,z){const o=box(w,3.82,d,m.plaster,group,x,1.88,z,name);o.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(o))}
  wall('Antique_sealed_right_wall',.22,7.96,6.11,2.2);
  if(balloonDoor){for(const [a,b] of [[-3.02,.89],[2.41,6.22]])wall('Antique_front_wall_beside_balloon_door',b-a,.22,(a+b)/2,6.11);const lintel=box(1.52,.94,.22,m.plaster,group,1.65,3.32,6.11,'Antique_balloon_door_lintel');lintel.updateWorldMatrix(true,false);extraBoxes.push(new THREE.Box3().setFromObject(lintel))}else wall('Antique_sealed_front_wall',9.24,.22,1.6,6.11);
- wall('Antique_rear_wall_extension',2.90,.18,4.78,-1.69);wall('Antique_left_wall_extension',.18,3.34,-2.89,4.54);
+ wall('Antique_rear_wall_extension',2.88,.18,4.78,-1.69);wall('Antique_left_wall_extension',.18,3.345,-2.89,4.5475);
  box(9.24,.16,7.96,m.dark,group,1.6,3.86,2.2,'Antique_sealed_ceiling');
  for(let x=left;x<right;x+=.24)box(.232,.045,7.60,m.wood,group,x+.116,3.755,2.2,'Antique_ceiling_board');
  for(const z of [-1.45,1.05,3.55,5.86])box(8.84,.22,.18,m.dark,group,1.6,3.60,z,'Antique_ceiling_beam');
  for(const x of [-2.69,.2,3.12,5.87])box(.17,.20,7.48,m.dark,group,x,3.59,2.2,'Antique_ceiling_crossbeam');
  for(const [x,z] of [[5.88,-1.47],[5.88,2.2],[5.88,5.87],[1.6,5.87],[-2.69,5.87]]){if(balloonDoor&&x===1.6&&z===5.87)continue;box(.18,3.60,.18,m.dark,group,x,1.81,z,'Antique_timber_post');for(const sign of [-1,1])rod([x,3.5,z],[x+sign*.50,3.05,z],.045,m.dark)}
  function dado(length,x,z,angle){const g=place('Antique_brick_dado',x,z,angle);for(let row=0;row<4;row++)for(let a=-length/2-.22*(row%2);a<length/2;a+=.45){const lo=Math.max(a,-length/2),hi=Math.min(a+.435,length/2);if(hi>lo)box(hi-lo,.19,.045,m.brick,g,(lo+hi)/2,.12+row*.205,0)}box(length,.08,.09,m.dark,g,0,.92,.01);box(length,.12,.10,m.dark,g,0,.08,.01)}
- if(balloonDoor){dado(3.64,-.93,5.975,Math.PI);dado(3.54,4.18,5.975,Math.PI)}else dado(8.7,1.6,5.975,Math.PI);dado(7.55,5.975,2.2,-Math.PI/2);dado(2.75,4.75,-1.575,0);dado(3.12,-2.775,4.43,Math.PI/2);
+ if(balloonDoor){dado(3.64,-.93,5.945,Math.PI);dado(3.54,4.18,5.945,Math.PI)}else dado(8.7,1.6,5.975,Math.PI);dado(7.55,5.945,2.2,-Math.PI/2);dado(2.75,4.75,-1.575,0);dado(3.12,-2.775,4.43,Math.PI/2);
  // A closed old oak door, with inset panels, hinges and an aged brass handle.
  const door=place('Antique_closed_oak_door',1.65,5.96,Math.PI),leaf=new THREE.Group();door.add(leaf);box(1.12,2.55,.10,m.dark,leaf,0,1.31,0);for(const x of [-.64,.64])box(.13,2.77,.17,m.wood,door,x,1.39,.02);box(1.41,.15,.17,m.wood,door,0,2.73,.02);
  for(const y of [.65,1.75]){box(.86,.82,.04,m.wood,leaf,0,y,.065);for(const x of [-.39,.39])box(.025,.76,.026,m.trim,leaf,x,y,.095)}
  for(const y of [.50,2.12]){box(.36,.065,.035,m.iron,leaf,-.38,y,.11);for(const x of [-.49,-.28])ball(x,y,.135,.018,.018,.012,m.brass,leaf)}ball(.37,1.24,.14,.065,.065,.045,m.brass,leaf);rod([.32,1.24,.18],[.47,1.24,.18],.022,m.brass,leaf);
  if(balloonDoor){leaf.position.x=-.56;for(const child of leaf.children)child.position.x+=.56;leaf.rotation.y=-Math.PI/2;leaf.updateWorldMatrix(true,true);extraBoxes.push(new THREE.Box3().setFromObject(leaf));door.name='Antique_open_oak_door_to_balloon'}
  // Faded woven rug with a restrained border, lozenges and short fringe.
- const rug=place('Antique_faded_circus_rug',-.65,4.23);box(4.25,.009,3.18,m.rug,rug,0,.009,0);for(const sign of [-1,1]){box(4.1,.003,.065,m.trim,rug,0,.016,sign*1.47);box(.065,.003,2.94,m.trim,rug,sign*1.98,.016,0);for(let i=0;i<34;i++)box(.018,.004,.12,m.ivory,rug,-2.02+i*.122,.014,sign*1.64)}
+ const rug=place('Antique_faded_circus_rug',-.65,4.23);box(4.25,.009,3.18,m.rug,rug,0,.009,0);for(const sign of [-1,1]){box(4.1,.003,.065,m.trim,rug,0,.024,sign*1.47);box(.065,.003,2.94,m.trim,rug,sign*1.98,.024,0);for(let i=0;i<34;i++)box(.018,.004,.12,m.ivory,rug,-2.02+i*.122,.014,sign*1.64)}
  for(let i=0;i<5;i++){const x=-1.5+i*.75;for(const sign of [-1,1]){rod([x-.30,.02,0],[x,.02,sign*.39],.009,m.trim,rug);rod([x,.02,sign*.39],[x+.30,.02,0],.009,m.trim,rug)}}
  function seat(name,x,z,width,angle){const g=place(name,x,z,angle);box(width-.16,.16,.80,m.dark,g,0,.31,0);cushion(width-.28,.22,.77,m.velvet,g,0,.49,0);cushion(width-.14,.73,.22,m.velvet,g,0,.89,.38);
   for(const sign of [-1,1]){const a=sign*(width/2-.11);cushion(.23,.24,.92,m.faded,g,a,.67,.03);for(const zz of [-.32,.36]){const foot=ball(a,.16,zz,.085,.16,.08,m.dark,g);foot.rotation.z=sign*.12}ball(a,.86,.43,.075,.08,.07,m.dark,g)}
@@ -85,6 +86,12 @@ export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false}={}
  const wallArt=hangFamilyPictures(group,m,posters,familyTextures);
  const teaCabinet=addClownTeaCabinet(group,m);solid(teaCabinet);
  const notes=rearrangeWorkshopNotes(group,original);
+ // Source chair bevel caps share tangential faces with their rails. Give
+ // those trims a distinct depth bias instead of drawing equal-depth layers.
+ const chairMaterials=new Map();for(const o of original){if(!/^Chair_/.test(o.name)||!o.material)continue;const layer=/end_[AB]/.test(o.name)?2:/seat|slat|rail/.test(o.name)?1:0,key=o.material.uuid+':'+layer;if(!layer)continue;if(!chairMaterials.has(key)){const copy=o.material.clone();copy.polygonOffset=layer>0;copy.polygonOffsetFactor=0;copy.polygonOffsetUnits=-layer*2;chairMaterials.set(key,copy)}o.material=chairMaterials.get(key)}
+ const chairSeat=original.find(o=>o.name==='Chair_seat');let grandma=null;
+ if(grandmaHead&&chairSeat){const seat=new THREE.Box3().setFromObject(chairSeat),center=seat.getCenter(new THREE.Vector3());grandma=createGrandmaHonk(group,grandmaHead,{x:center.x,y:seat.max.y,z:center.z})}
+
  // Wax candles and a small wrought brass ceiling chandelier.
  const chandelier=place('Antique_candle_chandelier',1.7,2.35);chandelier.position.y=0;
  for(let y=3.15;y<3.55;y+=.085){const ring=mesh(new THREE.TorusGeometry(.045,.011,6,12),m.iron,chandelier,0,y,0);ring.rotation.y=Math.round(y*100)%2?Math.PI/2:0}
@@ -93,7 +100,7 @@ export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false}={}
  const positions=new Float32Array([left,.028,rear,left,.028,front,right,.028,rear,right,.028,rear,left,.028,front,right,.028,front]),nav=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(positions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Antique_room_expanded_navigation';nav.updateMatrixWorld(true);
  const castle=addAntiqueCastle(group,extraBoxes);
  const bounds=new THREE.Box3(new THREE.Vector3(-3.0,-.21,-1.82),new THREE.Vector3(6.24,4.0,6.24)).union(castle.bounds);let lighting=null,lightBlend=-1;const indoorTint=new THREE.Color(0xffdbaf);
- return {group,nav,extraBoxes,bounds,furniture,wallArt,teaCabinet,notes,castle,
+ return {group,nav,extraBoxes,bounds,furniture,wallArt,teaCabinet,notes,castle,grandma,
   mountLights(scene){if(lighting)return;lightBlend=-1;lighting={scene,environment:scene.environmentIntensity,items:scene.children.filter(o=>o.isHemisphereLight||o.isDirectionalLight).map(light=>({light,intensity:light.intensity,color:light.color.clone()}))};scene.environmentIntensity=.35;for(const item of lighting.items){item.light.intensity*=item.light.isHemisphereLight?.64:.22;item.light.color.set(0xffdbaf)}for(const [x,y,z,intensity,color] of [[1.7,2.92,2.35,12,0xffcf8c],[4.7,2.30,-.5,4,0xffd7a0],[5.60,2.3,.5,3,0xb1bdb5]]){const light=new THREE.PointLight(color,intensity,7,2);light.position.set(x,y,z);scene.add(light);lights.push(light)}},
   updateLighting(position,mode='walk'){
    if(!lighting)return;const smooth=THREE.MathUtils.smoothstep,blend=mode==='orbit'?1:Math.max(smooth(position.z,5.45,7.10),smooth(position.y,3.45,4.40),smooth(position.x,6.05,6.70),smooth(-position.x,2.85,3.5),smooth(-position.z,1.70,2.4));

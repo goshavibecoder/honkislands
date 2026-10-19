@@ -36,7 +36,8 @@ export function addAntiqueCastle(parent,extraBoxes){
    for(const [l,h] of spans)if(h-l>.01)box(h-l,.410,.19,m.stone[(row+i)%4],side,(l+h)/2,y+.205,0,'Castle_sandstone_course');
   }
   for(const [y,h,d] of [[.04,.15,.27],[.55,.07,.24],[3.84,.12,.32],[4.02,.16,.43]])for(const [lo,hi] of door&&y<2.84?[[-length/2,-.78],[.78,length/2]]:[[-length/2,length/2]])box(hi-lo,h,d,y===.04?m.base:m.trim,side,(lo+hi)/2,y,0,'Castle_continuous_stone_moulding');
-  for(const [lo,hi] of door?[[-length/2,-.78],[.78,length/2]]:[[-length/2,length/2]])solid(box(hi-lo,3.80,.20,m.stone[0],side,(lo+hi)/2,1.90,-.015,'Castle_solid_outer_wall'));
+  // Recess the backing ends so the entrance jambs show only the stone courses.
+  for(const [lo,hi] of door?[[-length/2,-.78],[.78,length/2]]:[[-length/2,length/2]])solid(box(hi-lo-.024,3.80,.20,m.stone[0],side,(lo+hi)/2,1.90,-.015,'Castle_solid_outer_wall'));
  }
  wall(1.65,6.36,9.50,0,true);wall(1.60,-1.94,9.50,Math.PI);wall(-3.13,2.20,8.32,-Math.PI/2);wall(6.36,2.20,8.32,Math.PI/2);
  // Stacked, receding floors with a complete slab and separate terrace edges.
