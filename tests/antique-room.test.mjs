@@ -72,12 +72,23 @@ test('indoor lighting is warm and restores the shared scene when leaving the roo
  const scene=new THREE.Scene(),sun=new THREE.DirectionalLight(0xfff1d2,2.2),hemi=new THREE.HemisphereLight(0xe7f5ff,0x80717f,1.7);scene.environmentIntensity=.55;scene.add(sun,hemi);const color=sun.color.clone();room.mountLights(scene);assert.equal(scene.children.filter(o=>o.isPointLight).length,3);assert.ok(sun.intensity<1);assert.equal(scene.environmentIntensity,.35);room.updateLighting(new THREE.Vector3(1.65,7.3,20.2));assert.ok(sun.intensity>2.2);assert.equal(scene.environmentIntensity,.72);assert.ok(sun.color.equals(color));room.updateLighting(new THREE.Vector3(1.65,1.7,6.2));const threshold=sun.intensity;assert.ok(threshold>1&&threshold<2.2);room.updateLighting(new THREE.Vector3(1.65,1.7,2));assert.ok(sun.intensity<1);assert.equal(scene.environmentIntensity,.35);room.dispose();assert.equal(scene.children.filter(o=>o.isPointLight).length,0);assert.equal(sun.intensity,2.2);assert.ok(sun.color.equals(color));assert.equal(scene.environmentIntensity,.55);
 });
 
+test('armchair and sofa back upholstery stays clear of the rear arm faces',()=>{
+ for(const [name,width] of [['Antique_tufted_armchair',1.13],['Antique_worn_sofa',2.60]]){
+  const seat=room.group.getObjectByName(name),back=seat.getObjectByName('Antique_seat_back_cushion'),arms=seat.children.filter(o=>o.name==='Antique_seat_arm_cushion');
+  assert.ok(back);assert.equal(arms.length,2);seat.updateWorldMatrix(true,true);
+  for(const sign of [-1,1]){
+   const origin=seat.localToWorld(new THREE.Vector3(sign*(width/2-.15),.67,1)),direction=new THREE.Vector3(0,0,-1).transformDirection(seat.matrixWorld),ray=new THREE.Raycaster(origin,direction),backHit=ray.intersectObject(back)[0],armHit=ray.intersectObjects(arms)[0];
+   assert.ok(backHit&&armHit,'sample must cover the overlapping upholstery');assert.ok(armHit.distance-backHit.distance>.015,'back and arm must not share a depth plane');
+  }
+ }
+});
+
 test('the real viewer batches the expanded workshop without losing furniture geometry or texture coordinates',async()=>{
  const {mergeGeometries}=await import(moduleURL(new URL('../vendor/BufferGeometryUtils.js',import.meta.url)));
  const source=readFileSync(new URL('../viewer.js',import.meta.url),'utf8'),start=source.indexOf('  const animated=new Set();'),end=source.indexOf('  const originalGeometries=',start),viewer={root:gltf.scene.clone(true),config:{},renderer:{capabilities:{getMaxAnisotropy:()=>4}}};
  let before=0;viewer.root.traverse(o=>{if(o.isMesh)before+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3});
  new Function('THREE','mergeGeometries','gltf','slug',source.slice(start,end)).call(viewer,THREE,mergeGeometries,{animations:[]},'honkhub');
- let after=0,batches=0;viewer.staticGroup.traverse(o=>{if(!o.isMesh)return;batches++;after+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));assert.equal(o.geometry.attributes.uv.count,o.geometry.attributes.position.count);o.geometry.dispose()});let moving=0;viewer.root.traverse(o=>{if(o.isMesh&&o.userData.wardrobeDynamic)moving+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3});assert.equal(after+moving,before);// Two depth-biased chair materials prevent coincident bevel surfaces.
+ let after=0,batches=0;viewer.staticGroup.traverse(o=>{if(!o.isMesh)return;batches++;after+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));assert.equal(o.geometry.attributes.uv.count,o.geometry.attributes.position.count);o.geometry.dispose()});let moving=0;viewer.root.traverse(o=>{if(o.isMesh&&o.userData.wardrobeDynamic)moving+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3});assert.equal(after+moving,before);
  assert.ok(batches<=105,`workshop static batches: ${batches}`);
 });
 

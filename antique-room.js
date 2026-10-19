@@ -47,9 +47,11 @@ export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false,war
  // Faded woven rug with a restrained border, lozenges and short fringe.
  const rug=place('Antique_faded_circus_rug',-.65,4.23);box(4.25,.009,3.18,m.rug,rug,0,.009,0);for(const sign of [-1,1]){box(4.1,.003,.065,m.trim,rug,0,.024,sign*1.47);box(.065,.003,2.94,m.trim,rug,sign*1.98,.024,0);for(let i=0;i<34;i++)box(.018,.004,.12,m.ivory,rug,-2.02+i*.122,.014,sign*1.64)}
  for(let i=0;i<5;i++){const x=-1.5+i*.75;for(const sign of [-1,1]){rod([x-.30,.02,0],[x,.02,sign*.39],.009,m.trim,rug);rod([x,.02,sign*.39],[x+.30,.02,0],.009,m.trim,rug)}}
- function seat(name,x,z,width,angle){const g=place(name,x,z,angle);box(width-.16,.16,.80,m.dark,g,0,.31,0);cushion(width-.28,.22,.77,m.velvet,g,0,.49,0);cushion(width-.14,.73,.22,m.velvet,g,0,.89,.38);
-  for(const sign of [-1,1]){const a=sign*(width/2-.11);cushion(.23,.24,.92,m.faded,g,a,.67,.03);for(const zz of [-.32,.36]){const foot=ball(a,.16,zz,.085,.16,.08,m.dark,g);foot.rotation.z=sign*.12}ball(a,.86,.43,.075,.08,.07,m.dark,g)}
-  for(let a=-width/2+.30;a<width/2-.2;a+=.30)for(const y of [.78,1.03])ball(a,y,.251,.022,.022,.009,m.brass,g);
+ function seat(name,x,z,width,angle){const g=place(name,x,z,angle);box(width-.16,.16,.80,m.dark,g,0,.31,0);cushion(width-.28,.22,.77,m.velvet,g,0,.49,0);
+  // Keep the back behind the arm caps: equal rear planes flicker after batching.
+  cushion(width-.14,.73,.22,m.velvet,g,0,.89,.40).name='Antique_seat_back_cushion';
+  for(const sign of [-1,1]){const a=sign*(width/2-.11);cushion(.23,.24,.92,m.faded,g,a,.67,.03).name='Antique_seat_arm_cushion';for(const zz of [-.32,.36]){const foot=ball(a,.16,zz,.085,.16,.08,m.dark,g);foot.rotation.z=sign*.12}ball(a,.86,.43,.075,.08,.07,m.dark,g)}
+  for(let a=-width/2+.30;a<width/2-.2;a+=.30)for(const y of [.78,1.03])ball(a,y,.285,.022,.022,.009,m.brass,g);
   rod([-width/2+.14,.36,-.425],[width/2-.14,.36,-.425],.026,m.wood,g);
   const pillow=cushion(.38,.34,.14,m.green,g,-width*.23,.77,.14);pillow.rotation.z=.16;solid(g);return g;
  }
