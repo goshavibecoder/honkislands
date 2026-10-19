@@ -27,8 +27,8 @@ import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
 import {loadHonkFamilyPictures} from './family-wall.js?v=72';
-import {prepareAntiqueRoom} from './antique-room.js?v=102';
-import {mountGrandmaStory} from './grandma-story.js?v=102';
+import {prepareAntiqueRoom} from './antique-room.js?v=103';
+import {mountWardrobeAmbush} from './wardrobe-ambush.js?v=103';
 import {prepareGalleryMemes} from './gallery-memes.js?v=93';
 import {prepareGalleryGraffiti} from './gallery-graffiti.js?v=100';
 import {prepareGalleryInterior} from './gallery-interior.js?v=72';
@@ -55,22 +55,23 @@ export class IslandViewer {
   this.renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();this.setActive(false);document.getElementById('error-message').textContent='3D rendering was paused. Return to the map and open the island again.';document.getElementById('error').hidden=false});
  }
  async fetchBinary(url,onChunk=()=>{}){const response=await fetch(url);if(!response.ok)throw Error(`Asset ${response.status}: ${url}`);if(!response.body)return new Uint8Array(await response.arrayBuffer());const reader=response.body.getReader(),chunks=[];let n=0;while(true){const {value,done}=await reader.read();if(done)break;chunks.push(value);n+=value.length;onChunk(value.length)}const data=new Uint8Array(n);let off=0;for(const chunk of chunks){data.set(chunk,off);off+=chunk.length}return data}
+ async loadGroypActor(){
+  const manifest=await (await fetch('./models/groyp-air-v74.json')).json(),chunks=await Promise.all(manifest.parts.map(part=>this.fetchBinary('./models/'+part))),bytes=new Uint8Array(chunks.reduce((n,c)=>n+c.length,0));let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length}
+  const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();return (await new GLTFLoader().parseAsync(buffer,'')).scene;
+ }
  async open(slug,progress){
   this.setActive(false);this.clear();this.slug=slug;this.camera.near=slug==='arena'?.10:.035;this.camera.far=slug==='arena'?180:1100;this.camera.updateProjectionMatrix();this.config=(await configPromise)[slug];if(!this.config)throw Error('Unknown island');this.renderQuality.configure(this.config.pixelRatio||1.6);
   const response=await fetch(`./models/${slug}.json?v=9`);if(!response.ok)throw Error('Model manifest unavailable');this.manifest=await response.json();let downloaded=0;const payloads=await Promise.all(this.manifest.parts.map(part=>this.fetchBinary(`./models/${part}?v=9`,n=>{downloaded+=n;progress(downloaded/this.manifest.bytes*.72,'Flying to the island…')})));
   const bytes=new Uint8Array(payloads.reduce((n,a)=>n+a.length,0));let offset=0;for(const a of payloads){bytes.set(a,offset);offset+=a.length}
   if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Opening the 3D world…');
-  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures(),balloonDoor:true,grandmaHead:await loadHonkKartHead()}):null;if(slug==='carnival')await Promise.all([prepareGalleryMemes(this.root),prepareGalleryGraffiti(this.root)]);this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
+  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures(),balloonDoor:true,wardrobeActor:await this.loadGroypActor()}):null;if(slug==='carnival')await Promise.all([prepareGalleryMemes(this.root),prepareGalleryGraffiti(this.root)]);this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
   let mountainShell=null;if(slug==='goat-mountain'){const sealed=await this.fetchBinary('./models/goat-mountain-shell-v22.bin?v=22');mountainShell=await new Response(new Blob([sealed]).stream().pipeThrough(new DecompressionStream('gzip'))).json()}
   this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;this.mountainSnow=slug==='goat-mountain'?prepareMountainSnow(this.root):null;
   this.islandTransportWorld=prepareIslandTransport(this.root,slug,{driverHead:slug==='arcade-district'?await loadHonkKartHead():null});
   this.helicopter=slug==='citadel'?addClownHelicopter(this.root):null;
   this.balloonWorld=prepareBalloonWorld(this.root,slug,{mapImages:await loadBalloonMapImages()});
-  if(slug==='arcade-district'){
-   const manifest=await (await fetch('./models/groyp-air-v74.json')).json(),chunks=await Promise.all(manifest.parts.map(part=>this.fetchBinary('./models/'+part))),size=chunks.reduce((n,c)=>n+c.length,0),bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
-   const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer(),groyper=await new GLTFLoader().parseAsync(buffer,'');this.groypAir=prepareGroypAir(this.root,this.balloonWorld,groyper.scene);
-  }
+  if(slug==='arcade-district')this.groypAir=prepareGroypAir(this.root,this.balloonWorld,await this.loadGroypActor());
   this.arenaCrowd=slug==='arena'?await prepareArenaAudience(this.root):null;
   this.helicopterCollision=this.helicopter?createHelicopterCollision(this.root,this.helicopter.scale):null;
   this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):slug==='goat-mountain'?createMountainCollision(this.root):null;
@@ -87,7 +88,7 @@ export class IslandViewer {
    if(slug==='carnival'&&/^(Upper_landing_black_balustrade|Upper_end_landing_luminous_handrail)/.test(o.name)){remove.push(o);return}
    if(this.config.openRoof&&o.name.startsWith('Suspended_acoustic_ceiling_tile')){remove.push(o);return}
    const mats=Array.isArray(o.material)?o.material:[o.material];for(const mat of mats){if(mat.map)mat.map.anisotropy=Math.min(8,this.renderer.capabilities.getMaxAnisotropy());if(mat.emissiveIntensity>2.2)mat.emissiveIntensity=2.2}
-   if(o.userData.honkNose||o.userData.grandmaDynamic||o.userData.galleryDynamic||o.userData.helicopterDynamic||o.userData.arenaArrival||o.userData.arenaCrowd||o.userData.islandRide||animated.has(o.uuid)||o.isSkinnedMesh||Array.isArray(o.material))return;
+   if(o.userData.honkNose||o.userData.wardrobeDynamic||o.userData.galleryDynamic||o.userData.helicopterDynamic||o.userData.arenaArrival||o.userData.arenaCrowd||o.userData.islandRide||animated.has(o.uuid)||o.isSkinnedMesh||Array.isArray(o.material))return;
    // Clipped terrain and extruded stairs are non-indexed; the original GLB
    // also contains indexed meshes using the same material. Keep them separate.
    const colored=o.material.vertexColors&&!!o.geometry.attributes.color;
@@ -113,20 +114,20 @@ export class IslandViewer {
    if(light.isHemisphereLight){light.color.set(circus?0xfff1da:0xe7f5ff);light.groundColor.set(circus?0x8a6b54:0x80717f)}
    else if(light.isDirectionalLight)light.color.set(light.position.x>0?(circus?0xffdfaa:0xfff1d2):(circus?0xffe5c2:0xb5dfff));
   }
-  this.antiqueRoom?.mountLights(this.scene);this.grandmaStory=this.antiqueRoom?.grandma?mountGrandmaStory(this,this.antiqueRoom.grandma):null;
+  this.antiqueRoom?.mountLights(this.scene);this.wardrobeAmbush=this.antiqueRoom?.wardrobe?mountWardrobeAmbush(this,this.antiqueRoom.wardrobe):null;
   this.renderer.toneMappingExposure=this.config.exposure;this.mountainStorm=slug==='goat-mountain'?mountMountainStorm(this,stormAnchor):null;this.reset();this.setMode('walk');this.galleryLift=this.gallery?mountGalleryLift(this,this.gallery):null;this.helicopterExplosion=this.helicopter?createHelicopterExplosion(this.root):null;this.helicopterFlight=this.helicopter?mountHelicopterFlight(this,this.helicopter,{collision:this.helicopterCollision,effects:this.helicopterExplosion}):null;this.islandTransport=this.islandTransportWorld?mountIslandTransport(this,this.islandTransportWorld):null;this.balloonTravel=this.balloonWorld?mountBalloonTravel(this,this.balloonWorld):null;this.mountainSki=this.mountainSnow?mountMountainSki(this,this.mountainSnow,createSkiHonk(this.mountainSnow.group,await loadHonkKartHead())):null;this.resize();progress(.96,'Almost there…');await this.renderer.compileAsync(this.scene,this.camera);this.renderer.render(this.scene,this.camera);progress(1,'Welcome');
  }
  reset(){
-  if(!this.config||!this.nav)return;this.grandmaStory?.close();this.mountainSki?.cancel();this.balloonTravel?.cancel();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel();this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,this.physics?this.config.spawn[1]-this.config.eye+.43:100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
+  if(!this.config||!this.nav)return;this.wardrobeAmbush?.cancel();this.mountainSki?.cancel();this.balloonTravel?.cancel();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel();this.camera.position.fromArray(this.config.spawn);const floor=this.floorAt(this.camera.position.x,this.camera.position.z,this.physics?this.config.spawn[1]-this.config.eye+.43:100,200);this.foot=floor??(this.config.spawn[1]-this.config.eye);this.camera.position.y=this.foot+this.config.eye;
   this.physics?.reset();this.mountainStorm?.reset();this.arenaCircus?.arrival.reset({x:this.config.spawn[0],z:this.config.spawn[2]});this.walkPosition=null;this.camera.lookAt(new THREE.Vector3(...this.config.look));this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.clearWalkInput();
  }
  clearWalkInput(){const drag=this.drag;this.drag=null;this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop();this.touchStick?.reset();this.gameTaps?.reset();if(drag){const canvas=this.renderer.domElement;try{if(canvas.hasPointerCapture(drag.id))canvas.releasePointerCapture(drag.id)}catch{}}}
- setMode(mode){if(!this.bounds||this.mode===mode)return;this.grandmaStory?.close();this.mountainSki?.cancel();this.balloonTravel?.cancel();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel();this.clearWalkInput();this.mode=mode;this.controls.enabled=mode==='orbit';document.getElementById('knob').style.transform='';
+ setMode(mode){if(!this.bounds||this.mode===mode)return;this.wardrobeAmbush?.cancel();this.mountainSki?.cancel();this.balloonTravel?.cancel();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel();this.clearWalkInput();this.mode=mode;this.controls.enabled=mode==='orbit';document.getElementById('knob').style.transform='';
   if(mode==='orbit'){
    this.walkPosition=this.camera.position.clone();this.walkRotation=this.camera.rotation.clone();const size=this.bounds.getSize(new THREE.Vector3());const center=this.bounds.getCenter(new THREE.Vector3());center.y=Math.max(.8,this.bounds.min.y+size.y*.55);this.controls.target.copy(center);const extent=Math.max(size.x,size.z,size.y*.8);this.camera.position.set(center.x+extent*.92,center.y+extent*.58,center.z+extent*1.25);this.controls.maxDistance=extent*3.8;this.controls.minDistance=extent*.08;this.camera.lookAt(center);this.controls.update();
   }else if(this.walkPosition){this.camera.position.copy(this.walkPosition);this.camera.rotation.copy(this.walkRotation);this.yaw=this.camera.rotation.y;this.pitch=this.camera.rotation.x;this.motion.reset(this.yaw,this.pitch);this.walkPosition=null}
  }
- setActive(value){if(!value){this.grandmaStory?.close();this.mountainSki?.cancel();this.mountainStorm?.stop();this.arenaCircus?.stop();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel()}this.active=value;this.previous=0;this.clearWalkInput();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
+ setActive(value){if(!value){this.wardrobeAmbush?.cancel();this.mountainSki?.cancel();this.mountainStorm?.stop();this.arenaCircus?.stop();this.galleryLift?.cancel();this.helicopterFlight?.cancel();this.islandTransport?.cancel()}this.active=value;this.previous=0;this.clearWalkInput();if(value&&!this.frame){this.resize();this.frame=requestAnimationFrame(t=>this.tick(t))}else if(!value&&this.frame){cancelAnimationFrame(this.frame);this.frame=0}}
  floorAt(x,z,top,far=2){
   this.navRay.set(new THREE.Vector3(x,top,z),DOWN);this.navRay.near=0;this.navRay.far=far;
   let floor=null;if(this.floorIndex){const hit=this.floorIndex.rayIntersect(this.navRay.ray);if(hit&&hit.distance<=far)floor=hit.position.y}else floor=this.navRay.intersectObjects(this.padNav?[this.nav,this.padNav]:[this.nav],false)[0]?.point.y??null;
@@ -140,8 +141,8 @@ export class IslandViewer {
   const riding=this.galleryLift?.active;this.galleryLift?.update(dt);
   const flying=this.helicopterFlight?.active;this.helicopterFlight?.update(dt);
   const transporting=this.islandTransport?.active;this.islandTransport?.update(dt);
-  this.grandmaStory?.update(dt);const storytelling=this.grandmaStory?.active;
-  if(this.mode==='walk'&&this.nav&&!storytelling&&!riding&&!flying&&!transporting&&!ballooning&&!skiing&&!this.balloonTravel?.mapOpen){
+  this.wardrobeAmbush?.update(dt);const ambushed=this.wardrobeAmbush?.active;
+  if(this.mode==='walk'&&this.nav&&!ambushed&&!riding&&!flying&&!transporting&&!ballooning&&!skiing&&!this.balloonTravel?.mapOpen){
    let sx=this.stick.x+(this.keys.has('KeyD')||this.keys.has('ArrowRight')?1:0)-(this.keys.has('KeyA')||this.keys.has('ArrowLeft')?1:0),sy=-this.stick.y+(this.keys.has('KeyW')||this.keys.has('ArrowUp')?1:0)-(this.keys.has('KeyS')||this.keys.has('ArrowDown')?1:0);const length=Math.hypot(sx,sy);if(length>1){sx/=length;sy/=length}
    const motion=this.motion.update(dt,sx,sy,this.config.speed*(this.keys.has('ShiftLeft')?1.5:1));this.yaw=motion.yaw;this.pitch=motion.pitch;
    const {dx,dz}=motion;
@@ -150,21 +151,21 @@ export class IslandViewer {
    }
    if(this.physics){this.foot=this.physics.fall(this.camera.position.x,this.camera.position.z,this.foot,dt);if(this.foot<this.bounds.min.y-8)this.reset()}
    this.camera.position.y=this.physics&&!this.physics.grounded?this.foot+this.config.eye:THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
-  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!storytelling&&!flying&&!transporting&&!ballooning&&!skiing)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCrowd?.update(dt,this.camera.position);this.groypAir?.update(dt,this.mode==='walk'&&!ballooning?this.camera.position:null);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.mountainStorm?.update(dt,this.mode==='walk'?this.camera.position:null);this.antiqueRoom?.updateLighting?.(this.camera.position,this.mode);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
+  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!ambushed&&!flying&&!transporting&&!ballooning&&!skiing)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCrowd?.update(dt,this.camera.position);this.groypAir?.update(dt,this.mode==='walk'&&!ballooning?this.camera.position:null);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.mountainStorm?.update(dt,this.mode==='walk'?this.camera.position:null);this.antiqueRoom?.updateLighting?.(this.camera.position,this.mode);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
  }
  gameAt(clientX,clientY){
-  if(!this.active||this.grandmaStory?.active)return null;
+  if(!this.active||this.wardrobeAmbush?.active)return null;
   const r=this.renderer.domElement.getBoundingClientRect();const point=new THREE.Vector2((clientX-r.left)/r.width*2-1,-(clientY-r.top)/r.height*2+1);
-  if(this.antiqueRoom?.grandma?.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean)))return {action:'grandma-story',title:'Grandma HONK · The story of HONK'};
+  if(this.mode==='walk'&&this.antiqueRoom?.wardrobe?.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean)))return {action:'wardrobe-open',title:'Open wardrobe'};
   if(this.groypAir?.pick(this.camera,point))return {action:'balloon-map',title:'GROYP AIR flight desk'};
   if(this.balloonWorld?.pick(this.camera,point))return {action:'balloon-map',title:'Flight map'};
   return this.arcadeTargets?.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean),this.mode==='walk'&&this.slug!=='goat-mountain'?12:Infinity);
  }
  launchGame(clientX,clientY){
-  if(this.grandmaStory?.active||this.mountainSki?.active||this.balloonTravel?.active||this.galleryLift?.active||this.helicopterFlight?.active||this.islandTransport?.active||Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size||Math.hypot(this.motion.vx,this.motion.vz)>.12)return;
+  if(this.wardrobeAmbush?.active||this.mountainSki?.active||this.balloonTravel?.active||this.galleryLift?.active||this.helicopterFlight?.active||this.islandTransport?.active||Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size||Math.hypot(this.motion.vx,this.motion.vz)>.12)return;
   const game=this.gameAt(clientX,clientY);if(!game)return;
   this.clearWalkInput();
-  if(game.action==='grandma-story')return this.grandmaStory?.open();
+  if(game.action==='wardrobe-open')return this.wardrobeAmbush?.begin();
   if(game.action==='balloon-map')return this.balloonTravel?.openMap();
   if(game.action==='honk'){
    const circus=this.arenaCircus;return circus?.honk(game.nose).then(ok=>{if(!ok&&this.active&&this.arenaCircus===circus&&circus.soundError){const hint=document.getElementById('hint');hint.textContent='Tap the nose again to enable the horn';hint.classList.remove('fade')}return ok});
@@ -175,10 +176,10 @@ export class IslandViewer {
   const canvas=this.renderer.domElement;canvas.style.touchAction='none';
   let lastHover=0;this.gameTaps=attachTapGesture(canvas,(x,y)=>this.launchGame(x,y),{enabled:()=>this.active&&!!this.arcadeTargets,tapPolicy:e=>this.slug==='arena'&&this.gameAt(e.clientX,e.clientY)?.action==='honk'?{distance:14,duration:800}:null,onHover:(x,y)=>{const now=performance.now();if(now-lastHover<100)return;lastHover=now;const game=this.gameAt(x,y);canvas.style.cursor=game?'pointer':'';canvas.title=game?(game.action==='honk'?game.title:'Open '+game.title):''}});
   this.host.addEventListener('keydown',e=>{if(e.key==='Enter'&&this.active&&this.arcadeTargets){const r=canvas.getBoundingClientRect();e.preventDefault();this.launchGame(r.left+r.width/2,r.top+r.height/2)}});
-  canvas.addEventListener('pointerdown',e=>{if(!this.active||this.grandmaStory?.active||this.mode!=='walk'||this.drag||(e.pointerType==='mouse'&&e.button!==0))return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
+  canvas.addEventListener('pointerdown',e=>{if(!this.active||this.wardrobeAmbush?.active||this.mode!=='walk'||this.drag||(e.pointerType==='mouse'&&e.button!==0))return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
   canvas.addEventListener('pointermove',e=>{if(!this.active||!this.drag||e.pointerId!==this.drag.id||this.mode!=='walk')return;if(this.mountainSki?.active)this.mountainSki.look(e.clientX-this.drag.x,e.clientY-this.drag.y);else this.motion.turn(e.clientX-this.drag.x,e.clientY-this.drag.y);this.drag.x=e.clientX;this.drag.y=e.clientY});
   const end=e=>{if(this.drag?.id===e.pointerId)this.drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);canvas.addEventListener('lostpointercapture',end);
-  window.addEventListener('keydown',e=>{if(!this.active||this.grandmaStory?.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)||(this.helicopterFlight?.active&&/^(Space|KeyC)$/.test(e.code))||((this.islandTransport?.active||this.mountainSki?.active)&&e.code==='Space')){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>this.clearWalkInput());
+  window.addEventListener('keydown',e=>{if(!this.active||this.wardrobeAmbush?.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|ShiftLeft)$/.test(e.code)||(this.helicopterFlight?.active&&/^(Space|KeyC)$/.test(e.code))||((this.islandTransport?.active||this.mountainSki?.active)&&e.code==='Space')){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>this.clearWalkInput());
   this.touchStick=createTouchStick(document.getElementById('joystick'),document.getElementById('knob'),(x,y)=>{this.stick.x=x;this.stick.y=y});
   const codes={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'};document.querySelectorAll('[data-move]').forEach(b=>{b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);this.keys.add(codes[b.dataset.move])});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>this.keys.delete(codes[b.dataset.move]))});
  }
@@ -187,7 +188,7 @@ export class IslandViewer {
   this.groypAir?.dispose();this.groypAir=null;
   this.balloonTravel?.dispose();this.balloonTravel=null;this.balloonWorld?.dispose();this.balloonWorld=null;
   this.islandTransport?.dispose();this.islandTransport=null;this.islandTransportWorld=null;
-  this.grandmaStory?.dispose();this.grandmaStory=null;this.antiqueRoom?.dispose();this.antiqueRoom=null;
+  this.wardrobeAmbush?.dispose();this.wardrobeAmbush=null;this.antiqueRoom?.dispose();this.antiqueRoom=null;
   this.mountainSki?.dispose();this.mountainSki=null;
   this.mountainStorm?.dispose();this.mountainStorm=null;this.mountainSnow=null;
   this.helicopterFlight?.dispose();this.helicopterFlight=null;this.galleryLift?.dispose();this.galleryLift=null;this.gallery=null;this.helicopter=null;

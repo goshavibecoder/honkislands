@@ -9,7 +9,7 @@ async function cover(){transition.className='active';transition.setAttribute('ar
 async function reveal(){transition.classList.add('depart');await wait(reduced?220:1000);transition.className='';transition.setAttribute('aria-hidden','true')}
 function progress(value,label){$('progress').style.width=`${Math.round(value*100)}%`;$('load-label').textContent=label||'Flying to the island…'}
 async function enter(slug,button){if(busy)return;entryIntro?.finish();busy=true;lastButton=button||lastButton;activeWorld=slug;const current=++epoch;$('error').hidden=true;progress(0);const curtain=cover();try{
- const module=await import('./viewer.js?v=102');viewer??=new module.IslandViewer($('viewport'));viewer.onBalloonTravel=flyByBalloon;await curtain;
+ const module=await import('./viewer.js?v=103');viewer??=new module.IslandViewer($('viewport'));viewer.onBalloonTravel=flyByBalloon;viewer.onWardrobeKnockout=respawnAtColosseum;await curtain;
  world.hidden=false;map.hidden=true;world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');
  await viewer.open(slug,progress);if(current!==epoch)return;
  viewer.setActive(true);history.replaceState(null,'',`#${slug}`);await reveal();busy=false;$('viewport').focus({preventScroll:true});showHint();
@@ -33,6 +33,16 @@ async function flyByBalloon(slug){
   const landing=viewer.balloonTravel.arrive();viewer.setActive(true);history.replaceState(null,'',`#${slug}`);await balloonCurtain(false);await landing;
   if(current!==epoch)return;busy=false;$('viewport').focus({preventScroll:true});showHint();
  }catch(e){console.error(e);viewer?.balloonTravel?.cancel();await balloonCurtain(false);busy=false;$('error-message').textContent='Could not reach the island. Try again or return to the map.';$('error').hidden=false}
+}
+async function respawnAtColosseum(){
+ if(busy)return;busy=true;const current=++epoch;clearTimeout(hintTimer);$('error').hidden=true;
+ // Keep this curtain outside the viewer so disposing the old room cannot expose a frame.
+ transition.className='active knockout-transfer';transition.style.opacity='1';transition.setAttribute('aria-hidden','true');
+ try{
+  activeWorld='arena';await viewer.open('arena',()=>{});if(current!==epoch)return;
+  world.classList.remove('overview');$('walk').setAttribute('aria-pressed','true');$('orbit').setAttribute('aria-pressed','false');viewer.setActive(!document.hidden);history.replaceState(null,'','#arena');
+  const fade=transition.animate([{opacity:1},{opacity:0}],{duration:1000,easing:'ease-out',fill:'both'});await fade.finished;fade.cancel();transition.className='';transition.style.opacity='';busy=false;if(viewer.active!==!document.hidden)viewer.setActive(!document.hidden);$('viewport').focus({preventScroll:true});showHint();
+ }catch(e){console.error(e);transition.className='';transition.style.opacity='';busy=false;$('error-message').textContent='Could not reach the Colosseum. Try again or return to the map.';$('error').hidden=false}
 }
 async function back(){if(busy)return;busy=true;++epoch;$('error').hidden=true;progress(1,'Returning to the map…');await cover();viewer?.setActive(false);world.hidden=true;map.hidden=false;history.replaceState(null,'',location.pathname);await reveal();busy=false;lastButton?.focus({preventScroll:true})}
 document.querySelectorAll('[data-world]').forEach(b=>b.addEventListener('click',()=>enter(b.dataset.world,b)));

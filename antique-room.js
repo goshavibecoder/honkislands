@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import {createGrandmaHonk} from './grandma-honk.js?v=102';
+import {createWardrobeGroyp} from './wardrobe-groyp.js?v=103';
 import {addAntiqueCastle} from './antique-castle.js?v=101';
 import {hangFamilyPictures} from './family-wall.js?v=72';
 import {addClownTeaCabinet,rearrangeWorkshopNotes} from './antique-details.js?v=53';
 
-export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false,grandmaHead=null}={}){
+export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false,wardrobeActor=null}={}){
  root.updateMatrixWorld(true);const sources=new Map(),posters=[],original=[];
  root.traverse(o=>{if(!o.isMesh)return;original.push(o);if(!sources.has(o.material.name))sources.set(o.material.name,o.material);if(/^Poster_artwork_/.test(o.name))posters.push(o)});
  const material=(color,roughness=.85,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
@@ -65,7 +65,7 @@ export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false,gra
  const figure=place('Antique_bookcase_clown',4.65,-.99);figure.position.y=1.18;const transform=new THREE.Matrix4().makeScale(.48,.48,.48).multiply(new THREE.Matrix4().makeTranslation(-2.02,-1.27,1.04));
  for(const o of original){if(!/^(Clown_|Jester_)/.test(o.name))continue;const b=new THREE.Box3().setFromObject(o),c=b.getCenter(new THREE.Vector3());if(Math.abs(c.x-2.02)>.4||Math.abs(c.z+1.04)>.30)continue;const clone=new THREE.Mesh(o.geometry,o.material);clone.name='Antique_preserved_style_clown';clone.matrix.copy(transform.clone().multiply(o.matrixWorld));clone.matrixAutoUpdate=false;figure.add(clone)}
  // Wardrobe and stacked travelling trunks against the new right wall.
- const wardrobe=place('Antique_carved_wardrobe',5.50,2.83,-Math.PI/2);box(1.72,2.24,.61,m.dark,wardrobe,0,1.18,0);box(1.88,.15,.72,m.wood,wardrobe,0,2.38,0);for(const x of [-.43,.43]){box(.78,2.02,.06,m.wood,wardrobe,x,1.21,.34);for(const y of [.70,1.67]){box(.62,.77,.025,m.dark,wardrobe,x,y,.38);box(.53,.65,.015,m.wood,wardrobe,x,y,.405)}ball(x*.22,1.24,.43,.033,.033,.025,m.brass,wardrobe)}for(const x of [-.69,.69])ball(x,.13,.0,.09,.13,.13,m.dark,wardrobe);solid(wardrobe);
+ const wardrobe=createWardrobeGroyp(group,m,wardrobeActor);extraBoxes.push(wardrobe.bounds.clone());furniture.push({name:wardrobe.group.name,bounds:wardrobe.bounds.clone()});
  function trunk(name,x,z,w,angle,y=0){const g=place(name,x,z,angle);g.position.y+=y;for(const x of [-w*.35,w*.35])for(const z of [-.17,.17])box(.10,.09,.10,m.dark,g,x,.045,z);cushion(w,.48,.53,m.faded,g,0,.30,0);cushion(w+.035,.13,.56,m.dark,g,0,.59,0);for(const x of [-w*.30,w*.30]){box(.06,.49,.012,m.iron,g,x,.31,.273);box(.06,.09,.56,m.iron,g,x,.62,0)}box(.11,.13,.026,m.brass,g,0,.49,.29);for(const sign of [-1,1])rod([sign*w/2,.31,-.08],[sign*w/2,.31,.08],.018,m.brass,g);solid(g);return g}
  trunk('Antique_leather_travelling_trunk',5.40,.56,1.20,-Math.PI/2);trunk('Antique_small_old_suitcase',5.40,.56,.88,-1.43,.65);
  // Closed leaded window, timber shutters and heavy faded curtains.
@@ -89,9 +89,6 @@ export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false,gra
  // Source chair bevel caps share tangential faces with their rails. Give
  // those trims a distinct depth bias instead of drawing equal-depth layers.
  const chairMaterials=new Map();for(const o of original){if(!/^Chair_/.test(o.name)||!o.material)continue;const layer=/end_[AB]/.test(o.name)?2:/seat|slat|rail/.test(o.name)?1:0,key=o.material.uuid+':'+layer;if(!layer)continue;if(!chairMaterials.has(key)){const copy=o.material.clone();copy.polygonOffset=layer>0;copy.polygonOffsetFactor=0;copy.polygonOffsetUnits=-layer*2;chairMaterials.set(key,copy)}o.material=chairMaterials.get(key)}
- const chairSeat=original.find(o=>o.name==='Chair_seat');let grandma=null;
- if(grandmaHead&&chairSeat){const seat=new THREE.Box3().setFromObject(chairSeat),center=seat.getCenter(new THREE.Vector3());grandma=createGrandmaHonk(group,grandmaHead,{x:center.x,y:seat.max.y,z:center.z})}
-
  // Wax candles and a small wrought brass ceiling chandelier.
  const chandelier=place('Antique_candle_chandelier',1.7,2.35);chandelier.position.y=0;
  for(let y=3.15;y<3.55;y+=.085){const ring=mesh(new THREE.TorusGeometry(.045,.011,6,12),m.iron,chandelier,0,y,0);ring.rotation.y=Math.round(y*100)%2?Math.PI/2:0}
@@ -100,7 +97,7 @@ export function prepareAntiqueRoom(root,{familyTextures=[],balloonDoor=false,gra
  const positions=new Float32Array([left,.028,rear,left,.028,front,right,.028,rear,right,.028,rear,left,.028,front,right,.028,front]),nav=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(positions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Antique_room_expanded_navigation';nav.updateMatrixWorld(true);
  const castle=addAntiqueCastle(group,extraBoxes);
  const bounds=new THREE.Box3(new THREE.Vector3(-3.0,-.21,-1.82),new THREE.Vector3(6.24,4.0,6.24)).union(castle.bounds);let lighting=null,lightBlend=-1;const indoorTint=new THREE.Color(0xffdbaf);
- return {group,nav,extraBoxes,bounds,furniture,wallArt,teaCabinet,notes,castle,grandma,
+ return {group,nav,extraBoxes,bounds,furniture,wallArt,teaCabinet,notes,castle,wardrobe,
   mountLights(scene){if(lighting)return;lightBlend=-1;lighting={scene,environment:scene.environmentIntensity,items:scene.children.filter(o=>o.isHemisphereLight||o.isDirectionalLight).map(light=>({light,intensity:light.intensity,color:light.color.clone()}))};scene.environmentIntensity=.35;for(const item of lighting.items){item.light.intensity*=item.light.isHemisphereLight?.64:.22;item.light.color.set(0xffdbaf)}for(const [x,y,z,intensity,color] of [[1.7,2.92,2.35,12,0xffcf8c],[4.7,2.30,-.5,4,0xffd7a0],[5.60,2.3,.5,3,0xb1bdb5]]){const light=new THREE.PointLight(color,intensity,7,2);light.position.set(x,y,z);scene.add(light);lights.push(light)}},
   updateLighting(position,mode='walk'){
    if(!lighting)return;const smooth=THREE.MathUtils.smoothstep,blend=mode==='orbit'?1:Math.max(smooth(position.z,5.45,7.10),smooth(position.y,3.45,4.40),smooth(position.x,6.05,6.70),smooth(-position.x,2.85,3.5),smooth(-position.z,1.70,2.4));
