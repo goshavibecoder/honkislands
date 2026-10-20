@@ -1,8 +1,8 @@
 """Prepare the supplied static character for a fully clothed castle greeting.
 
 Usage: python scripts/prepare-castle-guest.py /path/to/input.glb
-Only face, hair, hands and lower legs are retained. The opaque costume is
-constructed around the shared skeleton by castle-guest.js.
+The original silhouette and arm geometry are retained under opaque clothing.
+Only the face, hair, hands and lower legs retain their source texture.
 """
 import io,json,struct,sys,gzip
 from pathlib import Path
@@ -39,6 +39,8 @@ uv=UV.mean(1)%1;color=pixels[np.minimum((uv[:,1]*image.height).astype(int),image
 centers=T.mean(1);hair=(color[:,0]>color[:,1]*1.35)&(color[:,0]>color[:,2]*1.15)&(color[:,0]>45)&(centers[:,1]>.65)
 head=centers[:,1]>1.465;hands=(np.abs(centers[:,0])>.50)&(centers[:,1]>1.25)
 lower=centers[:,1]<.54;valid=np.linalg.norm(np.cross(T[:,1]-T[:,0],T[:,2]-T[:,0]),axis=1)>1e-10
+fabric=(~(head|hair|hands|lower))&(np.abs(centers[:,0])>.175)&(centers[:,1]>1.30)&valid
+fabricT=T[fabric]+N[fabric]*.006;fabricN=N[fabric]
 keep=(head|hair|hands|lower)&valid;T=T[keep];N=N[keep];UV=UV[keep];ishead=(head|hair)[keep]
 P=T.reshape(-1,3);normals=N.reshape(-1,3);uvs=UV.reshape(-1,2)
 # Trim unused atlas regions as well as unused geometry.
@@ -72,6 +74,19 @@ def attribute(data,component,kind,target=None,bounds=False):
  output['accessors'].append(a);return index
 attrs={'POSITION':attribute(P,5126,'VEC3',34962,True),'NORMAL':attribute(normals,5126,'VEC3',34962),'TEXCOORD_0':attribute(uvs,5126,'VEC2',34962),'JOINTS_0':attribute(joint_indices,5121,'VEC4',34962),'WEIGHTS_0':attribute(weights,5126,'VEC4',34962)}
 indices=attribute(inverse.astype('<u4').reshape(-1,1),5125,'SCALAR',34963)
+# Cloth follows the original body surface; adjacent joints blend continuously.
+FP=fabricT.reshape(-1,3).astype('<f4');FN=fabricN.reshape(-1,3).astype('<f4')
+FJ=np.zeros((len(FP),4),dtype=np.uint8);FW=np.zeros((len(FP),4),dtype='<f4')
+for k,p in enumerate(FP):
+ x,y,z=p;side=1 if x>0 else -1;ax=abs(x)
+ if ax>.155 and y>1.30:
+  chain=[(3,.145),(6 if side>0 else 9,.20),(7 if side>0 else 10,.36),(8 if side>0 else 11,.54)]
+ else:chain=[(1,.96),(2,1.12),(3,1.34),(4,1.45)];ax=y
+ for (a,lo),(b,hi) in zip(chain,chain[1:]):
+  if ax<=hi:
+   t=float(np.clip((ax-lo)/(hi-lo),0,1));FJ[k,:2]=[a,b];FW[k,:2]=[1-t,t];break
+ else:FJ[k,0]=chain[-1][0];FW[k,0]=1
+fabricAttrs={'POSITION':attribute(FP,5126,'VEC3',34962,True),'NORMAL':attribute(FN,5126,'VEC3',34962),'JOINTS_0':attribute(FJ,5121,'VEC4',34962),'WEIGHTS_0':attribute(FW,5126,'VEC4',34962)}
 for i,(name,parent,position) in enumerate(joints):
  parent_position=np.array(joints[parent][2]) if parent>=0 else np.zeros(3);node={'name':name,'translation':(np.array(position)-parent_position).tolist(),'children':[j for j,v in enumerate(joints) if v[1]==i]};output['nodes'].append(node)
 output['nodes'] += [{'name':'Rias_clothed_guest','children':[0,19]},{'name':'Rias_original_face_hair_hands_and_boots','mesh':0,'skin':0}]
@@ -79,11 +94,11 @@ inverse_bind=np.array([np.eye(4) for j in joints],dtype='<f4')
 for i,j in enumerate(joints):inverse_bind[i,:3,3]=-np.array(j[2])
 ib=attribute(inverse_bind.transpose(0,2,1).reshape(-1,16).copy(),5126,'MAT4')
 output['skins']=[{'joints':list(range(18)),'skeleton':0,'inverseBindMatrices':ib}]
-output['meshes']=[{'primitives':[{'attributes':attrs,'indices':indices,'material':0}]}]
-output['materials']=[{'name':'Original Rias face and hair','pbrMetallicRoughness':{'baseColorTexture':{'index':0},'metallicFactor':0,'roughnessFactor':.85},'alphaMode':'MASK','alphaCutoff':.45,'doubleSided':True}]
+output['meshes']=[{'primitives':[{'attributes':attrs,'indices':indices,'material':0},{'attributes':fabricAttrs,'material':1}]}]
+output['materials']=[{'name':'Original Rias face and hair','pbrMetallicRoughness':{'baseColorTexture':{'index':0},'metallicFactor':0,'roughnessFactor':.85},'alphaMode':'MASK','alphaCutoff':.45,'doubleSided':True},{'name':'Opaque blouse on original proportions','pbrMetallicRoughness':{'baseColorFactor':[.97,.94,.88,1],'metallicFactor':0,'roughnessFactor':.85},'doubleSided':True}]
 output['images']=[{'bufferView':blob(png.getvalue()),'mimeType':'image/png'}]
 data=b''.join(chunks);data+=b'\0'*((-len(data))%4);output['buffers']=[{'byteLength':len(data)}]
 js=json.dumps(output,separators=(',',':')).encode();js+=b' '*((-len(js))%4)
 glb=struct.pack('<III',0x46546c67,2,12+8+len(js)+8+len(data))+struct.pack('<II',len(js),0x4e4f534a)+js+struct.pack('<II',len(data),0x004e4942)+data
-target=Path(__file__).resolve().parents[1]/'assets'/'castle-guest-v117.bin';target.write_bytes(gzip.compress(glb,compresslevel=9,mtime=0))
+target=Path(__file__).resolve().parents[1]/'assets'/'castle-guest-v118.bin';target.write_bytes(gzip.compress(glb,compresslevel=9,mtime=0))
 print(json.dumps({'vertices':len(P),'triangles':len(inverse)//3,'texture':image.size,'compressedBytes':target.stat().st_size,'glbBytes':len(glb)}))

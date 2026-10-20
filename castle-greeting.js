@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import {loadCastleGuest,createCastleGuest} from './castle-guest.js?v=117';
+import {loadCastleGuest,createCastleGuest} from './castle-guest.js?v=118';
 
 const clamp=t=>Math.max(0,Math.min(1,t)),smooth=t=>{t=clamp(t);return t*t*t*(10+t*(-15+6*t))};
-export const CASTLE_GREETING_BEATS={approach:2.4,kiss:3.15,heart:3.65,retreat:4.05,finish:6.1};
+export const CASTLE_GREETING_BEATS={approach:2.4,kiss:3.45,heart:3.9,retreat:4.35,finish:6.6};
 export const CASTLE_GREETING_HOME={x:1.65,y:.028,z:3.35};
 
 export function mountCastleGreeting(viewer,{loader=loadCastleGuest,makeActor=createCastleGuest}={}){
@@ -18,11 +18,11 @@ export function mountCastleGreeting(viewer,{loader=loadCastleGuest,makeActor=cre
  function begin(){
   if(disposed||saved||!actor||!armed||!entered||!viewer.active||viewer.mode!=='walk'||otherRide())return false;
   const p=viewer.camera.position;if(p.z<4.65||p.z>5.95||Math.abs(p.x-1.65)>.74||Math.abs(viewer.foot-.028)>.3)return false;
-  saved={position:p.clone(),quaternion:viewer.camera.quaternion.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch,controls:viewer.controls.enabled};time=0;heartOrigin=null;armed=false;played=true;viewer.clearWalkInput();viewer.controls.enabled=false;actor.group.visible=true;skip.hidden=false;blush.hidden=false;blush.style.opacity='0';host.classList.add('castle-greeting');
+  saved={position:p.clone(),quaternion:viewer.camera.quaternion.clone(),near:viewer.camera.near,foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch,controls:viewer.controls.enabled};viewer.camera.near=.008;viewer.camera.updateProjectionMatrix();time=0;heartOrigin=null;armed=false;played=true;viewer.clearWalkInput();viewer.controls.enabled=false;actor.group.visible=true;skip.hidden=false;blush.hidden=false;blush.style.opacity='0';host.classList.add('castle-greeting');
   aim.copy(p);direction.copy(aim).sub(home);direction.y=0;direction.normalize();near.copy(aim).addScaledVector(direction,-.65);near.y=saved.foot;return true;
  }
  function finish(){
-  if(saved){const old=saved;saved=null;viewer.camera.position.copy(old.position);viewer.camera.quaternion.copy(old.quaternion);viewer.foot=old.foot;viewer.yaw=old.yaw;viewer.pitch=old.pitch;viewer.motion.reset(old.yaw,old.pitch);viewer.physics?.reset();viewer.controls.enabled=old.controls;viewer.clearWalkInput()}
+  if(saved){const old=saved;saved=null;viewer.camera.position.copy(old.position);viewer.camera.quaternion.copy(old.quaternion);viewer.camera.near=old.near;viewer.camera.updateProjectionMatrix();viewer.foot=old.foot;viewer.yaw=old.yaw;viewer.pitch=old.pitch;viewer.motion.reset(old.yaw,old.pitch);viewer.physics?.reset();viewer.controls.enabled=old.controls;viewer.clearWalkInput()}
   heart.visible=false;heartMaterial.opacity=0;heartOrigin=null;skip.hidden=true;blush.hidden=true;blush.style.opacity='0';host.classList.remove('castle-greeting');placeHome();
  }
  function cancel(){armed=false;entered=false;outside=false;finish()}
@@ -38,11 +38,12 @@ export function mountCastleGreeting(viewer,{loader=loadCastleGuest,makeActor=cre
     if(!saved){if(actor?.group.visible)actor.pose({clock:time+=Math.max(0,Math.min(.1,dt))});return}
    }
    time+=Math.max(0,Math.min(.1,dt));const beat=CASTLE_GREETING_BEATS,approach=smooth(time/beat.approach),lean=smooth((time-beat.approach)/(beat.kiss-beat.approach))*(1-smooth((time-beat.retreat)/.6)),retreat=smooth((time-beat.retreat)/(beat.finish-beat.retreat));
-   actor.group.position.lerpVectors(home,near,approach*(1-retreat));actor.group.rotation.y=Math.atan2(direction.x,direction.z);actor.pose({clock:time,walk:time<beat.approach?Math.sin(Math.PI*clamp(time/beat.approach)):retreat>0?Math.sin(Math.PI*retreat)*.6:0,lean,wave:time<.65?Math.sin(Math.PI*time/.65)*.65:0});
+   const kiss=smooth((time-beat.approach-.15)/.55)*(1-smooth((time-beat.retreat)/.25));
+   actor.group.position.lerpVectors(home,near,approach*(1-retreat));actor.group.rotation.y=Math.atan2(direction.x,direction.z);actor.pose({clock:time,walk:time<beat.approach?Math.sin(Math.PI*clamp(time/beat.approach)):retreat>0?Math.sin(Math.PI*retreat)*.6:0,lean,kiss,eyes:smooth((time-beat.approach-.45)/.45)*(1-smooth((time-beat.retreat)/.35)),wave:time<.65?Math.sin(Math.PI*time/.65)*.65:0});
    // Align the mouth, rather than the model origin, with the first-person lens.
-   actor.mouthPosition(mouth);const contact=aim.clone().addScaledVector(direction,-.14).sub(mouth);contact.y=0;actor.group.position.addScaledVector(contact,lean);actor.group.updateMatrixWorld(true);actor.mouthPosition(mouth);
+   actor.mouthPosition(mouth);const contact=aim.clone().addScaledVector(direction,-.052).sub(mouth);contact.y=0;actor.group.position.addScaledVector(contact,lean);actor.group.updateMatrixWorld(true);actor.mouthPosition(mouth);
    viewer.camera.position.copy(saved.position);viewer.camera.position.y=THREE.MathUtils.lerp(saved.position.y,mouth.y,lean);matrix.lookAt(viewer.camera.position,mouth,up);look.setFromRotationMatrix(matrix);viewer.camera.quaternion.slerpQuaternions(saved.quaternion,look,smooth(time/.65)*(1-smooth((time-beat.finish+.65)/.65)));
-   blush.style.opacity=String(.22*smooth((time-beat.kiss+.12)/.2)*(1-smooth((time-beat.heart)/.6)));
+   blush.style.opacity=String(.40*smooth((time-beat.kiss+.08)/.2)*(1-smooth((time-beat.heart)/.6)));
    if(time>=beat.heart){
     if(!heartOrigin){heartOrigin=mouth.clone().addScaledVector(direction,.035);right.set(direction.z,0,-direction.x)}const t=time-beat.heart;
     heart.visible=true;heart.position.copy(heartOrigin).addScaledVector(right,.23*t).addScaledVector(direction,-.65*t);heart.position.y+=.48*t+.025*Math.sin(t*7);heart.quaternion.copy(viewer.camera.quaternion);heart.rotateZ(.13*Math.sin(t*4));heart.scale.setScalar(.18+.37*smooth(t/.4));heartMaterial.opacity=1-smooth((t-1.0)/1.1);

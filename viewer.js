@@ -1,4 +1,4 @@
-import {mountCastleGreeting} from './castle-greeting.js?v=117';
+import {mountCastleGreeting} from './castle-greeting.js?v=118';
 import {createAssetCache,fetchAssetBytes,fetchAssetJSON,fetchGzipJSON,loadCompressedScene} from './asset-loader.js?v=116';
 import * as THREE from 'three';
 import {createArchitectureCollision} from './walk-architecture.js?v=77';
