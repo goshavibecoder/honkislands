@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {WalkMotion} from '../walk-motion.js';
+import {createAssetCache} from '../asset-loader.js';
 
 class Surface {
  constructor(){this.events={};this.style={};this.captures=new Set()}
@@ -22,7 +23,7 @@ class Vector3 {
 function setup(){
  const canvas=new Surface(),window=new Surface(),host=new Surface(),knob={style:{}},buttons=Array.from({length:4},()=>new Surface());
  const document={getElementById:id=>id==='knob'?knob:new Surface(),querySelectorAll:()=>buttons};
- const context=vm.createContext({WalkMotion,window,document,performance,fetch:async()=>({ok:true,json:async()=>({})}),requestAnimationFrame:()=>1,cancelAnimationFrame(){},
+ const context=vm.createContext({WalkMotion,createAssetCache,fetchAssetJSON:async()=>({}),window,document,performance,fetch:async()=>({ok:true,json:async()=>({})}),requestAnimationFrame:()=>1,cancelAnimationFrame(){},
   THREE:{Vector3,MathUtils:{clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),damp:(a,b,k,dt)=>b+(a-b)*Math.exp(-k*dt)}},
   attachTapGesture:()=>({reset(){}}),createTouchStick:(element,knob,onChange)=>({reset(){onChange(0,0)}})});
  const source=readFileSync(new URL('../viewer.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace('export class IslandViewer','globalThis.IslandViewer=class IslandViewer');
@@ -123,4 +124,12 @@ test('wardrobe ambush freezes walking and look, then cancels on overview or leav
 test('arena recovery owns the camera and pauses across backgrounding, with ordinary movement restored after recovery',()=>{
  const {v,canvas,window}=setup();let cancelled=0;v.knockoutRecovery={active:true,update(){v.camera.position.y=.2},cancel(){cancelled++;this.active=false}};window.emit('keydown',{code:'KeyW'});assert.equal(v.keys.size,0);canvas.emit('pointerdown',{pointerId:8,clientX:0,clientY:0});assert.equal(v.drag,null);v.stick.y=-1;v.tick(1016);assert.equal(v.camera.position.y,.2);assert.equal(v.camera.position.z,0);
  v.setActive(false);assert.equal(cancelled,0);assert.equal(v.knockoutRecovery.active,true);v.setActive(true);v.knockoutRecovery.active=false;v.knockoutRecovery.update=()=>{};v.keys.add('KeyW');v.tick(1032);v.tick(1048);assert.ok(v.camera.position.z<0);v.setMode('orbit');assert.equal(cancelled,1);
+});
+
+
+test('castle greeting owns first-person camera until finish and blocks game interactions',()=>{
+ const {v,canvas}=setup();let updates=0;v.castleGreeting={active:true,update(){updates++},cancel(){this.active=false},canStand(){return true}};
+ v.keys.add('KeyW');const start=v.camera.position.clone();for(let i=1;i<=30;i++)v.tick(1000+i*1000/60);assert.equal(v.camera.position.z,start.z);assert.equal(v.gameAt(0,0),null);
+ canvas.emit('pointerdown',{pointerId:88,clientX:0,clientY:0});assert.equal(v.drag,null);assert.equal(updates,30);v.castleGreeting.active=false;v.tick(1600);assert.ok(v.camera.position.z<start.z);
+ v.castleGreeting.active=true;v.setActive(false);assert.equal(v.castleGreeting.active,false);
 });

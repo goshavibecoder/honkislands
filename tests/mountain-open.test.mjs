@@ -27,5 +27,11 @@ for(const slug of ['goat-mountain','arcade-district','citadel','carnival','arena
  const v=Object.create(IslandViewer.prototype);Object.assign(v,{host:new Element(),active:false,mode:'walk',keys:new Set(),stick:{x:0,y:0},yaw:0,pitch:0,foot:0,previous:0,frame:0,drag:null,navRay:new THREE.Raycaster(),camera:new THREE.PerspectiveCamera(),scene:new THREE.Scene(),environment:new THREE.Texture(),renderQuality:{configure(){}},renderer:{renderLists:{dispose(){}},capabilities:{getMaxAnisotropy:()=>4},domElement:new Element(),compileAsync:async()=>{},render(){}},controls:{target:new THREE.Vector3()},motion:{stop(){},reset(){}}});
  v.camera.rotation.order='YXZ';v.scene.add(new THREE.HemisphereLight(),new THREE.DirectionalLight());v.setActive=value=>{v.active=value};v.resize=()=>{};
  try{await v.open(slug,(p,label)=>{if(p>=.78)console.log('ISLAND_STAGE',slug,p,label)});
- assert.ok(v.nav);assert.ok(v.staticGroup.children.length);assert.ok(v.camera.position.toArray().every(Number.isFinite));if(slug==='goat-mountain'){assert.ok(v.mountainSnow);assert.ok(v.mountainSki);assert.ok(v.islandTransport)}}finally{v.clear()}
+ if(slug==='honkhub'){
+  assert.ok(await v.castleGreeting.ready);assert.ok(v.castleGreeting.actor);v.active=true;v.camera.position.set(1.65,1.715,15);v.foot=.065;v.castleGreeting.arm();
+  for(let z=14.975;z>5.76;z-=.025){assert.ok(v.stepTo(1.65,z),'castle arrival path blocked at '+z);v.camera.position.y=v.foot+v.config.eye;v.castleGreeting.update(.0125);if(v.castleGreeting.active)break}
+  assert.equal(v.castleGreeting.active,true,'walking from balloon into doorway should start the greeting');
+  for(let i=0;i<200;i++){v.castleGreeting.update(1/30);const guest=v.castleGreeting.actor.group.position;assert.ok(v.floorAt(guest.x,guest.z,.4,.8)!==null,'guest walks off the floor');if(v.castleGreeting.active)assert.ok(v.canStand(guest.x,guest.z,.028),'guest intersects castle furniture')}
+  assert.equal(v.castleGreeting.active,false);
+ }assert.ok(v.nav);assert.ok(v.staticGroup.children.length);assert.ok(v.camera.position.toArray().every(Number.isFinite));if(slug==='goat-mountain'){assert.ok(v.mountainSnow);assert.ok(v.mountainSki);assert.ok(v.islandTransport)}}finally{v.clear()}
 });

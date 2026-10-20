@@ -25,3 +25,8 @@ test('wardrobe knockout starts the arena floor recovery under black before retur
  const s=setup();await s.context.respawnAtColosseum();assert.deepEqual(s.calls,['open:arena','wake','active:true']);assert.equal(s.history[0],'#arena');assert.equal(vm.runInContext('activeWorld',s.context),'arena');assert.equal(vm.runInContext('busy',s.context),false);assert.equal(s.get('transition').className,'');assert.equal(s.get('transition').animations,undefined,'the recovery owns the eye opening instead of a standing fade-in');assert.equal(s.get('walk').attrs['aria-pressed'],'true');
  const broken=setup({fail:true});await broken.context.respawnAtColosseum();assert.equal(broken.get('error').hidden,false);assert.equal(broken.get('transition').className,'');assert.equal(vm.runInContext('busy',broken.context),false);
 });
+
+
+test('the castle greeting is armed after landing at HonkHub and not at other islands',async()=>{
+ for(const slug of ['honkhub','citadel']){const s=setup();vm.runInContext('fakeViewer.castleGreeting={arm(){this.armed=true}}',s.context);await s.run('arena',slug);assert.equal(vm.runInContext('fakeViewer.castleGreeting.armed===true',s.context),slug==='honkhub')}
+});
