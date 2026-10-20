@@ -31,10 +31,14 @@
 /* Follow the same 8px lift. The anchor follows the image's original 1.05 scale. */
 .island:is(:hover,:focus-visible) .island-cloud{top:3.8%;translate:0 -8px}
 .island:active .island-cloud{top:6.88%}
-.island:focus-visible .island-cloud{opacity:1}
-@media(any-hover:hover){
- .island:hover .island-cloud{opacity:1}
+.island:is(:hover,:focus-visible) .island-cloud{opacity:1}
+/* A separate, pointer-transparent layer keeps labels above all map artwork. */
+.island-label-layer{position:absolute;inset:0;z-index:25;pointer-events:none}
+.island-label-layer .island-cloud{
+ left:0;top:0;transform:translate(-50%,-100%);
+ transition:opacity .18s ease;pointer-events:none;
 }
+.island-label-layer .island-cloud.is-active{opacity:1}
 @media(hover:none),(pointer:coarse){
  .island-cloud{font-size:clamp(11px,1.35vw,15px);padding:8px 13px 9px}
 }
