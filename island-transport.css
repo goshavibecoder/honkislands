@@ -17,3 +17,5 @@
 
 @media(max-width:600px),(max-width:1000px) and (max-height:600px){#world.in-island-ride .ride-controls.cable-ride .ride-dashboard{top:110px;max-height:calc(100svh - 340px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}
 @media(orientation:landscape) and (max-height:600px) and (max-width:1000px){#world.in-island-ride .ride-controls.cable-ride .ride-dashboard{max-height:calc(100svh - 204px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}
+
+.ride-board-fast{display:block;width:100%;margin-top:7px;padding:13px;border:1px solid #d5a23e;background:linear-gradient(135deg,#b92442,#e4484e);color:#fff6db;font-weight:800!important;box-shadow:0 3px 0 #79303e}

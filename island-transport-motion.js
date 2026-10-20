@@ -19,6 +19,10 @@ export class CableTransit{
  get position(){return cablePosition(this.t)}
 }
 
+export const KART_PROFILES={
+ classic:{id:'classic',name:'Classic kart',speedMultiplier:1,steerGain:1,steerResponse:7,steerDeadzone:.10,steerCurve:1},
+ speed:{id:'speed',name:'Speed kart',speedMultiplier:3,steerGain:2.2,steerResponse:20,steerDeadzone:.035,steerCurve:.75}
+};
 export const KART_TRACK={rx:7.2,rz:9.4,y:.06,railOffset:1.92};
 // Rendering and physics use these exact same visible rail segments, including
 // the open entrance. There is no hidden narrow driving lane around the centre.
@@ -48,25 +52,26 @@ export function kartCanDrive(x,z,yaw,obstacles=[]){
  return true;
 }
 // The kart faces local +Z, so the driver's right is local -X.
-export const kartSteeringAngle=(steer,speed=0)=>-clamp(steer,-1,1)*.48/(1+Math.abs(speed)*.06);
-export function kartJoystickInput(x,y){
+export const kartSteeringAngle=(steer,speed=0,gain=1)=>clamp(-clamp(steer,-1,1)*.48*gain/(1+Math.abs(speed)*.06),-.78,.78);
+export function kartJoystickInput(x,y,{steerDeadzone=.10,steerCurve=1}={}){
  const axis=v=>{v=clamp(v,-1,1);return Math.abs(v)<.10?0:Math.sign(v)*(Math.abs(v)-.10)/.90};
- return {throttle:-axis(y),steer:axis(x)};
+ const value=clamp(x,-1,1),turn=Math.abs(value)<steerDeadzone?0:Math.sign(value)*((Math.abs(value)-steerDeadzone)/(1-steerDeadzone))**steerCurve;
+ return {throttle:-axis(y),steer:turn};
 }
 export class KartDrive{
- constructor({obstacles=[]}={}){this.obstacles=obstacles;this.reset()}
- reset(){this.position={x:0,y:KART_TRACK.y,z:KART_TRACK.rz};this.yaw=Math.PI/2;this.speed=0;this.steer=0;this.wheelSpin=0;this.laps=0;this.lapProgress=0;this.warning=0;return this}
+ constructor({obstacles=[],profile=KART_PROFILES.classic,spawn=null,canDrive=kartCanDrive}={}){this.obstacles=obstacles;this.profile=profile;this.spawn=spawn;this.canDrive=canDrive;this.reset()}
+ reset(){this.position={...(this.spawn||{x:0,y:KART_TRACK.y,z:KART_TRACK.rz})};this.yaw=Math.PI/2;this.speed=0;this.steer=0;this.wheelSpin=0;this.laps=0;this.lapProgress=0;this.warning=0;return this}
  update(dt,{throttle=0,steer=0,brake=false}={}){
   let remaining=clamp(dt,0,.25);this.warning=Math.max(0,this.warning-remaining);
   while(remaining>1e-9){const step=Math.min(remaining,1/120);remaining-=step;
    const previous=Math.atan2(this.position.x/KART_TRACK.rx,this.position.z/KART_TRACK.rz),oldX=this.position.x,oldZ=this.position.z,oldYaw=this.yaw;
-   this.steer+=(clamp(steer,-1,1)-this.steer)*(1-Math.exp(-7*step));
-   const target=brake?0:clamp(throttle,-1,1)*(throttle>=0?3.2:1.5),decay=Math.exp(-(brake?13:Math.abs(throttle)<.01?8.5:3.5)*step);
+   this.steer+=(clamp(steer,-1,1)-this.steer)*(1-Math.exp(-this.profile.steerResponse*step));
+   const target=brake?0:clamp(throttle,-1,1)*(throttle>=0?3.2:1.5)*this.profile.speedMultiplier,decay=Math.exp(-(brake?13:Math.abs(throttle)<.01?8.5:3.5)*step);
    this.speed=target+(this.speed-target)*decay;if(Math.abs(this.speed)<.004)this.speed=0;
-   this.yaw+=this.speed/1.12*Math.tan(kartSteeringAngle(this.steer,this.speed))*step;
+   this.yaw+=this.speed/1.12*Math.tan(kartSteeringAngle(this.steer,this.speed,this.profile.steerGain))*step;
    const distance=this.speed*step;this.position.x+=Math.sin(this.yaw)*distance;this.position.z+=Math.cos(this.yaw)*distance;
    // Collisions stop translation. Only the driver's steering changes heading.
-   if(!kartCanDrive(this.position.x,this.position.z,this.yaw,this.obstacles)){this.position.x=oldX;this.position.z=oldZ;this.yaw=oldYaw;this.speed=0;this.warning=1.2}else this.wheelSpin+=distance/.235;
+   if(!this.canDrive(this.position.x,this.position.z,this.yaw,this.obstacles)){this.position.x=oldX;this.position.z=oldZ;this.yaw=oldYaw;this.speed=0;this.warning=1.2}else this.wheelSpin+=distance/.235;
    const current=Math.atan2(this.position.x/KART_TRACK.rx,this.position.z/KART_TRACK.rz),delta=Math.atan2(Math.sin(current-previous),Math.cos(current-previous));this.lapProgress+=delta;
    if(this.lapProgress>=Math.PI*2){this.laps++;this.lapProgress-=Math.PI*2}
   }

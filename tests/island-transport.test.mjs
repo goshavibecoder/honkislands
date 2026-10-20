@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import * as THREE from '../vendor/three.module.min.js';
-import {CableTransit,KartDrive,CABLE_STATIONS,KART_TRACK,KART_RAILS,kartCanDrive,cablePosition} from '../island-transport-motion.js';
+import {CableTransit,KartDrive,CABLE_STATIONS,KART_TRACK,KART_RAILS,KART_PROFILES,kartCanDrive,kartJoystickInput,cablePosition} from '../island-transport-motion.js';
 import {createTouchStick} from '../touch-stick.js';
 import {WalkMotion} from '../walk-motion.js';
 const driverHead=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url))));
@@ -84,7 +84,7 @@ test('outside cable camera uses the spatial collision index without scanning the
 test('kart touch driving, brake hold, camera change, exit and cancellation release controls',()=>{
  const {viewer,controller,panel,world,window,host}=setup('kart');panel.querySelector('.ride-board').click();assert.equal(controller.active,true);viewer.stick.y=-1;viewer.stick.x=.2;advance(controller,1);assert.ok(controller.model.speed>2);panel.querySelector('.ride-camera').click();advance(controller,.5);assert.ok(viewer.camera.position.toArray().every(Number.isFinite));
  panel.querySelector('.ride-brake').fire('pointerdown',{pointerId:1});advance(controller,.7);assert.ok(controller.model.speed<.01);window.fire('blur');assert.equal(viewer.stick.y,0);panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(controller.active,false);assert.equal(host.classes.has('in-island-ride'),false);assert.ok(world.canStand(viewer.camera.position.x,viewer.camera.position.z));
- advance(controller,.2);panel.querySelector('.ride-board').click();assert.equal(controller.active,true);advance(controller,.5);controller.cancel();assert.equal(controller.active,false);assert.deepEqual(controller.model.position,{x:0,y:.06,z:9.4});controller.dispose();assert.equal(window.events.blur.length,0);
+ advance(controller,.2);panel.querySelector('.ride-board').click();assert.equal(controller.active,true);advance(controller,.5);controller.cancel();assert.equal(controller.active,false);assert.deepEqual(controller.model.position,world.cars[0].spawn);controller.dispose();assert.equal(window.events.blur.length,0);
 });
 
 test('real touch joystick separates throttle from steering and stops when released',()=>{
@@ -179,4 +179,31 @@ test('the track has continuous floors, an open entrance and solid edge barriers'
  const world=prepareIslandTransport(new THREE.Group(),'arcade-district'),nav=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(world.navPositions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide})),ray=new THREE.Raycaster();
  for(let i=0;i<128;i++){const a=i*Math.PI/64,x=Math.sin(a)*KART_TRACK.rx,z=Math.cos(a)*KART_TRACK.rz;ray.set(new THREE.Vector3(x,1,z),new THREE.Vector3(0,-1,0));assert.ok(ray.intersectObject(nav).length);assert.equal(world.canStand(Math.sin(a)*(KART_TRACK.rx+1.92),Math.cos(a)*(KART_TRACK.rz+1.92)),i===0)}
  for(let z=5.2;z<8;z+=.1)assert.ok(world.canStand(0,z));for(let x=-1.2;x<=1.2;x+=.05)assert.equal(kartCanDrive(x,KART_TRACK.rz+KART_TRACK.railOffset,0,world.extraBoxes),false,'visible bollards must keep the kart on the circuit');let dynamic=0;world.vehicle.traverse(o=>{if(o.isMesh){dynamic++;assert.equal(o.userData.islandRide,true)}});assert.ok(dynamic>5&&dynamic<45);
+});
+
+test('classic and speed cars board independently and release touch controls on exit',()=>{
+ const {viewer,world,controller,panel,window,host}=setup('kart'),classic=controller.models[0],fast=controller.models[1];
+ assert.equal(controller.models.length,2);assert.equal(world.cars.length,2);viewer.camera.position.x=.5;advance(controller,.2);
+ assert.equal(panel.querySelector('.ride-board').hidden,false);assert.equal(panel.querySelector('.ride-board-fast').hidden,false);
+ panel.querySelector('.ride-board-fast').click();assert.equal(controller.active,true);assert.equal(controller.model,fast);assert.equal(world.vehicle,world.cars[1].vehicle);
+ assert.equal(panel.querySelector('strong').textContent,'HONK • SPEED KART ×3');assert.equal(world.cars[0].driver.group.visible,false);
+ const controls=controller.gameControls,stick=controls.element.querySelector('.kart-game-stick'),gas=controls.element.querySelector('[data-kart-pedal="1"]');
+ stick.fire('pointerdown',{pointerId:30,pointerType:'touch',clientX:81.525,clientY:75});gas.fire('pointerdown',{pointerId:31,pointerType:'touch'});advance(controller,.4);
+ assert.ok(fast.speed>5);assert.ok(fast.steer>.19);assert.equal(classic.speed,0);assert.deepEqual(classic.position,world.cars[0].spawn);
+ window.fire('blur');assert.equal(controls.state.pedal,0);assert.equal(controls.state.x,0);advance(controller,1);assert.equal(fast.speed,0);
+ panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(controller.active,false);assert.equal(controls.element.hidden,true);assert.equal(world.cars[1].driver.group.visible,false);
+ viewer.camera.position.set(1.6,1.69,9.4);viewer.foot=.04;advance(controller,.2);panel.querySelector('.ride-board').click();
+ assert.equal(controller.model,classic);assert.equal(world.vehicle,world.cars[0].vehicle);assert.equal(panel.querySelector('strong').textContent,'HONK • CLASSIC KART');
+ controller.cancel();assert.equal(controller.active,false);assert.deepEqual(classic.position,world.cars[0].spawn);assert.equal(host.classes.has('driving-kart'),false);
+ controller.dispose();assert.equal(window.events.blur.length,0);
+});
+test('speed kart triples both speeds, responds sooner, brakes and stays inside barriers',()=>{
+ for(const throttle of [-1,1]){
+  const a=new KartDrive({canDrive:()=>true}),b=new KartDrive({profile:KART_PROFILES.speed,canDrive:()=>true});advance(a,5,60,{throttle});advance(b,5,60,{throttle});assert.ok(Math.abs(b.speed/a.speed-3)<1e-10);
+  advance(b,1,60,{brake:true});assert.equal(b.speed,0);
+ }
+ assert.ok(kartJoystickInput(.15,0,KART_PROFILES.speed).steer>kartJoystickInput(.15,0).steer*3);
+ const results=[30,60,120].map(hz=>{const k=new KartDrive({profile:KART_PROFILES.speed,canDrive:()=>true});advance(k,2,hz,{throttle:1,steer:.2});return k});
+ for(const k of results){assert.ok(Math.abs(k.position.x-results[0].position.x)<.002);assert.ok(Math.abs(k.position.z-results[0].position.z)<.002)}
+ const k=new KartDrive({profile:KART_PROFILES.speed});for(let i=0;i<6000;i++){k.update(1/120,{throttle:i%1400<1000?1:-1,steer:Math.sin(i/60)});assert.ok(kartCanDrive(k.position.x,k.position.z,k.yaw))}
 });

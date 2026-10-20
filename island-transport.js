@@ -1,26 +1,38 @@
 import * as THREE from 'three';
 import {mountTransportPanel} from './transport-panel.js?v=72';
-import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=98';
+import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=114';
 import {mountKartControls} from './kart-controls.js?v=72';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
 export function mountIslandTransport(viewer,world){
- const cable=world.kind==='cable',model=cable?new CableTransit():new KartDrive({obstacles:viewer.boxes}),panel=document.createElement('aside');panel.className='ride-controls';panel.hidden=true;if(cable)panel.classList.add('cable-ride');panel.setAttribute('aria-label',cable?'HONK cable car':'Clown kart');
- panel.innerHTML='<button class="ride-board glass" type="button"></button><button class="ride-speed glass" type="button" aria-pressed="false">Speed ×1 · Boost ×2</button><div class="ride-dashboard glass" hidden><div class="ride-heading"><strong></strong><output aria-live="off"></output></div><p class="ride-status" role="status" aria-live="polite"></p><button class="ride-trip" type="button"></button><button class="ride-brake" type="button">Brake</button><button class="ride-camera" type="button"></button><button class="ride-exit" type="button">Exit</button></div>';
- const board=panel.querySelector('.ride-board'),dashboard=panel.querySelector('.ride-dashboard'),title=panel.querySelector('strong'),output=panel.querySelector('output'),status=panel.querySelector('.ride-status'),trip=panel.querySelector('.ride-trip'),brake=panel.querySelector('.ride-brake'),camera=panel.querySelector('.ride-camera'),exit=panel.querySelector('.ride-exit'),speed=panel.querySelector('.ride-speed'),host=document.getElementById('world');host.append(panel);const compactPanel=mountTransportPanel(panel,cable?'CABLE CAR':'HONK • KART CIRCUIT');
+ const cable=world.kind==='cable',cars=world.cars||[],models=cable?[new CableTransit()]:(cars.length?cars.map((car,index)=>new KartDrive({profile:car.profile,spawn:car.spawn,obstacles:[...viewer.boxes,...cars.filter((_,i)=>i!==index).map(car=>car.bounds)]})):[new KartDrive({obstacles:viewer.boxes})]),panel=document.createElement('aside');let model=models[0];panel.className='ride-controls';panel.hidden=true;if(cable)panel.classList.add('cable-ride');panel.setAttribute('aria-label',cable?'HONK cable car':'Clown kart');
+ panel.innerHTML='<button class="ride-board glass" type="button"></button><button class="ride-board-fast glass" type="button" hidden>⚡ Drive speed kart · ×3</button><button class="ride-speed glass" type="button" aria-pressed="false">Speed ×1 · Boost ×2</button><div class="ride-dashboard glass" hidden><div class="ride-heading"><strong></strong><output aria-live="off"></output></div><p class="ride-status" role="status" aria-live="polite"></p><button class="ride-trip" type="button"></button><button class="ride-brake" type="button">Brake</button><button class="ride-camera" type="button"></button><button class="ride-exit" type="button">Exit</button></div>';
+ const board=panel.querySelector('.ride-board'),fastBoard=panel.querySelector('.ride-board-fast'),dashboard=panel.querySelector('.ride-dashboard'),title=panel.querySelector('strong'),output=panel.querySelector('output'),status=panel.querySelector('.ride-status'),trip=panel.querySelector('.ride-trip'),brake=panel.querySelector('.ride-brake'),camera=panel.querySelector('.ride-camera'),exit=panel.querySelector('.ride-exit'),speed=panel.querySelector('.ride-speed'),host=document.getElementById('world');host.append(panel);const compactPanel=mountTransportPanel(panel,cable?'CABLE CAR':'HONK • KART CIRCUIT');
  title.textContent=cable?'HONK • CABLE CAR':'HONK • KART CIRCUIT';trip.hidden=!cable;brake.hidden=cable;speed.hidden=!cable;
  const gameControls=cable?null:mountKartControls(host);
  let saved=null,inside=cable,braking=false,boarding=0,exiting=null,near=-1,uiTime=0,disposed=false,boardStation=0,cameraCheck=0,cameraClearance=Infinity;
  const ray=new THREE.Raycaster(),from=new THREE.Vector3(),desired=new THREE.Vector3(),target=new THREE.Vector3(),hit=new THREE.Vector3(),targetRotation=new THREE.Quaternion();
  function pose(){if(cable){world.setPose(model.position);world.setDoors?.(model.door)}else world.setPose(model.position,model.yaw,model.wheelSpin,model.steer,model.speed)}
+ function nearCar(index){
+  if(viewer.mode!=='walk'||!models[index])return false;const p=viewer.camera.position,p0=models[index].position;
+  if(Math.hypot(p.x-p0.x,p.z-p0.z)>2.8||Math.abs(viewer.foot-p0.y)>.6)return false;
+  const direction=target.set(p0.x,p0.y+.7,p0.z).sub(p),length=direction.length();ray.set(p,direction.normalize());
+  return !viewer.boxes.some(b=>{const q=ray.ray.intersectBox(b,hit);return q&&q.distanceTo(p)<length-.2});
+ }
  function nearby(){
   if(viewer.mode!=='walk')return -1;const p=viewer.camera.position;
   if(cable){let side=-1;for(let i=0;i<2;i++){const s=CABLE_STATIONS[i];if(Math.hypot(p.x-s.x,p.z-s.z)<3&&Math.abs(viewer.foot-s.y)<.65)side=i}return side}
-  const p0=model.position;if(Math.hypot(p.x-p0.x,p.z-p0.z)>2.8||Math.abs(viewer.foot-p0.y)>.6)return -1;
-  const direction=target.set(p0.x,p0.y+.7,p0.z).sub(p),length=direction.length();ray.set(p,direction.normalize());
-  return viewer.boxes.some(b=>{const q=ray.ray.intersectBox(b,hit);return q&&q.distanceTo(p)<length-.2})?-1:0;
+  let nearest=-1,distance=Infinity;for(let i=0;i<models.length;i++){if(!nearCar(i))continue;const p0=models[i].position,d=Math.hypot(p.x-p0.x,p.z-p0.z);if(d<distance){nearest=i;distance=d}}return nearest;
  }
- function begin(){compactPanel.close();saved={position:viewer.camera.position.clone(),rotation:viewer.camera.quaternion.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};boarding=0;cameraCheck=0;cameraClearance=Infinity;inside=cable;braking=false;exiting=null;viewer.clearWalkInput();gameControls?.reset();gameControls?.show(true);world.driver?.setSeated(true);viewer.motion.reset(0,.02);host.classList.add('in-island-ride');if(!cable)host.classList.add('driving-kart')}
+ function boardCar(index){
+  if(cable||!viewer.active||saved||viewer.mode!=='walk'||!nearCar(index))return;
+  model=models[index];world.selectCar?.(index);pose();begin();sync();
+ }
+ function begin(){
+  const fast=!cable&&model.profile.id==='speed';
+  title.textContent=cable?'HONK • CABLE CAR':fast?'HONK • SPEED KART ×3':'HONK • CLASSIC KART';
+  if(!cable){compactPanel.button.textContent=fast?'SPEED KART ×3 ⋯':'CLASSIC KART ⋯';compactPanel.button.setAttribute('aria-label',fast?'Speed kart: open or collapse menu':'Classic kart: open or collapse menu');gameControls.element.querySelector('.kart-stick-label').textContent=fast?'QUICK STEER':'STEER'}
+  compactPanel.close();saved={position:viewer.camera.position.clone(),rotation:viewer.camera.quaternion.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};boarding=0;cameraCheck=0;cameraClearance=Infinity;inside=cable;braking=false;exiting=null;viewer.clearWalkInput();gameControls?.reset();gameControls?.show(true);world.driver?.setSeated(true);viewer.motion.reset(0,.02);host.classList.add('in-island-ride');if(!cable)host.classList.add('driving-kart')}
  function restore(poseTo=saved){
   if(poseTo){viewer.camera.position.copy(poseTo.position);viewer.foot=poseTo.foot;viewer.yaw=poseTo.yaw;viewer.pitch=poseTo.pitch;viewer.motion.reset(poseTo.yaw,poseTo.pitch);viewer.camera.rotation.set(poseTo.pitch,poseTo.yaw,0,'YXZ')}
   saved=null;exiting=null;braking=false;viewer.clearWalkInput();gameControls?.show(false);world.driver?.setSeated(false);host.classList.remove('in-island-ride','driving-kart');brake.classList.remove('pressed');
@@ -31,9 +43,11 @@ export function mountIslandTransport(viewer,world){
   return saved;
  }
  board.addEventListener('click',()=>{
+  if(!cable){boardCar(0);return}
   if(!viewer.active||saved||viewer.mode!=='walk')return;near=nearby();if(near<0)return;
   if(cable){if(model.moving||model.door<.98)return;if(model.station!==near){model.travel(near);sync();return}boardStation=near;begin();model.travel(1-near)}else begin();sync();
  });
+ fastBoard.addEventListener('click',()=>boardCar(1));
  trip.addEventListener('click',()=>{if(saved&&!exiting&&!model.moving&&cable&&model.door>=.98){viewer.clearWalkInput();model.travel(1-model.station);sync()}});
  function stepOut(to){viewer.clearWalkInput();gameControls?.reset();exiting={from:viewer.camera.position.clone(),rotation:viewer.camera.quaternion.clone(),to,toRotation:new THREE.Quaternion().setFromEuler(new THREE.Euler(to.pitch,to.yaw,0,'YXZ')),time:0};sync()}
  exit.addEventListener('click',()=>{if(!saved||exiting||cable&&(model.moving||model.door<.98))return;if(!cable)model.speed=0;stepOut(exitPose())});
@@ -43,13 +57,13 @@ export function mountIslandTransport(viewer,world){
  for(const name of ['pointerup','pointercancel','lostpointercapture'])brake.addEventListener(name,()=>{braking=false;brake.classList.remove('pressed')});
  const blur=()=>{braking=false;brake.classList.remove('pressed');viewer.clearWalkInput()},key=e=>{if(saved&&e.code==='KeyE'){e.preventDefault();exit.click()}};window.addEventListener('blur',blur);window.addEventListener('keydown',key);
  function sync(){
-  compactPanel.setActive(!!saved);near=nearby();panel.hidden=viewer.mode!=='walk'||!saved&&near<0;board.hidden=!!saved;dashboard.hidden=!saved;speed.hidden=!cable||!saved&&!model.moving;
+  compactPanel.setActive(!!saved);near=nearby();panel.hidden=viewer.mode!=='walk'||!saved&&near<0;board.hidden=!!saved||!cable&&!nearCar(0);fastBoard.hidden=cable||!!saved||!nearCar(1);dashboard.hidden=!saved;speed.hidden=!cable||!saved&&!model.moving;
   if(cable){speed.textContent=model.speedMultiplier===2?'Speed ×2 · Normal ×1':'Speed ×1 · Boost ×2';speed.setAttribute('aria-pressed',String(model.speedMultiplier===2))}
-  board.disabled=cable&&(model.moving||model.door<.98);board.textContent=cable?(model.moving?'Cabin approaching the station…':model.station!==near?'✦ Call cabin':near===0?'✦ Ride to the summit':'✦ Ride downhill'):'✦ Drive the kart';
+  board.disabled=cable&&(model.moving||model.door<.98);board.textContent=cable?(model.moving?'Cabin approaching the station…':model.station!==near?'✦ Call cabin':near===0?'✦ Ride to the summit':'✦ Ride downhill'):'✦ Drive classic kart';
   exit.disabled=!!exiting||cable&&(model.moving||model.door<.98);trip.disabled=!!exiting||model.moving||cable&&model.door<.98;camera.disabled=!!exiting;
   trip.textContent=model.station===0?'Ride to the summit':'Ride downhill';exit.textContent=cable?(model.station===1?'Exit at the summit':'Exit at the lower station'):'Stop and exit';
   camera.textContent=inside?'Outside view':cable?'Cabin view':'Driver view';
-  const label=exiting?'Ready to walk out…':cable?(model.moving?(model.destination?'Heading to the summit · Swipe to look around':'Heading downhill · Swipe to look around'):model.door<.98?'Arrived · Opening doors…':'Doors open · Walk out with the joystick'):model.warning>0?'Barrier — hold REVERSE and steer away':'Steer on the left · Hold GAS or REVERSE on the right';
+  const label=exiting?'Ready to walk out…':cable?(model.moving?(model.destination?'Heading to the summit · Swipe to look around':'Heading downhill · Swipe to look around'):model.door<.98?'Arrived · Opening doors…':'Doors open · Walk out with the joystick'):model.warning>0?'Barrier — hold REVERSE and steer away':model.profile.id==='speed'?'Speed ×3 · Quick steering · Hold GAS or REVERSE':'Steer on the left · Hold GAS or REVERSE on the right';
   if(status.textContent!==label)status.textContent=label;status.classList.toggle('ride-warning',!cable&&model.warning>0);
   output.textContent=cable?`${Math.round(model.t*100)}% · ×${model.speedMultiplier}`:`${Math.round(Math.abs(model.speed)*3.6)} km/h · Laps: ${model.laps}`;
  }
@@ -65,7 +79,7 @@ export function mountIslandTransport(viewer,world){
   if(inside)viewer.camera.rotation.set(pitch,(cable?0:model.yaw+Math.PI)+yaw,0,'YXZ');else viewer.camera.lookAt(p.x,p.y+.85,p.z);
   if(boarding<1){targetRotation.copy(viewer.camera.quaternion);viewer.camera.quaternion.slerpQuaternions(saved.rotation,targetRotation,smooth(boarding))}
  }
- const control={model,gameControls,get active(){return !!saved},
+ const control={get model(){return model},models,gameControls,get active(){return !!saved},
   update(dt){
    if(disposed)return;
    if(cable){
@@ -79,7 +93,7 @@ export function mountIslandTransport(viewer,world){
    if(saved){
     if(exiting){exiting.time+=dt;const t=smooth(exiting.time/.6);viewer.camera.position.lerpVectors(exiting.from,exiting.to.position,t);viewer.camera.quaternion.slerpQuaternions(exiting.rotation,exiting.toRotation,t);if(exiting.time>=.6)restore(exiting.to)}
     else{
-     if(!cable){const keys=viewer.keys,input=gameControls.state,x=input.x+viewer.stick.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),y=(input.pedalHeld?-input.pedal:input.y+viewer.stick.y)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0);model.update(dt,{...kartJoystickInput(x,y),brake:braking||keys.has('Space')});pose()}
+     if(!cable){const keys=viewer.keys,input=gameControls.state,x=input.x+viewer.stick.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),y=(input.pedalHeld?-input.pedal:input.y+viewer.stick.y)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0);model.update(dt,{...kartJoystickInput(x,y,model.profile),brake:braking||keys.has('Space')});pose()}
      updateCamera(dt);
     }
    }
