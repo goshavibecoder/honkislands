@@ -1,10 +1,8 @@
 import * as THREE from 'three';
 import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 
-let headPromise;
-export function loadHonkKartHead(){
- return headPromise??=fetch('./assets/honk-kart-head-v57.bin').then(async r=>{if(!r.ok)throw Error('Honk driver unavailable');return new Response(new Blob([await r.arrayBuffer()]).stream().pipeThrough(new DecompressionStream('gzip'))).json()});
-}
+import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';
+export const loadHonkKartHead=createAssetCache(()=>fetchGzipJSON('./assets/honk-kart-head-v57.bin'));
 export function createHonkKartDriver(vehicle,headData){
  const driver=new THREE.Group();driver.name='Honk_player_driver';driver.visible=false;vehicle.add(driver);
  const torso=new THREE.Group();torso.name='Honk_driver_torso';driver.add(torso);

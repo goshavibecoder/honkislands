@@ -1,3 +1,4 @@
+import {createAssetCache,fetchAssetBytes,fetchAssetJSON,fetchGzipJSON,loadCompressedScene} from './asset-loader.js?v=116';
 import * as THREE from 'three';
 import {createArchitectureCollision} from './walk-architecture.js?v=77';
 import {prepareArenaAudience} from './arena-crowd.js?v=88';
@@ -37,10 +38,10 @@ import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=
 import {mountGalleryLift} from './gallery-lift.js?v=72';
 import {prepareIslandTransport} from './island-transport-world.js?v=115';
 import {mountIslandTransport} from './island-transport.js?v=115';
-import {loadHonkKartHead} from './kart-driver.js?v=59';
+import {loadHonkKartHead} from './kart-driver.js?v=116';
 import { createPanoramicSky } from './sky360.js?v=5';
 const DOWN=new THREE.Vector3(0,-1,0),UP=new THREE.Vector3(0,1,0),clamp=THREE.MathUtils.clamp;
-const configPromise=fetch('./worlds.json?v=7').then(r=>{if(!r.ok)throw Error('World configuration unavailable');return r.json()});
+const loadWorldConfig=createAssetCache(()=>fetchAssetJSON('./worlds.json?v=7'));
 export class IslandViewer {
  constructor(host){
   this.host=host;this.active=false;this.mode='walk';this.keys=new Set();this.stick={x:0,y:0};this.yaw=0;this.pitch=0;this.motion=new WalkMotion();this.drag=null;this.foot=0;this.previous=0;this.frame=0;this.navRay=new THREE.Raycaster();
@@ -55,19 +56,15 @@ export class IslandViewer {
   this.resize=()=>{const w=host.clientWidth||innerWidth,h=host.clientHeight||innerHeight;this.renderer.setSize(w,h);this.camera.aspect=w/h;this.camera.updateProjectionMatrix()};window.addEventListener('resize',this.resize);this.resize();this.bindInput();
   this.renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();this.setActive(false);document.getElementById('error-message').textContent='3D rendering was paused. Return to the map and open the island again.';document.getElementById('error').hidden=false});
  }
- async fetchBinary(url,onChunk=()=>{}){const response=await fetch(url);if(!response.ok)throw Error(`Asset ${response.status}: ${url}`);if(!response.body)return new Uint8Array(await response.arrayBuffer());const reader=response.body.getReader(),chunks=[];let n=0;while(true){const {value,done}=await reader.read();if(done)break;chunks.push(value);n+=value.length;onChunk(value.length)}const data=new Uint8Array(n);let off=0;for(const chunk of chunks){data.set(chunk,off);off+=chunk.length}return data}
+ async fetchBinary(url,onChunk=()=>{},options={}){return fetchAssetBytes(url,onChunk,options)}
  async loadGroypActor(){
-  const manifest=await (await fetch('./models/groyp-air-v74.json')).json(),chunks=await Promise.all(manifest.parts.map(part=>this.fetchBinary('./models/'+part))),bytes=new Uint8Array(chunks.reduce((n,c)=>n+c.length,0));let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length}
-  const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();return (await new GLTFLoader().parseAsync(buffer,'')).scene;
+  const manifest=await fetchAssetJSON('./models/groyp-air-v74.json'),buffer=await loadCompressedScene(manifest,(part,onChunk,cache)=>this.fetchBinary('./models/'+part,onChunk,{cache}));return (await new GLTFLoader().parseAsync(buffer,'')).scene;
  }
  async open(slug,progress){
-  this.setActive(false);this.clear();this.slug=slug;this.camera.near=slug==='arena'?.10:.035;this.camera.far=slug==='arena'?180:1100;this.camera.updateProjectionMatrix();this.config=(await configPromise)[slug];if(!this.config)throw Error('Unknown island');this.renderQuality.configure(this.config.pixelRatio||1.6);
-  const response=await fetch(`./models/${slug}.json?v=9`);if(!response.ok)throw Error('Model manifest unavailable');this.manifest=await response.json();let downloaded=0;const payloads=await Promise.all(this.manifest.parts.map(part=>this.fetchBinary(`./models/${part}?v=9`,n=>{downloaded+=n;progress(downloaded/this.manifest.bytes*.72,'Flying to the island…')})));
-  const bytes=new Uint8Array(payloads.reduce((n,a)=>n+a.length,0));let offset=0;for(const a of payloads){bytes.set(a,offset);offset+=a.length}
-  if(!('DecompressionStream' in window))throw Error('Update browser to support compressed scenes');
-  const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();progress(.78,'Opening the 3D world…');
+  this.setActive(false);this.clear();this.slug=slug;this.camera.near=slug==='arena'?.10:.035;this.camera.far=slug==='arena'?180:1100;this.camera.updateProjectionMatrix();this.config=(await loadWorldConfig())[slug];if(!this.config)throw Error('Unknown island');this.renderQuality.configure(this.config.pixelRatio||1.6);
+  this.manifest=await fetchAssetJSON(`./models/${slug}.json?v=9`);const buffer=await loadCompressedScene(this.manifest,(part,onChunk,cache)=>this.fetchBinary(`./models/${part}?v=9`,onChunk,{cache}),progress);progress(.78,'Opening the 3D world…');
   const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures(),balloonDoor:true,wardrobeActor:await this.loadGroypActor()}):null;if(slug==='carnival')await Promise.all([prepareGalleryMemes(this.root),prepareGalleryGraffiti(this.root)]);this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
-  let mountainShell=null;if(slug==='goat-mountain'){const sealed=await this.fetchBinary('./models/goat-mountain-shell-v22.bin?v=22');mountainShell=await new Response(new Blob([sealed]).stream().pipeThrough(new DecompressionStream('gzip'))).json()}
+  let mountainShell=null;if(slug==='goat-mountain'){mountainShell=await fetchGzipJSON('./models/goat-mountain-shell-v22.bin?v=22')}
   this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;this.mountainSnow=null;
   this.islandTransportWorld=prepareIslandTransport(this.root,slug,{driverHead:slug==='arcade-district'?await loadHonkKartHead():null});
   this.helicopter=slug==='citadel'?addClownHelicopter(this.root):null;
