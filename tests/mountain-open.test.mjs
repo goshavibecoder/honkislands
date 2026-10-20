@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as THREE from '../vendor/three.module.min.js';
 const base=new URL('../',import.meta.url),originalFetch=globalThis.fetch;
-globalThis.fetch=async(url)=>{const u=String(url);if(/^(?:https?:|data:|blob:)/.test(u))return originalFetch(url);const path=new URL(u,base);path.search='';return new Response(readFileSync(path))};
+globalThis.fetch=async(url)=>{const u=String(url);if(/^(?:https?:|data:|blob:)/.test(u))return originalFetch(url);if(process.env.HONK_LIVE_BASE)return originalFetch(new URL(u,process.env.HONK_LIVE_BASE));const path=new URL(u,base);path.search='';return new Response(readFileSync(path))};
 class Element{
  constructor(){this.events={};this.nodes=new Map();this.children=[];this.style={};this.dataset={};this.ownerDocument=globalThis.document;this.captures=new Set();this.classList={add(){},remove(){},toggle(){},contains(){return false}};this.width=512;this.height=320}
  addEventListener(t,f){(this.events[t]??=[]).push(f)}removeEventListener(t,f){this.events[t]=(this.events[t]||[]).filter(x=>x!==f)}
