@@ -77,3 +77,49 @@ export class KartDrive{
   }
  }
 }
+
+function kartContact(a,b){
+ let best=null;
+ for(const u of [-.55,0,.55])for(const v of [-.55,0,.55]){
+  const ax=a.position.x+Math.sin(a.yaw)*u,az=a.position.z+Math.cos(a.yaw)*u,bx=b.position.x+Math.sin(b.yaw)*v,bz=b.position.z+Math.cos(b.yaw)*v,dx=bx-ax,dz=bz-az,d=Math.hypot(dx,dz);
+  if(d<1.14&&(!best||d<best.distance)){const fallback=Math.hypot(b.position.x-a.position.x,b.position.z-a.position.z)||1;best={distance:d,nx:d>1e-7?dx/d:(b.position.x-a.position.x)/fallback,nz:d>1e-7?dz/d:(b.position.z-a.position.z)/fallback,x:(ax+bx)/2,z:(az+bz)/2}}
+ }
+ return best;
+}
+// Equal-mass bump impulses with short tyre drag. Idle cars keep moving after
+// contact; all motion uses the same small steps and solid rails as driving.
+export class KartTraffic{
+ constructor(models){this.models=models;this.bodies=models.map(()=>({x:0,z:0,spin:0}));this.contacts=0}
+ reset(index){if(index===undefined){for(const b of this.bodies)b.x=b.z=b.spin=0}else{const b=this.bodies[index];if(b)b.x=b.z=b.spin=0}}
+ update(dt,active=-1,input={}){
+  if(active<0&&this.models.every((m,i)=>m.speed===0&&m.steer===0&&this.bodies[i].x===0&&this.bodies[i].z===0&&this.bodies[i].spin===0)){for(const model of this.models)model.warning=Math.max(0,model.warning-clamp(dt,0,.25));return;}
+  let left=clamp(dt,0,.25);
+  while(left>1e-9){const step=Math.min(left,1/120);left-=step;
+   for(let i=0;i<this.models.length;i++){
+    const m=this.models[i],b=this.bodies[i];if(i===active||m.speed!==0||m.steer!==0)m.update(step,i===active?input:{});else m.warning=Math.max(0,m.warning-step);
+    if(i!==active&&Math.abs(m.steer)<.0001)m.steer=0;
+    if(!b.x&&!b.z&&!b.spin)continue;
+    const dx=b.x*step,dz=b.z*step,yaw=m.yaw+b.spin*step;
+    if(m.canDrive(m.position.x+dx,m.position.z+dz,yaw,m.obstacles)){m.position.x+=dx;m.position.z+=dz;m.yaw=yaw;m.wheelSpin+=(dx*Math.sin(yaw)+dz*Math.cos(yaw))/.235}
+    else{b.x=b.z=b.spin=0;m.warning=1.2}
+    const drag=Math.exp(-5.2*step);b.x*=drag;b.z*=drag;b.spin*=Math.exp(-8*step);
+    if(Math.hypot(b.x,b.z)<.008)b.x=b.z=0;if(Math.abs(b.spin)<.004)b.spin=0;
+   }
+   for(let i=0;i<this.models.length;i++)for(let j=i+1;j<this.models.length;j++)this.resolve(i,j,active);
+  }
+ }
+ resolve(i,j,active){
+  const a=this.models[i],b=this.models[j],c=kartContact(a,b);if(!c)return;
+  const A=this.bodies[i],B=this.bodies[j],sa=Math.sin(a.yaw),ca=Math.cos(a.yaw),sb=Math.sin(b.yaw),cb=Math.cos(b.yaw);
+  const avx=sa*a.speed+A.x,avz=ca*a.speed+A.z,bvx=sb*b.speed+B.x,bvz=cb*b.speed+B.z,closing=(avx-bvx)*c.nx+(avz-bvz)*c.nz;
+  const move=(m,amount)=>{const x=m.position.x+c.nx*amount,z=m.position.z+c.nz*amount;if(!m.canDrive(x,z,m.yaw,m.obstacles))return false;m.position.x=x;m.position.z=z;return true};
+  const overlap=1.14-c.distance+.0001,ma=move(a,-overlap/2),mb=move(b,overlap/2);
+  if(!ma&&mb)move(b,overlap/2);if(ma&&!mb)move(a,-overlap/2);
+  if(closing<=0)return;
+  const impulse=Math.min(6,closing*.60);
+  const assign=(m,body,vx,vz,driven)=>{m.speed=driven?vx*Math.sin(m.yaw)+vz*Math.cos(m.yaw):0;body.x=vx-Math.sin(m.yaw)*m.speed;body.z=vz-Math.cos(m.yaw)*m.speed;const length=Math.hypot(body.x,body.z);if(length>6){body.x*=6/length;body.z*=6/length}};
+  assign(a,A,avx-c.nx*impulse,avz-c.nz*impulse,i===active);assign(b,B,bvx+c.nx*impulse,bvz+c.nz*impulse,j===active);
+  const torque=(m,body,sign)=>{const rx=c.x-m.position.x,rz=c.z-m.position.z;body.spin=clamp(body.spin+sign*(rz*c.nx-rx*c.nz)*impulse*.23,-.65,.65)};
+  torque(a,A,-1);torque(b,B,1);a.warning=b.warning=1.2;this.contacts++;
+ }
+}

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import * as THREE from '../vendor/three.module.min.js';
-import {CableTransit,KartDrive,CABLE_STATIONS,KART_TRACK,KART_RAILS,KART_PROFILES,kartCanDrive,kartJoystickInput,cablePosition} from '../island-transport-motion.js';
+import {CableTransit,KartDrive,KartTraffic,CABLE_STATIONS,KART_TRACK,KART_RAILS,KART_PROFILES,kartCanDrive,kartJoystickInput,cablePosition} from '../island-transport-motion.js';
 import {createTouchStick} from '../touch-stick.js';
 import {WalkMotion} from '../walk-motion.js';
 const driverHead=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url))));
@@ -206,4 +206,33 @@ test('speed kart triples both speeds, responds sooner, brakes and stays inside b
  const results=[30,60,120].map(hz=>{const k=new KartDrive({profile:KART_PROFILES.speed,canDrive:()=>true});advance(k,2,hz,{throttle:1,steer:.2});return k});
  for(const k of results){assert.ok(Math.abs(k.position.x-results[0].position.x)<.002);assert.ok(Math.abs(k.position.z-results[0].position.z)<.002)}
  const k=new KartDrive({profile:KART_PROFILES.speed});for(let i=0;i<6000;i++){k.update(1/120,{throttle:i%1400<1000?1:-1,steer:Math.sin(i/60)});assert.ok(kartCanDrive(k.position.x,k.position.z,k.yaw))}
+});
+
+test('bumping a parked car transfers momentum, turns glancing contacts and respects walls',()=>{
+ function collide(hz,offset=0,reverse=false,wall=false){
+  const obstacles=wall?[{min:{x:2.1,y:0,z:8},max:{x:2.3,y:2,z:11}}]:[],a=new KartDrive({profile:KART_PROFILES.speed,spawn:{x:-3,y:.06,z:9.4+offset},obstacles}),b=new KartDrive({spawn:{x:0,y:.06,z:9.4},obstacles}),traffic=new KartTraffic([a,b]);
+  if(reverse){a.position.x=3;a.yaw=-Math.PI/2}
+  for(let i=0;i<hz*3;i++){traffic.update(1/hz,0,{throttle:i<hz*.6?1:0});for(const m of [a,b])assert.ok(kartCanDrive(m.position.x,m.position.z,m.yaw,obstacles),'collision pushed a car through a barrier')}
+  assert.ok(traffic.contacts>0);assert.ok(Math.hypot(traffic.bodies[1].x,traffic.bodies[1].z)<.01,'parked car should settle');return {a,b,traffic};
+ }
+ const runs=[30,60,120].map(hz=>collide(hz));for(const r of runs){assert.ok(r.b.position.x>.15&&r.b.position.x<2.1);assert.ok(Math.abs(r.b.position.x-runs[0].b.position.x)<.002)}
+ assert.ok(collide(60,0,true).b.position.x<-.15);
+ assert.ok(Math.abs(collide(60,-.75).b.yaw-Math.PI/2)>.01,'off-centre impact should turn the other car');
+ assert.ok(collide(60,0,false,true).b.position.x<1.1,'parked car must stop at a wall');
+ const a=new KartDrive({spawn:{x:-3,y:.06,z:9.4}}),b=new KartDrive(),traffic=new KartTraffic([a,b]);advance(traffic,2);assert.equal(a.position.x,-3);assert.equal(b.position.x,0);
+ traffic.bodies[0].x=2;traffic.reset(0);assert.equal(traffic.bodies[0].x,0);
+});
+test('parked-car rebound stays visible after the driver exits and camera ownership stays with the selected car',()=>{
+ const {viewer,world,controller,panel}=setup('kart'),classic=controller.models[0],fast=controller.models[1];
+ classic.position={x:0,y:.06,z:9.4};fast.position={x:-3,y:.06,z:9.4};viewer.camera.position.set(-2,1.69,9.4);advance(controller,.2);
+ panel.querySelector('.ride-board-fast').click();assert.equal(controller.model,fast);viewer.keys.add('KeyW');advance(controller,.5);
+ assert.ok(classic.position.x>.05,'parked car did not move');assert.equal(world.activeCar,1);assert.equal(world.cars[0].vehicle.position.x,classic.position.x);assert.equal(world.vehicle,world.cars[1].vehicle);
+ viewer.keys.clear();panel.querySelector('.ride-exit').click();advance(controller,.7);assert.equal(controller.active,false);
+ const x=classic.position.x;advance(controller,.5);assert.ok(classic.position.x>=x);assert.equal(world.cars[0].vehicle.position.x,classic.position.x);controller.dispose();
+});
+test('the sports racer keeps the original footprint and all moving meshes remain dynamic',()=>{
+ const before=prepareIslandTransport(new THREE.Group(),'arcade-district'),classic=before.cars[0],sport=before.cars[1],size=new THREE.Vector3(),classicSize=new THREE.Vector3();
+ classic.bounds.getSize(classicSize);sport.bounds.getSize(size);assert.ok(size.x<=classicSize.x+.03);assert.ok(size.z<=classicSize.z+.03);assert.ok(size.y<=classicSize.y+.03);
+ assert.ok(sport.vehicle.getObjectByName('Speed_low_windscreen'));assert.ok(sport.vehicle.getObjectByName('Speed_kart_rear_wing'));
+ for(const car of before.cars){let count=0;car.vehicle.traverse(o=>{if(o.isMesh){count++;assert.equal(o.userData.islandRide,true);assert.ok(o.geometry.attributes.position.array.every(Number.isFinite))}});assert.ok(count<45)}
 });

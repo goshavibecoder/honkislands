@@ -1,17 +1,18 @@
 import * as THREE from 'three';
 import {mountTransportPanel} from './transport-panel.js?v=72';
-import {CableTransit,KartDrive,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=114';
+import {CableTransit,KartDrive,KartTraffic,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=115';
 import {mountKartControls} from './kart-controls.js?v=72';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
 export function mountIslandTransport(viewer,world){
- const cable=world.kind==='cable',cars=world.cars||[],models=cable?[new CableTransit()]:(cars.length?cars.map((car,index)=>new KartDrive({profile:car.profile,spawn:car.spawn,obstacles:[...viewer.boxes,...cars.filter((_,i)=>i!==index).map(car=>car.bounds)]})):[new KartDrive({obstacles:viewer.boxes})]),panel=document.createElement('aside');let model=models[0];panel.className='ride-controls';panel.hidden=true;if(cable)panel.classList.add('cable-ride');panel.setAttribute('aria-label',cable?'HONK cable car':'Clown kart');
+ const cable=world.kind==='cable',cars=world.cars||[],models=cable?[new CableTransit()]:(cars.length?cars.map(car=>new KartDrive({profile:car.profile,spawn:car.spawn,obstacles:viewer.boxes})):[new KartDrive({obstacles:viewer.boxes})]),panel=document.createElement('aside');let model=models[0];panel.className='ride-controls';panel.hidden=true;if(cable)panel.classList.add('cable-ride');panel.setAttribute('aria-label',cable?'HONK cable car':'Clown kart');
  panel.innerHTML='<button class="ride-board glass" type="button"></button><button class="ride-board-fast glass" type="button" hidden>⚡ Drive speed kart · ×3</button><button class="ride-speed glass" type="button" aria-pressed="false">Speed ×1 · Boost ×2</button><div class="ride-dashboard glass" hidden><div class="ride-heading"><strong></strong><output aria-live="off"></output></div><p class="ride-status" role="status" aria-live="polite"></p><button class="ride-trip" type="button"></button><button class="ride-brake" type="button">Brake</button><button class="ride-camera" type="button"></button><button class="ride-exit" type="button">Exit</button></div>';
  const board=panel.querySelector('.ride-board'),fastBoard=panel.querySelector('.ride-board-fast'),dashboard=panel.querySelector('.ride-dashboard'),title=panel.querySelector('strong'),output=panel.querySelector('output'),status=panel.querySelector('.ride-status'),trip=panel.querySelector('.ride-trip'),brake=panel.querySelector('.ride-brake'),camera=panel.querySelector('.ride-camera'),exit=panel.querySelector('.ride-exit'),speed=panel.querySelector('.ride-speed'),host=document.getElementById('world');host.append(panel);const compactPanel=mountTransportPanel(panel,cable?'CABLE CAR':'HONK • KART CIRCUIT');
  title.textContent=cable?'HONK • CABLE CAR':'HONK • KART CIRCUIT';trip.hidden=!cable;brake.hidden=cable;speed.hidden=!cable;
- const gameControls=cable?null:mountKartControls(host);
+ const gameControls=cable?null:mountKartControls(host),traffic=cable?null:new KartTraffic(models);
  let saved=null,inside=cable,braking=false,boarding=0,exiting=null,near=-1,uiTime=0,disposed=false,boardStation=0,cameraCheck=0,cameraClearance=Infinity;
  const ray=new THREE.Raycaster(),from=new THREE.Vector3(),desired=new THREE.Vector3(),target=new THREE.Vector3(),hit=new THREE.Vector3(),targetRotation=new THREE.Quaternion();
+ function poseAll(){if(cable)return;for(let i=0;i<models.length;i++){const m=models[i];world.setCarPose?.(i,m.position,m.yaw,m.wheelSpin,m.steer,m.speed)}}
  function pose(){if(cable){world.setPose(model.position);world.setDoors?.(model.door)}else world.setPose(model.position,model.yaw,model.wheelSpin,model.steer,model.speed)}
  function nearCar(index){
   if(viewer.mode!=='walk'||!models[index])return false;const p=viewer.camera.position,p0=models[index].position;
@@ -79,9 +80,10 @@ export function mountIslandTransport(viewer,world){
   if(inside)viewer.camera.rotation.set(pitch,(cable?0:model.yaw+Math.PI)+yaw,0,'YXZ');else viewer.camera.lookAt(p.x,p.y+.85,p.z);
   if(boarding<1){targetRotation.copy(viewer.camera.quaternion);viewer.camera.quaternion.slerpQuaternions(saved.rotation,targetRotation,smooth(boarding))}
  }
- const control={get model(){return model},models,gameControls,get active(){return !!saved},
+ const control={get model(){return model},models,traffic,gameControls,get active(){return !!saved},
   update(dt){
    if(disposed)return;
+   if(!cable&&(!saved||exiting)){traffic.update(dt);poseAll()}
    if(cable){
     const moving=model.moving;model.update(dt);world.setDoors?.(model.door);if(moving!==model.moving)uiTime=0;if(moving)pose();
     if(saved&&!exiting&&!model.moving&&model.door>=.98){
@@ -93,13 +95,13 @@ export function mountIslandTransport(viewer,world){
    if(saved){
     if(exiting){exiting.time+=dt;const t=smooth(exiting.time/.6);viewer.camera.position.lerpVectors(exiting.from,exiting.to.position,t);viewer.camera.quaternion.slerpQuaternions(exiting.rotation,exiting.toRotation,t);if(exiting.time>=.6)restore(exiting.to)}
     else{
-     if(!cable){const keys=viewer.keys,input=gameControls.state,x=input.x+viewer.stick.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),y=(input.pedalHeld?-input.pedal:input.y+viewer.stick.y)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0);model.update(dt,{...kartJoystickInput(x,y,model.profile),brake:braking||keys.has('Space')});pose()}
+     if(!cable){const keys=viewer.keys,input=gameControls.state,x=input.x+viewer.stick.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),y=(input.pedalHeld?-input.pedal:input.y+viewer.stick.y)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0);traffic.update(dt,models.indexOf(model),{...kartJoystickInput(x,y,model.profile),brake:braking||keys.has('Space')});poseAll()}
      updateCamera(dt);
     }
    }
    uiTime-=dt;if(uiTime<=0){uiTime=.10;sync()}
   },
-  cancel(){if(saved){if(cable)model.reset(boardStation);else model.reset();pose();restore()}else if(cable&&model.moving){model.reset(model.station);pose()}sync()},
+  cancel(){if(saved){if(cable)model.reset(boardStation);else{model.reset();traffic.reset(models.indexOf(model))}pose();restore()}else if(cable&&model.moving){model.reset(model.station);pose()}sync()},
   dispose(){if(disposed)return;this.cancel();disposed=true;gameControls?.dispose();window.removeEventListener('blur',blur);window.removeEventListener('keydown',key);panel.remove()}
  };
  pose();sync();return control;

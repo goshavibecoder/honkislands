@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,KART_PROFILES,kartSteeringAngle} from './island-transport-motion.js?v=114';
+import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,KART_PROFILES,kartSteeringAngle} from './island-transport-motion.js?v=115';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createHonkKartDriver} from './kart-driver.js?v=59';
 
@@ -109,14 +109,59 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
   for(const profile of [KART_PROFILES.classic,KART_PROFILES.speed]){
   const fast=profile.id==='speed';wheels=[];steering=[];
   vehicle=new THREE.Group();vehicle.name=fast?'Honk_arcade_speed_kart':'Honk_arcade_kart';group.add(vehicle);
-  rounded(1.0,.28,1.72,.13,fast?m.red:m.blue,vehicle,0,.32,0);rounded(.89,.25,.62,.12,fast?m.dark:m.red,vehicle,0,.50,.58);
-  if(fast){box(.13,.016,.44,m.white,vehicle,0,.674,.62,'Speed_kart_racing_stripe');for(const x of [-.36,.36])rod([x,.43,-.75],[x,.96,-.75],.025,m.gold,vehicle);box(1.15,.06,.28,m.red,vehicle,0,.99,-.79,'Speed_kart_rear_wing')}
+
+  if(fast){
+   // A compact open-cockpit sports racer, inside the existing kart envelope.
+   const paint=mat('Speed kart scarlet metallic',0xed263b,.23,.5);
+   function loft(name,slices,material){
+    const positions=[],quad=(a,b,c,d)=>positions.push(...a,...c,...b,...a,...d,...c);
+    const rings=slices.map(([z,w,bottom,top])=>[[-w,bottom,z],[w,bottom,z],[w,top-.055,z],[w*.72,top,z],[-w*.72,top,z],[-w,top-.055,z]]);
+    for(let i=1;i<rings.length;i++)for(let j=0;j<6;j++)quad(rings[i-1][j],rings[i][j],rings[i][(j+1)%6],rings[i-1][(j+1)%6]);
+    for(const [ring,reverse] of [[rings[0],true],[rings[rings.length-1],false]])for(let j=1;j<ring.length-1;j++){const tri=[ring[0],ring[j],ring[j+1]];if(reverse)tri.reverse();positions.push(...tri.flat())}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.computeVertexNormals();return mesh(g,material,vehicle,0,0,0,name);
+   }
+   loft('Speed_sculpted_chassis',[[-.88,.42,.20,.48],[-.62,.50,.18,.52],[.25,.49,.18,.48],[.72,.48,.20,.43],[1.02,.39,.23,.33]],paint);
+   loft('Speed_long_bonnet',[[.34,.33,.43,.57],[.68,.36,.39,.50],[.99,.29,.30,.39]],paint);
+   // Raised side shoulders leave the driver's seat and arms clear.
+   for(const side of [-1,1]){
+    const sill=rounded(.13,.16,1.36,.04,m.dark,vehicle,side*.49,.24,-.02);sill.name='Speed_carbon_side_skirt';
+    rounded(.16,.22,.88,.06,paint,vehicle,side*.44,.49,-.12);
+    const intake=box(.012,.13,.29,m.dark,vehicle,side*.535,.47,-.25,'Speed_side_air_intake');intake.rotation.z=side*.12;
+    for(let n=0;n<3;n++)box(.018,.014,.23,m.gold,vehicle,side*.545,.43+n*.045,-.25);
+    for(const z of [-.57,.57]){const arch=mesh(new THREE.TorusGeometry(.275,.044,6,20,Math.PI),paint,vehicle,side*.54,.235,z,'Speed_sculpted_wheel_arch');arch.rotation.y=Math.PI/2}
+    const lamp=rounded(.24,.045,.055,.015,m.white,vehicle,side*.29,.405,.945);lamp.rotation.y=-side*.18;
+    box(.19,.018,.02,m.cyan,vehicle,side*.30,.365,.987,'Speed_front_running_light');
+    rod([side*.20,.68,.21],[side*.39,.73,.30],.018,m.dark,vehicle);rounded(.12,.06,.085,.02,paint,vehicle,side*.43,.735,.31);
+    rod([side*.28,.63,-.64],[side*.28,1.03,-.64],.025,m.dark,vehicle);
+   }
+   rod([-.28,1.03,-.64],[.28,1.03,-.64],.03,m.dark,vehicle);
+   box(1.04,.045,.16,m.dark,vehicle,0,.205,.96,'Speed_front_splitter');
+   box(.56,.10,.025,m.dark,vehicle,0,.29,1.024,'Speed_front_grille');
+   for(let n=0;n<5;n++)box(.026,.08,.032,m.rubber,vehicle,-.20+n*.10,.29,1.042);
+   const shield=box(.69,.18,.025,m.glass,vehicle,0,.73,.34,'Speed_low_windscreen');shield.rotation.x=.38;
+   for(const side of [-1,1])rod([side*.35,.64,.37],[side*.35,.81,.30],.012,m.dark,vehicle);
+   // Twin stripes follow the bonnet slope; every stripe sits above its panel.
+   for(const x of [-.095,.095])for(const [za,ya,zb,yb] of [[.34,.57,.68,.50],[.68,.50,.99,.39]]){const stripe=box(.074,.008,Math.hypot(zb-za,yb-ya),m.white,vehicle,x,(ya+yb)/2+.008,(za+zb)/2,'Speed_racing_stripe');stripe.rotation.x=Math.atan2(ya-yb,zb-za)}
+   for(const x of [-.36,.36])rod([x,.47,-.76],[x,.94,-.76],.023,m.dark,vehicle);
+   const wing=box(1.12,.045,.24,m.dark,vehicle,0,.96,-.79,'Speed_kart_rear_wing');wing.rotation.x=-.10;
+   for(const x of [-.55,.55])box(.025,.13,.25,paint,vehicle,x,1.00,-.79);
+   box(.83,.05,.055,m.red,vehicle,0,.47,-.918,'Speed_rear_light_bar');
+   box(.86,.14,.10,m.dark,vehicle,0,.235,-.89,'Speed_rear_diffuser');
+   for(const x of [-.32,-.16,0,.16,.32])box(.025,.13,.19,m.rubber,vehicle,x,.23,-.89);
+   for(const x of [-.28,.28]){const exhaust=mesh(new THREE.CylinderGeometry(.045,.045,.10,12),m.gold,vehicle,x,.34,-.95,'Speed_twin_exhaust');exhaust.rotation.x=Math.PI/2}
+   // An inset racing number on each flank keeps the HONK toy-car character.
+   for(const side of [-1,1])for(const y of [.41,.47,.53])box(.012,.015,.075,m.white,vehicle,side*.542,y,.10);
+   for(const side of [-1,1])box(.012,.13,.014,m.white,vehicle,side*.542,.47,.138);
+  }else{
+   rounded(1.0,.28,1.72,.13,m.blue,vehicle,0,.32,0);rounded(.89,.25,.62,.12,m.red,vehicle,0,.50,.58);
+  }
   for(const z of [-.85,.85])rod([-.5,.24,z],[.5,.24,z],.07,m.cream,vehicle);
   rounded(.62,.15,.57,.06,m.dark,vehicle,0,.50,-.22);const seat=rounded(.63,.50,.14,.08,m.red,vehicle,0,.78,-.50);seat.rotation.x=-.15;
   rod([0,.50,.35],[0,.83,.18],.025,m.gold,vehicle);const wheel=mesh(new THREE.TorusGeometry(.16,.022,8,24),m.dark,vehicle,0,.84,.17,'Kart_steering_wheel');wheel.rotation.x=-.5;steering.push(wheel);
   for(const x of [-.54,.54])for(const z of [-.57,.57]){const pivot=new THREE.Group();pivot.name=`Kart_${z>0?'front':'rear'}_${x<0?'right':'left'}_wheel`;pivot.position.set(x,.235,z);vehicle.add(pivot);const tire=mesh(new THREE.CylinderGeometry(.235,.235,.16,20),m.rubber,pivot);tire.rotation.z=Math.PI/2;const hub=mesh(new THREE.CylinderGeometry(.12,.12,.17,16),m.gold,pivot);hub.rotation.z=Math.PI/2;wheels.push({pivot,tire,hub,front:z>0})}
-  for(const x of [-.27,.27]){sphere(x,.50,.91,.105,.08,.03,m.cream,vehicle);sphere(x,.52,.94,.04,.04,.012,m.dark,vehicle)}sphere(0,.43,1.00,.13,.13,.12,m.red,vehicle);
+  if(!fast){for(const x of [-.27,.27]){sphere(x,.50,.91,.105,.08,.03,m.cream,vehicle);sphere(x,.52,.94,.04,.04,.012,m.dark,vehicle)}sphere(0,.43,1.00,.13,.13,.12,m.red,vehicle);
   for(let i=0;i<5;i++)sphere(-.36+i*.18,.66,.71,.066,.045,.04,[m.red,m.gold,m.green,m.blue,m.pink][i],vehicle);
+  }
   driver=createHonkKartDriver(vehicle,driverHead);dynamic(vehicle);
   const spawn={x:fast?-1.5:0,y:KART_TRACK.y,z:KART_TRACK.rz+(fast?.90:-.60)};vehicle.position.set(spawn.x,spawn.y,spawn.z);vehicle.rotation.y=Math.PI/2;
   batchRideMeshes(vehicle,{keep:o=>steering.includes(o)||o.name==='Speed_kart_rear_wing'});dynamic(vehicle);
@@ -129,11 +174,13 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  const bounds=new THREE.Box3().setFromObject(group);
  function selectCar(index){if(kind!=='kart'||!cars[index])return null;activeCar=index;({vehicle,driver,wheels,steering}=cars[index]);return cars[index]}
  function setPose(p,yaw=0,spin=0,steer=0,speed=0){
+  const state=kind==='kart'?cars[activeCar]:null,last=state?.lastPose;if(last&&last.x===p.x&&last.y===p.y&&last.z===p.z&&last.yaw===yaw&&last.spin===spin&&last.steer===steer&&last.speed===speed)return;
   vehicle.position.set(p.x,p.y,p.z);vehicle.rotation.y=yaw;const gain=cars[activeCar]?.profile.steerGain??1,visualSteer=THREE.MathUtils.clamp(steer*gain,-1,1);
   for(const w of wheels){w.pivot.rotation.y=w.front?kartSteeringAngle(steer,speed,gain):0;w.tire.rotation.x=spin;w.hub.rotation.x=spin}
   for(const s of steering)s.rotation.z=visualSteer*.65;driver?.steer(visualSteer);
-  if(kind==='kart'){vehicle.updateWorldMatrix(true,true);cars[activeCar].bounds.setFromObject(vehicle)}
+  if(kind==='kart'){vehicle.updateWorldMatrix(true,true);cars[activeCar].bounds.setFromObject(vehicle);state.lastPose={x:p.x,y:p.y,z:p.z,yaw,spin,steer,speed}}
  }
+ function setCarPose(index,p,yaw,spin,steer,speed){const previous=activeCar;if(!selectCar(index))return;setPose(p,yaw,spin,steer,speed);selectCar(previous)}
  function setDoors(value){doorOpen=THREE.MathUtils.clamp(value,0,1);for(const {hinge,sign} of doors)hinge.rotation.y=sign*doorOpen*Math.PI/2}
  function floorAt(x,z,top,far=2){
   if(kind!=='cable'||doorOpen<.98)return null;
@@ -152,5 +199,5 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
   return !cars.some(({vehicle})=>{const dx=x-vehicle.position.x,dz=z-vehicle.position.z,c=Math.cos(vehicle.rotation.y),s=Math.sin(vehicle.rotation.y);return Math.abs(dx*c-dz*s)<.77&&Math.abs(dx*s+dz*c)<1.17});
  }
  setDoors(1);
- return {kind,group,cars,selectCar,get activeCar(){return activeCar},get vehicle(){return vehicle},get driver(){return driver},doors,navPositions,extraBoxes,bounds,setPose,setDoors,floorAt,canStand,get doorOpen(){return doorOpen}};
+ return {kind,group,cars,selectCar,get activeCar(){return activeCar},get vehicle(){return vehicle},get driver(){return driver},doors,navPositions,extraBoxes,bounds,setPose,setCarPose,setDoors,floorAt,canStand,get doorOpen(){return doorOpen}};
 }
