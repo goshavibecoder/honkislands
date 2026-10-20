@@ -17,16 +17,16 @@ class Element{
 }
 const doc=new Element(),win=new Element();doc.defaultView=win;win.DecompressionStream=DecompressionStream;globalThis.document=doc;globalThis.window=win;
 doc.createElement=doc.createElementNS=()=>new Element();doc.getElementById=id=>doc.querySelector(id);doc.hidden=false;
-globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,height:1,close(){}});
+globalThis.Image=Element;globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,height:1,close(){}});
 globalThis.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});globalThis.requestAnimationFrame=()=>0;globalThis.cancelAnimationFrame=()=>{};
 globalThis.innerWidth=1024;globalThis.innerHeight=768;globalThis.devicePixelRatio=1;
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
 function moduleURL(url){if(modules.has(url.href))return modules.get(url.href);const source=readFileSync(url,'utf8').replace(/(^import\s[\s\S]*?\sfrom\s+)(['"])([^'"]+)\2/gm,(_,a,q,p)=>a+"'"+(p==='three'?threeURL:moduleURL(new URL(p,url)))+"'"),result='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(url.href,result);return result}
 const {IslandViewer}=await import(moduleURL(new URL('../viewer.js',import.meta.url)));
-test('the complete mountain open path prepares geometry, navigation and every controller',async()=>{
+test('the complete mountain open path prepares geometry, navigation and every controller',{timeout:30000},async()=>{
  const v=Object.create(IslandViewer.prototype);Object.assign(v,{host:new Element(),active:false,mode:'walk',keys:new Set(),stick:{x:0,y:0},yaw:0,pitch:0,foot:0,previous:0,frame:0,drag:null,navRay:new THREE.Raycaster(),camera:new THREE.PerspectiveCamera(),scene:new THREE.Scene(),environment:new THREE.Texture(),renderQuality:{configure(){}},renderer:{capabilities:{getMaxAnisotropy:()=>4},domElement:new Element(),compileAsync:async()=>{},render(){}},controls:{target:new THREE.Vector3()},motion:{stop(){},reset(){}}});
  v.camera.rotation.order='YXZ';v.scene.add(new THREE.HemisphereLight(),new THREE.DirectionalLight());v.clear=()=>{};v.setActive=value=>{v.active=value};v.resize=()=>{};
- await v.open('goat-mountain',()=>{});
+ await v.open('goat-mountain',(p,label)=>console.log('MOUNTAIN_STAGE',p,label));
  assert.ok(v.nav);assert.ok(v.mountainSnow);assert.ok(v.mountainSki);assert.ok(v.islandTransport);assert.ok(v.staticGroup.children.length);assert.ok(v.camera.position.toArray().every(Number.isFinite));
  v.mountainSki.dispose();v.islandTransport.dispose();v.balloonTravel.dispose();v.mountainStorm.dispose();v.walkCollision.dispose();v.physics.dispose();
 });
