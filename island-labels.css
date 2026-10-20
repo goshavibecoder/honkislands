@@ -1,13 +1,4 @@
-/* Image and cloud share one moving parent; the island hit area stays put. */
-.island .island-visual{
- position:absolute;inset:0;display:block;pointer-events:none;
- transform-origin:50% 50%;transform:translateY(0) scale(1);
- transition:transform .3s ease;
-}
-.island:is(:hover,:focus-visible){z-index:20}
-.island:is(:hover,:focus-visible) .island-visual{transform:translateY(-8px) scale(1.05)}
-.island:is(:hover,:focus-visible,:active) img{scale:1;translate:0 0}
-.island:active .island-visual{transform:translateY(-4px) scale(1.02)}
+/* Keep the original island image hover and press effects from style.css. */
 .island-cloud{
  position:absolute;left:50%;top:6%;transform:translate(-50%,calc(-100% + 14px));
  display:block;width:max-content;padding:9px 18px 10px;
@@ -15,7 +6,7 @@
  color:#5146c6;font-size:clamp(12px,1.15vw,16px);font-weight:750;line-height:1.2;
  letter-spacing:.01em;text-align:center;white-space:nowrap;
  filter:drop-shadow(0 4px 7px #567f9c35);opacity:0;
- transition:opacity .18s ease;pointer-events:none;
+ transition:opacity .18s ease,top .3s ease,translate .3s ease;pointer-events:none;
 }
 .island-cloud::before,.island-cloud::after{
  content:"";position:absolute;background:#fff;border-radius:50%;z-index:0;
@@ -37,6 +28,9 @@
  position:absolute;left:calc(50% - 5px);bottom:-4px;width:10px;height:10px;
  background:#eff8ff;border-radius:2px;transform:rotate(45deg);z-index:0;
 }
+/* Follow the same 8px lift. The anchor follows the image's original 1.05 scale. */
+.island:is(:hover,:focus-visible) .island-cloud{top:3.8%;translate:0 -8px}
+.island:active .island-cloud{top:6.88%}
 .island:focus-visible .island-cloud{opacity:1}
 @media(any-hover:hover){
  .island:hover .island-cloud{opacity:1}
@@ -45,5 +39,5 @@
  .island-cloud{font-size:clamp(11px,1.35vw,15px);padding:8px 13px 9px}
 }
 @media(prefers-reduced-motion:reduce){
- .island .island-visual,.island-cloud{transition:none}
+ .island-cloud{transition:none}
 }
