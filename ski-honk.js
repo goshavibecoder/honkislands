@@ -8,7 +8,7 @@ export function createSkiHonk(parent,headData){
  const mat=c=>new THREE.MeshStandardMaterial({color:c,roughness:.64}),m={blue:mat(0x164bdf),green:mat(0x659b3e),red:mat(0xec3349),gold:mat(0xd7b568),dark:mat(0x25243d),white:mat(0xf0f5ff),bow:mat(0xa9d7fa)};
  const deck=new THREE.Group(),body=new THREE.Group();group.add(deck);deck.add(body,head);
  // Compact the original rider above the fixed boots, keeping the same face and poses.
- const compactY=y=>.28+(y-.28)*.84;head.scale.multiply(new THREE.Vector3(1.08,.90,1.08));
+ const compactY=y=>.28+(y-.28)*.84;head.scale.multiply(new THREE.Vector3(.84,1.24,1.16));
  function ball(parent,x,y,z,sx,sy,sz,material){const o=new THREE.Mesh(new THREE.SphereGeometry(1,14,9),material);o.position.set(x,y,z);o.scale.set(sx,sy,sz);parent.add(o);return o}
  function box(parent,w,h,d,material,x,y,z,name){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);o.position.set(x,y,z);o.name=name;parent.add(o);return o}
  const shape=new THREE.Shape();shape.moveTo(-.17,-.64);shape.quadraticCurveTo(-.17,-.88,0,-.9);shape.quadraticCurveTo(.17,-.88,.17,-.64);shape.lineTo(.17,.64);shape.quadraticCurveTo(.17,.88,0,.9);shape.quadraticCurveTo(-.17,.88,-.17,.64);shape.closePath();
@@ -42,7 +42,7 @@ export function createSkiHonk(parent,headData){
   const air=!!state.airborne,crouch=Math.min(1,(air?.65:Math.min(1,speed/10)*.38)+(state.landing||0)*.7),lean=turn*Math.min(1,speed/5)*.14;
   group.position.copy(position);group.rotation.set(air?Math.atan(slope)*.35+THREE.MathUtils.clamp((state.verticalSpeed||0)*.025,-.14,.14):Math.atan(slope),yaw,0,'YXZ');deck.rotation.z=-lean;
   const hipY=compactY(.76-crouch*.12),shoulderY=compactY(1.08-crouch*.15);
-  torso.position.set(lean,compactY(.95-crouch*.14),0);torso.rotation.z=-lean;pelvis.position.set(lean*.5,hipY,0);neck.position.set(lean,compactY(1.18-crouch*.15),0);head.position.set(lean,compactY(1.30-crouch*.15),.015);head.rotation.set(0,0,-lean*.35);bow.position.set(lean,compactY(1.12-crouch*.15),0);
+  torso.position.set(lean,compactY(.95-crouch*.14),0);torso.rotation.z=-lean;pelvis.position.set(lean*.5,hipY,0);neck.position.set(lean,compactY(1.18-crouch*.15),0);head.position.set(lean,compactY(1.30-crouch*.15)+.057,.015);head.rotation.set(0,0,-lean*.35);bow.position.set(lean,compactY(1.12-crouch*.15),0);
   for(const leg of legs){leg.hip.set(lean*.5-.03,hipY,leg.sign*.125);leg.knee.set(.17+crouch*.07,compactY(.51-crouch*.04),leg.sign*.23);leg.hipJoint.position.copy(leg.hip);leg.kneeJoint.position.copy(leg.knee);connect(leg.upper,leg.hip,leg.knee);connect(leg.lower,leg.knee,leg.ankle)}
   for(const arm of arms){arm.shoulder.set(lean,shoulderY,arm.sign*.19);arm.joint.position.copy(arm.shoulder);arm.elbow.position.set(.02+lean,compactY(.94-crouch*.10),arm.sign*.40);arm.hand.position.set(.10+lean,compactY(.96-crouch*.06+(air?.10:0)),arm.sign*(air?.50:.59));connect(arm.upper,arm.shoulder,arm.elbow.position);connect(arm.forearm,arm.elbow.position,arm.hand.position)}
   powder.visible=!air&&(speed>2&&Math.abs(turn)>.15||(state.landing||0)>.15);
