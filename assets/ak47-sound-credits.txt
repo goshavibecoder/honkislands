@@ -1,0 +1,20 @@
+HONK AK-47 sounds (v128)
+
+Shot: "ak 47 - single shot.mp3" by ninebilly
+https://freesound.org/people/ninebilly/sounds/520934/
+Downloaded high quality MP3 preview:
+https://cdn.freesound.org/previews/520/520934_773642-hq.mp3
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Game edit: isolated the actual gunshot from the handling sounds and silence,
+converted to mono, adjusted level and faded the reverberation tail.
+
+Reload: "assaultriflereload1.wav" from "Gun reload sounds" by SpringySpringo
+https://opengameart.org/content/gun-reload-sounds
+https://opengameart.org/sites/default/files/assaultriflereload1_0.wav
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Game edit: mono MP3, reduced level, tempo adjusted without changing pitch
+to match the game's 2.1 second reload.
+
+Both recordings are served with the game. No third party requests at play time.

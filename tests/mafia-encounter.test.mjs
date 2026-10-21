@@ -92,3 +92,10 @@ test('holding FIRE shoots the AK automatically and a full reload restores 30 rou
  const e=setup();await e.c.begin();advance(e.c,1.9);const fire=e.ui.querySelector('.mafia-fire'),emit=(type,data)=>fire.events[type].forEach(f=>f({preventDefault(){},...data}));
  emit('pointerdown',{pointerId:1,pointerType:'touch',clientX:0,clientY:0});advance(e.c,.8);emit('pointerup',{pointerId:1});assert.ok(e.c.model.ammo<=23);assert.ok(e.c.model.ammo>=21);e.c.reload();advance(e.c,MAFIA_RULES.reload+.05);assert.equal(e.c.model.ammo,30);e.c.dispose();
 });
+test('live combat uses the recorded shot and reload, distant enemy audio and cleanup on exit',async()=>{
+ const calls=[],audio={prepare(){calls.push('prepare');return Promise.resolve(true)},unlock(){},play(kind){calls.push(kind)},tone(){},stop(){calls.push('stop')},dispose(){calls.push('dispose')}},e=setup({makeAudio:()=>audio});
+ await e.c.begin();advance(e.c,1.9);assert.ok(calls.includes('prepare'));
+ assert.equal(e.c.shoot(),true);assert.equal(e.c.shoot(),false);assert.equal(calls.filter(k=>k==='shot').length,1,'cooldown cannot play extra gunshots');
+ e.c.reload();e.c.reload();assert.equal(calls.filter(k=>k==='reload').length,1,'one recording for a single reload');
+ advance(e.c,2.5);assert.ok(calls.includes('enemy-shot'));e.c.cancel();assert.equal(calls.at(-1),'stop');e.c.dispose();assert.equal(calls.at(-1),'dispose');
+});
