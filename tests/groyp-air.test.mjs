@@ -42,25 +42,25 @@ test('Groyper dozes when left alone, greets arrivals, and reacts when approached
  assert.ok(s.actor.position.y>.01,'sudden close approach should produce a small surprised hop');
 });
 
-test('the hand stamp contacts the actual desk ticket and the issued ticket rests at the fingertips without cutting through the hand',async()=>{
- const f=await fresh(),s=f.station;assert.ok(s.beginTicket('Goat Mountain'));assert.equal(s.beginTicket('Neon Castle'),false);
- tick(f,1.2);assert.equal(s.stamp.visible,true);assert.equal(s.deskTicket.visible,true);
- const ink=new THREE.Box3().setFromObject(s.stamp),paper=new THREE.Box3().setFromObject(s.deskTicket);
- assert.ok(Math.abs(ink.min.y-paper.min.y)<.02);assert.ok(ink.min.x<paper.max.x&&ink.max.x>paper.min.x&&ink.min.z<paper.max.z&&ink.max.z>paper.min.z);
- tick(f,.6);assert.equal(s.ticket.visible,true);assert.equal(s.stamp.visible,false);assert.equal(s.ticket.parent,s.bones.hand_r);
- let mesh;s.actor.traverse(o=>{if(o.isSkinnedMesh)mesh=o});
- const handIndex=mesh.skeleton.bones.indexOf(s.bones.hand_r),weights=mesh.geometry.attributes.skinWeight,joints=mesh.geometry.attributes.skinIndex,hand=[];
- for(let i=0;i<weights.count;i++){let weight=0;for(let k=0;k<4;k++)if(joints.getComponent(i,k)===handIndex)weight+=weights.getComponent(i,k);if(weight>.4){const p=new THREE.Vector3().fromBufferAttribute(mesh.geometry.attributes.position,i);mesh.applyBoneTransform(i,p).applyMatrix4(mesh.matrixWorld);hand.push(s.ticket.worldToLocal(p))}}
- const paperBounds=new THREE.Box3(new THREE.Vector3(-.25,-.125,-.004),new THREE.Vector3(.25,.125,.004));
- assert.ok(Math.min(...hand.map(p=>paperBounds.distanceToPoint(p)))<.012,'the paper edge must touch the actual fingertips');
- // All of the hand stays outside the paper interior, including triangles between sampled vertices.
- const handBounds=new THREE.Box3().setFromPoints(hand),interior=new THREE.Box3(new THREE.Vector3(-.235,-.110,-.006),new THREE.Vector3(.235,.110,.006));
- assert.equal(handBounds.intersectsBox(interior),false,'the ticket face must not pass through the hand');
- assert.equal(s.ticketReady,false);tick(f,1);assert.equal(s.ticketReady,true);s.cancelService();assert.equal(s.phase,'idle');assert.equal(s.ticket.visible,false);
+test('one stamped ticket slides along the tray, lifts for reading and is stowed before boarding',async()=>{
+ for(const hz of [30,60,120]){
+  const f=await fresh(),s=f.station;assert.ok(s.beginTicket('Goat Mountain'));assert.equal(s.beginTicket('Neon Castle'),false);const parent=s.ticket.parent;
+  tick(f,1.2,hz);assert.equal(s.stamp.visible,true);const ink=new THREE.Box3().setFromObject(s.stamp),paper=new THREE.Box3().setFromObject(s.ticket);assert.ok(Math.abs(ink.min.y-paper.min.y)<.02);assert.ok(ink.min.x<paper.max.x&&ink.max.x>paper.min.x&&ink.min.z<paper.max.z&&ink.max.z>paper.min.z);
+  let previous=s.ticket.getWorldPosition(new THREE.Vector3()),previousQ=s.ticket.getWorldQuaternion(new THREE.Quaternion()),flatHeight=s.ticket.position.y,seenShow=false;
+  for(let t=1.2;t<3.4;t+=1/hz){tick(f,1/hz,hz);const p=s.ticket.getWorldPosition(new THREE.Vector3()),q=s.ticket.getWorldQuaternion(new THREE.Quaternion());assert.equal(s.ticket.parent,parent);assert.ok(p.distanceTo(previous)<3.6/hz,'ticket should move continuously');assert.ok(q.angleTo(previousQ)<.18,'ticket should turn smoothly');if(t<1.9)assert.ok(Math.abs(s.ticket.position.y-flatHeight)<.002,'paper should stay on its tray while sliding');if(t>2.5&&t<2.75){seenShow=true;assert.ok(s.ticket.visible);assert.ok(s.ticket.position.y>1.2);assert.ok(s.ticket.position.z< -.8)}previous.copy(p);previousQ.copy(q)}
+  assert.ok(seenShow);assert.equal(s.ticketReady,true);assert.equal(s.ticket.visible,false);s.cancelService();assert.equal(s.phase,'idle');assert.equal(s.ticket.visible,false);assert.equal(s.beginTicket('Honkster Arena'),true);assert.ok(s.ticket.position.distanceTo(new THREE.Vector3(.28,.914,-.77))<1e-8);s.cancelService();
+ }
+});
+
+test('the displayed pass faces the player, stays readable in portrait and landscape, and clears the counter while stowing',async()=>{
+ const f=await fresh(),s=f.station;s.beginTicket('Meme Gallery');tick(f,2.7);const center=s.ticket.getWorldPosition(new THREE.Vector3()),normal=new THREE.Vector3(0,0,1).applyQuaternion(s.ticket.getWorldQuaternion(new THREE.Quaternion()));assert.ok(normal.dot(s.ticketView.clone().sub(center).normalize())>.999);
+ for(const aspect of [.46,9/16,4/3,16/9]){const camera=new THREE.PerspectiveCamera(66,aspect,.035,100);camera.position.copy(s.ticketView);camera.lookAt(s.ticketLook);camera.updateMatrixWorld(true);for(const x of [-.25,.25])for(const y of [-.125,.125]){const p=s.ticket.localToWorld(new THREE.Vector3(x,y,.005)).project(camera);assert.ok(Math.abs(p.x)<.98&&Math.abs(p.y)<.98,'ticket is cropped at aspect '+aspect+': '+p.toArray())}}
+ const counter=s.booth.getObjectByName('GROYP_AIR_ticket_counter'),counterBounds=new THREE.Box3().setFromObject(counter);for(let t=2.7;t<3.35;t+=1/120){tick(f,1/120,120);assert.equal(new THREE.Box3().setFromObject(s.ticket).intersectsBox(counterBounds),false,'stowing ticket intersects the counter')}
+ s.cancelService();
 });
 
 test('farewell follows a supported route around the counter and posts, with an attached animated rig',async()=>{
- const f=await fresh(),s=f.station;s.beginTicket('Meme Gallery');tick(f,2.7);s.beginFarewell();
+ const f=await fresh(),s=f.station;s.beginTicket('Meme Gallery');tick(f,3.3);s.beginFarewell();
  const staticBoxes=s.extraBoxes.slice(0,-1),navs=[f.balloon,s].map(w=>{const m=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(w.navPositions,3)),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));m.updateMatrixWorld();return m}),ray=new THREE.Raycaster();let skin;s.actor.traverse(o=>{if(o.isSkinnedMesh)skin=o});
  let previous=s.actor.position.clone();
  for(let frame=0;frame<210;frame++){
@@ -76,7 +76,7 @@ test('ticket service precedes boarding; departure shows the waving dispatcher an
   const f=await fresh(),s=f.station,camera=new THREE.PerspectiveCamera(66,1,.035,100);camera.rotation.order='YXZ';camera.position.copy(s.interactionPosition).add(new THREE.Vector3(0,1.65,0));
   const viewer={slug:'arcade-district',active:true,mode:'walk',groypAir:s,camera,foot:s.interactionPosition.y,yaw:0,pitch:0,motion:new WalkMotion(),config:{eye:1.65},clearWalkInput(){}},controller=mountBalloonTravel(viewer,f.balloon);f.controller=controller;const original=camera.position.clone();let fades=0;
   const cancelled=controller.depart(()=>fades++,'goat-mountain');assert.equal(controller.active,true);assert.equal(await controller.depart(),false);tick(f,1,hz);assert.equal(controller.model.phase,'parked');assert.equal(fades,0);controller.cancel();assert.equal(await cancelled,false);assert.ok(camera.position.distanceTo(original)<1e-8);assert.equal(s.phase,'idle');
-  const trip=controller.depart(()=>fades++,'goat-mountain');tick(f,2,hz);assert.equal(controller.model.phase,'parked');assert.equal(fades,0);tick(f,2.5,hz);assert.equal(controller.model.phase,'ascending');assert.equal(s.phase,'farewell');assert.equal(fades,1);assert.ok(s.actor.position.x>1);
+  const trip=controller.depart(()=>fades++,'goat-mountain');tick(f,2,hz);assert.equal(controller.model.phase,'parked');assert.equal(fades,0);tick(f,3.2,hz);assert.equal(controller.model.phase,'ascending');assert.equal(s.phase,'farewell');assert.equal(fades,1);assert.ok(s.actor.position.x>1);
   const direction=camera.getWorldDirection(new THREE.Vector3()),target=s.farewellLook.clone().sub(camera.position).normalize();assert.ok(direction.dot(target)>.98,'farewell must be visible from the basket');
   tick(f,3,hz);assert.equal(await trip,true);assert.equal(controller.active,true);controller.cancel();assert.equal(s.phase,'idle');assert.ok(camera.position.distanceTo(original)<1e-8);assert.ok(s.actor.position.distanceTo(new THREE.Vector3(0,0,.1))<1e-8);controller.dispose();
  }
@@ -84,5 +84,5 @@ test('ticket service precedes boarding; departure shows the waving dispatcher an
 
 test('static scenery batching preserves the dispatcher skin and bones while combining the booth materials',()=>{
  const source=readFileSync(new URL('../viewer.js',import.meta.url),'utf8'),start=source.indexOf('  const animated=new Set();'),end=source.indexOf('  const originalGeometries=',start),viewer={root,config:{},renderer:{capabilities:{getMaxAnisotropy:()=>8}}};
- new Function('THREE','mergeGeometries','gltf','slug',source.slice(start,end)).call(viewer,THREE,mergeGeometries,{animations:[]},'arcade-district');assert.equal(skin.parent!==null,true);assert.ok(skin.skeleton.bones.every(b=>b.parent));assert.ok(viewer.staticGroup.children.some(o=>o.material.name==='GROYP AIR aged timber'));
+ new Function('THREE','mergeGeometries','gltf','slug',source.slice(start,end)).call(viewer,THREE,mergeGeometries,{animations:[]},'arcade-district');assert.equal(skin.parent!==null,true);assert.ok(skin.skeleton.bones.every(b=>b.parent));assert.ok(viewer.staticGroup.children.some(o=>o.material.name==='GROYP AIR aged timber'));assert.equal(station.ticket.children.length,2,'animated paper must not be baked into static scenery');assert.ok(station.ticket.children.every(o=>o.parent===station.ticket&&o.userData.islandRide));
 });

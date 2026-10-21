@@ -25,6 +25,8 @@ jobs:
         run: node --experimental-default-type=module --test tests/asset-loader.test.mjs
       - name: Castle greeting and camera ownership
         run: node --experimental-default-type=module --test tests/castle-greeting.test.mjs tests/viewer-walk.test.mjs tests/balloon-app.test.mjs
+      - name: Ticket handoff and balloon departure
+        run: node --experimental-default-type=module --test tests/groyp-air.test.mjs tests/balloon-travel.test.mjs
       - name: Mountain geometry and gameplay checks
         run: node --experimental-default-type=module --test tests/mountain-snow.test.mjs tests/island-transport.test.mjs
       - name: Open all islands using published assets

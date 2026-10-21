@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 const ease=t=>{t=THREE.MathUtils.clamp(t,0,1);return t*t*(3-2*t)};
+export const GROYP_TICKET_BEATS={stamp:1.18,slide:1.48,lift:1.96,show:2.46,stow:2.86,ready:3.30};
 
 export function prepareGroypAir(root,balloon,actorScene){
  root.updateMatrixWorld(true);
@@ -42,15 +43,15 @@ export function prepareGroypAir(root,balloon,actorScene){
  const ticketCanvas=document.createElement('canvas');ticketCanvas.width=1024;ticketCanvas.height=512;const ticketContext=ticketCanvas.getContext('2d'),ticketTexture=new THREE.CanvasTexture(ticketCanvas);ticketTexture.colorSpace=THREE.SRGBColorSpace;
  function printTicket(title,stamped=false){const c=ticketContext;c.fillStyle='#fff1ce';c.fillRect(0,0,1024,512);c.fillStyle='#bd304c';c.fillRect(0,0,38,512);c.fillRect(986,0,38,512);c.textAlign='center';c.font='900 95px system-ui';c.fillText('GROYP AIR',512,122);c.fillStyle='#493447';c.font='700 65px system-ui';c.fillText(title.toUpperCase(),512,235,880);c.font='35px system-ui';c.fillText('ONE HONK / ONE FLIGHT',512,310);c.fillStyle='#bd304c';c.font='900 63px system-ui';if(stamped)c.fillText('HONK APPROVED',512,430);ticketTexture.needsUpdate=true}
  printTicket('ISLAND TICKET');
- const ticketFace=new THREE.MeshBasicMaterial({map:ticketTexture}),deskTicket=new THREE.Mesh(new THREE.PlaneGeometry(.50,.25),ticketFace);deskTicket.name='GROYP_AIR_ticket_to_stamp';deskTicket.rotation.x=-Math.PI/2;deskTicket.position.set(.28,.912,-.77);deskTicket.visible=false;booth.add(deskTicket);
- const ticket=new THREE.Group();ticket.name='GROYP_AIR_ticket_in_hand';const paper=new THREE.Mesh(new THREE.BoxGeometry(.50,.25,.008),m.cream),printed=new THREE.Mesh(new THREE.PlaneGeometry(.49,.24),ticketFace);printed.position.z=.005;ticket.add(paper,printed);ticket.visible=false;
+ const ticketFace=new THREE.MeshBasicMaterial({map:ticketTexture});
+ const ticket=new THREE.Group();ticket.name='GROYP_AIR_boarding_pass';const paper=new THREE.Mesh(new THREE.BoxGeometry(.50,.25,.008),m.cream),printed=new THREE.Mesh(new THREE.PlaneGeometry(.49,.24),ticketFace);printed.position.z=.005;ticket.add(paper,printed);ticket.visible=false;
+ booth.add(ticket);const deskTicket=ticket;
+ box(.66,.012,.46,m.gold,.28,.902,-.82,'GROYP_AIR_ticket_tray');for(const x of [-.055,.615])box(.012,.025,.46,m.red,x,.914,-.82,'GROYP_AIR_ticket_tray_rail');
  const stamp=new THREE.Group();stamp.name='GROYP_AIR_hand_stamp';const ink=new THREE.Mesh(new THREE.BoxGeometry(.17,.035,.10),m.red),grip=new THREE.Mesh(new THREE.CylinderGeometry(.035,.045,.20,12),m.dark);ink.position.y=-.08;stamp.add(ink,grip);stamp.visible=false;
  function handProp(prop,offset,worldRotation){root.updateMatrixWorld(true);const hand=bones.hand_r,p=hand.getWorldPosition(new THREE.Vector3()).add(offset),q=hand.getWorldQuaternion(new THREE.Quaternion());hand.add(prop);prop.position.copy(hand.worldToLocal(p));prop.quaternion.copy(q.invert().multiply(worldRotation))}
  handProp(stamp,new THREE.Vector3(0,-.11,-.10),new THREE.Quaternion());
- // Offer the paper flat from the fingertips; only its rear edge meets the hand.
- bones.upperarm_r.quaternion.copy(rightPresent);handProp(ticket,new THREE.Vector3(.025,-.08,-.30),new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2,0,Math.PI)));
  bones.upperarm_r.quaternion.copy(rightDown);bones.lowerarm_r.quaternion.copy(rest.lowerarm_r);
- actor.traverse(o=>o.userData.islandRide=true);deskTicket.userData.islandRide=true;
+ actor.traverse(o=>o.userData.islandRide=true);ticket.traverse(o=>o.userData.islandRide=true);
  const emoteCanvas=document.createElement('canvas');emoteCanvas.width=128;emoteCanvas.height=128;const emoteContext=emoteCanvas.getContext('2d'),emoteTexture=new THREE.CanvasTexture(emoteCanvas);emoteTexture.colorSpace=THREE.SRGBColorSpace;
  const emote=new THREE.Sprite(new THREE.SpriteMaterial({map:emoteTexture,depthWrite:false}));emote.scale.set(.34,.34,1);emote.position.set(0,1.98,-.22);actor.add(emote);emote.visible=false;let symbol='';
  function setEmote(value){emote.visible=!!value;if(!value||value===symbol)return;symbol=value;emoteCanvas.width=128;const c=emoteContext;c.textAlign='center';c.fillStyle='#fff1ce';c.font='900 110px system-ui';c.fillText(value,64,110);emoteTexture.needsUpdate=true}
@@ -59,14 +60,16 @@ export function prepareGroypAir(root,balloon,actorScene){
  const hit=new THREE.Mesh(new THREE.BoxGeometry(2.72,2.55,1.9),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));hit.position.copy(base).add(new THREE.Vector3(0,1.275,-.05));hit.updateMatrixWorld();
  const ray=new THREE.Raycaster(),interactionPosition=base.clone().add(new THREE.Vector3(0,0,-1.4));balloon.mapPositions=[balloon.mapPosition,interactionPosition];
  const bounds=new THREE.Box3().setFromObject(group),ticketView=base.clone().add(new THREE.Vector3(.15,1.55,-1.80)),ticketLook=base.clone().add(new THREE.Vector3(.12,1.13,-.15)),farewellLook=new THREE.Vector3();let time=0,presence=0,phase='idle',elapsed=0,idleTime=0,greeting=0,startle=0,lastDistance=Infinity,cooldown=0,stamped=false,destination='ISLAND TICKET',farewellFrom=.10;
+ const clerkLook=ticketLook.clone(),ticketStart=new THREE.Vector3(.28,.914,-.77),ticketEdge=new THREE.Vector3(.28,.914,-.925),ticketDisplay=clerkLook.clone().sub(ticketView).normalize().multiplyScalar(.94).add(ticketView).sub(base).add(new THREE.Vector3(0,-.08,0)),ticketPocket=ticketDisplay.clone().add(new THREE.Vector3(.32,-.68,-.55)),flatPaper=new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2,0,Math.PI)),displayPaper=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(ticketView,base.clone().add(ticketDisplay),new THREE.Vector3(0,1,0))),ticketPoint=new THREE.Vector3();
+ function placeTicket(){const b=GROYP_TICKET_BEATS,slide=ease((elapsed-b.slide)/(b.lift-b.slide)),lift=ease((elapsed-b.lift)/(b.show-b.lift)),stow=ease((elapsed-b.stow)/(b.ready-b.stow));ticket.position.lerpVectors(ticketStart,ticketEdge,slide).lerp(ticketDisplay,lift).lerp(ticketPocket,stow);ticket.quaternion.slerpQuaternions(flatPaper,displayPaper,lift);ticket.rotateZ(-.13*stow);ticket.visible=phase==='ticket'&&elapsed<b.ready;ticket.updateWorldMatrix(true,true);ticket.getWorldPosition(ticketPoint);ticketLook.lerpVectors(clerkLook,ticketPoint,lift*(1-stow)*.65)}
  const path=[new THREE.Vector3(0,0,.10),new THREE.Vector3(2.2,0,.10),new THREE.Vector3(2.2,0,-1.35)],pathLength=3.65;
  function actorBounds(){actorBox.min.set(base.x+actor.position.x-.62,base.y,base.z+actor.position.z-.40);actorBox.max.set(base.x+actor.position.x+.62,base.y+1.85,base.z+actor.position.z+.55);farewellLook.set(base.x+actor.position.x,base.y+1.3,base.z+actor.position.z)}
- function resetService(){phase='idle';elapsed=0;actor.position.copy(path[0]);actor.rotation.y=Math.PI;ticket.visible=stamp.visible=deskTicket.visible=false;for(const [name,bone] of Object.entries(bones))bone.quaternion.copy(rest[name]);bones.upperarm_l.quaternion.copy(leftDown);bones.upperarm_r.quaternion.copy(rightDown);actorBounds()}
+ function resetService(){phase='idle';elapsed=0;actor.position.copy(path[0]);actor.rotation.y=Math.PI;ticket.visible=stamp.visible=false;ticket.position.copy(ticketStart);ticket.quaternion.copy(flatPaper);ticketLook.copy(clerkLook);for(const [name,bone] of Object.entries(bones))bone.quaternion.copy(rest[name]);bones.upperarm_l.quaternion.copy(leftDown);bones.upperarm_r.quaternion.copy(rightDown);actorBounds()}
  actorBounds();
  return {group,booth,actor,bones,navPositions,extraBoxes,bounds,interactionPosition,ticketView,ticketLook,farewellLook,ticket,deskTicket,stamp,
-  get phase(){return phase},get ticketReady(){return phase==='ticket'&&elapsed>=2.6},
-  beginTicket(title){if(phase!=='idle')return false;phase='ticket';elapsed=0;stamped=false;greeting=startle=0;destination=title;printTicket(title);deskTicket.visible=true;return true},
-  beginFarewell(){farewellFrom=actor.position.z;phase='farewell';elapsed=0;ticket.visible=stamp.visible=deskTicket.visible=false},
+  get phase(){return phase},get ticketReady(){return phase==='ticket'&&elapsed>=GROYP_TICKET_BEATS.ready},
+  beginTicket(title){if(phase!=='idle')return false;phase='ticket';elapsed=0;stamped=false;greeting=startle=0;destination=title;printTicket(title);placeTicket();return true},
+  beginFarewell(){farewellFrom=actor.position.z;phase='farewell';elapsed=0;ticket.visible=stamp.visible=false;ticketLook.copy(clerkLook)},
   cancelService:resetService,
   update(dt,player){dt=Math.min(.1,Math.max(0,dt));time+=dt;elapsed+=dt;cooldown=Math.max(0,cooldown-dt);const distance=player?Math.hypot(player.x-base.x,player.z-base.z):Infinity,near=distance<6;
    if(phase==='idle'&&near&&lastDistance>=6)greeting=2.8;
@@ -91,9 +94,9 @@ export function prepareGroypAir(root,balloon,actorScene){
    if(bones.hand_l){bones.hand_l.quaternion.copy(rest.hand_l);bones.hand_l.rotateX(Math.sin(time*8)*.16*wave)}
    bones.upperarm_r.quaternion.copy(rightDown);bones.lowerarm_r.quaternion.copy(rest.lowerarm_r);
    if(phase==='ticket'){
-    const reach=ease((elapsed-.45)/.45),press=ease((elapsed-1)/.18)*(1-ease((elapsed-1.25)/.24));bones.upperarm_r.quaternion.slerpQuaternions(rightDown,rightPresent,reach).slerp(rightStamp,press);bones.lowerarm_r.quaternion.slerpQuaternions(rest.lowerarm_r,elbowPresent,reach);
-    stamp.visible=elapsed>.55&&elapsed<1.55;deskTicket.visible=elapsed<1.65;ticket.visible=elapsed>=1.65;
-    if(elapsed>=1.22&&!stamped){stamped=true;printTicket(destination,true)}
+    const reach=ease((elapsed-.45)/.45),press=ease((elapsed-1)/.18)*(1-ease((elapsed-1.25)/.24)),retract=ease((elapsed-1.38)/.48);bones.upperarm_r.quaternion.slerpQuaternions(rightDown,rightPresent,reach).slerp(rightStamp,press).slerp(rightDown,retract);bones.lowerarm_r.quaternion.slerpQuaternions(rest.lowerarm_r,elbowPresent,reach).slerp(rest.lowerarm_r,retract);
+    stamp.visible=elapsed>.55&&elapsed<1.55;placeTicket();
+    if(elapsed>=GROYP_TICKET_BEATS.stamp&&!stamped){stamped=true;printTicket(destination,true)}
     bones.head.quaternion.slerp(headSleep,press*.6);actor.position.z=.10-ease(elapsed/.6)*.28;
    }
    setEmote(phase==='idle'?(startle>0?'!':sleepy>.4?'Z':greeting>2.1?'!':''):'');actorBounds();
