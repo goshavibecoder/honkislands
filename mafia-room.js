@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {MAFIA_COVER,MAFIA_RULES} from './mafia-combat.js?v=127';
+import {MAFIA_COVER,MAFIA_RULES} from './mafia-combat.js?v=129';
 import {createMafiaFinishes,createKalashnikov} from './mafia-weapon.js?v=127';
-import {prepareMafiaGroyp} from './mafia-groyp.js?v=127';
+import {prepareMafiaGroyp} from './mafia-groyp.js?v=129';
 
 export function createMafiaRoom(camera,source){
  const scene=new THREE.Scene();scene.background=new THREE.Color(0x080b10);scene.fog=new THREE.Fog(0x080b10,10,24);
@@ -56,9 +56,11 @@ export function createMafiaRoom(camera,source){
  const sackTop=new THREE.Mesh(new THREE.CircleGeometry(.24,16),sackMaterial);sackTop.position.y=.24;sackTop.rotation.x=-Math.PI/2;sack.add(sackTop);
  const tracerGeometry=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),tracer=new THREE.Line(tracerGeometry,new THREE.LineBasicMaterial({color:0xf7ce75,transparent:true,opacity:.7}));scene.add(tracer);tracer.visible=false;
  batchRideMeshes(scene);
+ let enemyYaw=0;
  function pose(model,recoil=0,enemyKick=0){
-  enemy.position.set(model.enemy.x,0,model.enemy.z);enemy.rotation.set(0,Math.atan2(model.player.x-model.enemy.x,model.player.z-model.enemy.z)-.60,0);groyp.pose(model,enemyKick);
-  const ending=model.phase==='victory'||model.phase==='capture',t=model.phase==='victory'?model.elapsed:MAFIA_RULES.victory+model.elapsed,walk=ending?Math.max(0,Math.min(1,(t-2)*3,(5.35-t)*3)):0,stride=Math.sin(Math.max(0,t-2)*Math.PI*3)*walk,reach=model.phase==='capture'?THREE.MathUtils.smoothstep(model.elapsed,.05,1.35):0;
+  if(['wake','fight','lost'].includes(model.phase))enemyYaw=Math.atan2(model.player.x-model.enemy.x,model.player.z-model.enemy.z)-.60;
+  enemy.position.set(model.enemy.x,0,model.enemy.z);enemy.rotation.set(0,enemyYaw,0);groyp.pose(model,enemyKick);
+  const ending=model.phase==='victory'||model.phase==='capture',t=model.phase==='victory'?model.elapsed:MAFIA_RULES.victory+model.elapsed,walk=ending?Math.max(0,Math.min(1,(t-2)*3,(MAFIA_RULES.victory-t)*3)):0,stride=Math.sin(Math.max(0,t-2)*Math.PI*3)*walk,reach=model.phase==='capture'?THREE.MathUtils.smoothstep(model.elapsed,0,.20):0;
   for(const {hip,knee,sign} of guardLegs){hip.rotation.x=stride*sign*.22;knee.rotation.x=Math.max(0,-stride*sign)*.30}
   for(const {shoulder,elbow,sign} of guardArms){shoulder.rotation.x=-.75-reach*1.35;shoulder.rotation.z=-sign*(.15+.10*reach);elbow.rotation.x=-1.05+reach*.65}
   sack.visible=ending&&(model.phase!=='capture'||model.elapsed<2.1);sack.position.set(0,1.52+reach*.53,.47-reach*.05);sack.rotation.x=-.25*(1-reach);

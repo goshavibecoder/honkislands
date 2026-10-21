@@ -15,18 +15,24 @@ class Element{
 function setup(options={}){
  const host=new Element(),window=new Element();globalThis.document={getElementById:()=>host,createElement:()=>new Element()};globalThis.window=window;
  const camera=new THREE.PerspectiveCamera(66,4/3,.035,1100);camera.position.set(4.2,1.628,2.5);camera.rotation.set(.12,.4,0,'YXZ');
- const viewer={camera,scene:new THREE.Scene(),active:true,mode:'walk',keys:new Set(),stick:{x:0,y:0},foot:.028,yaw:.4,pitch:.12,motion:new WalkMotion(),controls:{enabled:false},renderer:{toneMappingExposure:.92},physics:{reset(){}},clearWalkInput(){this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop()},wardrobeAmbush:{cancel(){this.cancelled=true}},castleGreeting:{cancel(){}},loadGroypActor:async()=>null};
+ const viewer={camera,scene:new THREE.Scene(),active:true,mode:'walk',keys:new Set(),stick:{x:0,y:0},foot:.028,yaw:.4,pitch:.12,motion:new WalkMotion(),controls:{enabled:false},config:{eye:1.6},renderer:{toneMappingExposure:.92,domElement:{style:{filter:'contrast(1)'}}},physics:{reset(){}},clearWalkInput(){this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop()},wardrobeAmbush:{cancel(){this.cancelled=true}},castleGreeting:{cancel(){}},loadGroypActor:async()=>null};
  const c=mountMafiaEncounter(viewer,options);return {c,viewer,host,ui:host.children[0],window};
 }
 function advance(c,seconds){for(let t=0;t<seconds-1e-8;t+=1/60)c.update(Math.min(1/60,seconds-t))}
-test('a shovel knockout opens a separate room and victory returns to the exact castle pose under the bag',async()=>{
+test('victory keeps the AK and free movement, then a sudden bag freezes the same view before waking in the castle',async()=>{
  const e=setup(),position=e.viewer.camera.position.clone(),q=e.viewer.camera.quaternion.clone();assert.equal(await e.c.begin(),true);assert.equal(e.viewer.wardrobeAmbush.cancelled,true);assert.equal(e.c.active,true);assert.notEqual(e.c.scene,e.viewer.scene);advance(e.c,1.9);assert.equal(e.c.fighting,true);
- // Aim at the live boss from an unobstructed lane, through the actual shot ray.
  e.c.model.player.x=4.4;e.c.model.player.z=-3.4;
  for(let i=0;i<Math.ceil(MAFIA_RULES.enemyHealth/MAFIA_RULES.damage);i++){
   e.viewer.camera.position.set(e.c.model.player.x,e.c.model.player.y,e.c.model.player.z);e.viewer.camera.lookAt(e.c.model.enemy.x,1.2,e.c.model.enemy.z);e.viewer.motion.reset(e.viewer.camera.rotation.y,e.viewer.camera.rotation.x);assert.equal(e.c.shoot(),true);advance(e.c,MAFIA_RULES.shotDelay+.01);
  }
- assert.equal(e.c.model.phase,'victory');const victoryYaw=e.viewer.camera.rotation.y;advance(e.c,2.0);assert.equal(e.viewer.camera.rotation.y,victoryYaw,'keep the knockout animation in view');advance(e.c,MAFIA_RULES.victory-2+.1);assert.equal(e.c.model.phase,'capture');assert.equal(e.c.active,true);advance(e.c,3.5);assert.equal(e.c.model.phase,'return');assert.equal(e.c.scene,e.viewer.scene);assert.ok(e.viewer.camera.position.equals(position));assert.ok(e.viewer.camera.quaternion.angleTo(q)<1e-7);assert.equal(e.viewer.renderer.toneMappingExposure,.92);advance(e.c,2);assert.equal(e.c.active,false);assert.equal(e.ui.hidden,true);assert.equal(e.viewer.camera.near,.035);assert.equal(e.viewer.camera.far,1100);e.c.dispose();
+ assert.equal(e.c.model.phase,'victory');const gun=e.viewer.camera.children[0],victoryYaw=e.viewer.camera.rotation.y;assert.equal(gun.visible,true);assert.equal(e.c.fighting,true);
+ const before={...e.c.model.player};e.viewer.keys.add('KeyW');e.viewer.keys.add('ShiftRight');advance(e.c,.5);assert.ok(Math.hypot(e.c.model.player.x-before.x,e.c.model.player.z-before.z)>1,'the player can keep running after killing the boss');e.viewer.clearWalkInput();
+ advance(e.c,1.7);assert.equal(e.viewer.camera.rotation.y,victoryYaw,'never turn to look at the guard');assert.equal(gun.visible,true);assert.equal(e.host.classes.has('mafia-cinematic'),false);
+ advance(e.c,MAFIA_RULES.victory-e.c.model.elapsed+.01);assert.equal(e.c.model.phase,'capture');assert.equal(e.c.fighting,false);const bag=e.ui.querySelector('.mafia-bag'),captured=e.viewer.camera.quaternion.clone(),caught=e.viewer.camera.position.clone();assert.equal(gun.visible,true);
+ advance(e.c,.25);assert.equal(Number(bag.style.opacity),1);assert.equal(gun.visible,false,'weapon is concealed only after the bag covers it');assert.ok(e.viewer.camera.quaternion.angleTo(captured)<1e-7);assert.ok(e.viewer.camera.position.equals(caught));assert.equal(e.c.shoot(),false);
+ advance(e.c,MAFIA_RULES.capture-e.c.model.elapsed+.01);assert.equal(e.c.model.phase,'return');assert.equal(e.c.scene,e.viewer.scene);assert.ok(e.viewer.camera.position.y<position.y-1,'wake lying on the castle floor');assert.equal(bag.style.opacity,'0');assert.ok(e.host.classes.has('knockout-recovering'));assert.equal(e.viewer.renderer.toneMappingExposure,.92);
+ advance(e.c,2.1);assert.ok(e.viewer.camera.position.y>position.y-1.2&&e.viewer.camera.position.y<position.y-.6,'sit before standing');advance(e.c,2.3);assert.ok(e.viewer.camera.position.y>position.y-.03);assert.ok(Math.abs(e.viewer.camera.rotation.y-.4)>.001,'slight dizziness after getting up');assert.equal(e.c.model.phase,'return');
+ advance(e.c,MAFIA_RULES.return-e.c.model.elapsed+.05);assert.equal(e.c.active,false);assert.ok(e.viewer.camera.position.equals(position));assert.ok(e.viewer.camera.quaternion.angleTo(q)<1e-7);assert.equal(e.viewer.renderer.domElement.style.filter,'contrast(1)');assert.equal(e.host.classes.has('knockout-recovering'),false);assert.equal(e.ui.hidden,true);assert.equal(e.viewer.camera.near,.035);assert.equal(e.viewer.camera.far,1100);e.c.dispose();
 });
 test('cover blocks actual player shots, cancellation restores the castle, and repeated games clean up',async()=>{
  const e=setup(),position=e.viewer.camera.position.clone();for(let n=0;n<2;n++){await e.c.begin();advance(e.c,1.9);e.viewer.camera.position.set(-2.6,1.1,3.5);e.c.model.enemy.x=-2.6;e.c.model.enemy.z=-4.5;e.viewer.camera.lookAt(-2.6,1.1,-4.5);const health=e.c.model.enemyHealth;e.c.shoot();assert.equal(e.c.model.enemyHealth,health);e.c.cancel();assert.ok(e.viewer.camera.position.equals(position));assert.equal(e.c.active,false);assert.equal(e.viewer.camera.children.length,1,'room weapon is retained once for replay')}
@@ -98,4 +104,22 @@ test('live combat uses the recorded shot and reload, distant enemy audio and cle
  assert.equal(e.c.shoot(),true);assert.equal(e.c.shoot(),false);assert.equal(calls.filter(k=>k==='shot').length,1,'cooldown cannot play extra gunshots');
  e.c.reload();e.c.reload();assert.equal(calls.filter(k=>k==='reload').length,1,'one recording for a single reload');
  advance(e.c,2.5);assert.ok(calls.includes('enemy-shot'));e.c.cancel();assert.equal(calls.at(-1),'stop');e.c.dispose();assert.equal(calls.at(-1),'dispose');
+});
+test('the killing shot keeps a phone thumb moving and firing without restarting the ending',async()=>{
+ const e=setup();await e.c.begin();advance(e.c,1.9);e.c.model.player.x=4.4;e.c.model.player.z=-3.4;e.c.model.enemyHealth=MAFIA_RULES.damage;
+ e.viewer.camera.position.set(4.4,e.c.model.player.y,-3.4);e.viewer.camera.lookAt(e.c.model.enemy.x,1.2,e.c.model.enemy.z);e.viewer.motion.reset(e.viewer.camera.rotation.y,e.viewer.camera.rotation.x);e.viewer.stick.y=-.9;
+ const fire=e.ui.querySelector('.mafia-fire');fire.events.pointerdown[0]({pointerId:1,pointerType:'touch',clientX:0,clientY:0,preventDefault(){}});assert.equal(e.c.model.phase,'victory');const before={...e.c.model.player};advance(e.c,.5);
+ assert.equal(e.viewer.stick.y,-.9);assert.ok(Math.hypot(e.c.model.player.x-before.x,e.c.model.player.z-before.z)>.6);assert.ok(e.c.model.ammo<MAFIA_RULES.magazine-1);assert.ok(e.c.model.elapsed>.49);assert.equal(e.c.model.enemyHealth,0);assert.equal(e.viewer.camera.children[0].visible,true);e.c.dispose();
+});
+test('leaving during the castle recovery removes dizziness and replay restores camera ownership at every frame rate',async()=>{
+ for(const hz of [30,60,120]){
+  const e=setup(),position=e.viewer.camera.position.clone(),q=e.viewer.camera.quaternion.clone();
+  for(let replay=0;replay<2;replay++){
+   await e.c.begin();advance(e.c,1.9);e.c.model.phase='victory';e.c.model.elapsed=MAFIA_RULES.victory;e.c.update(0);
+   for(let t=0;t<MAFIA_RULES.capture+1.8;t+=1/hz)e.c.update(1/hz);
+   assert.equal(e.c.model.phase,'return');assert.equal(e.c.scene,e.viewer.scene);assert.ok(e.viewer.camera.position.y<position.y-.7);assert.match(e.viewer.renderer.domElement.style.filter,/blur/);
+   e.c.cancel();assert.ok(e.viewer.camera.position.equals(position));assert.ok(e.viewer.camera.quaternion.angleTo(q)<1e-7);assert.equal(e.viewer.renderer.domElement.style.filter,'contrast(1)');assert.equal(e.host.classes.has('knockout-recovering'),false);assert.equal(e.viewer.camera.children.length,1);
+  }
+  e.c.dispose();assert.equal(e.host.children[1].removed,true);
+ }
 });
