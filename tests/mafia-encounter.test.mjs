@@ -74,7 +74,7 @@ test('the real skinned legs alternate steps and planted feet stay on the floor a
   for(let frame=0;frame<hz*17;frame++){
    model.update(1/hz);room.pose(model);room.enemy.updateMatrixWorld(true);
    for(const leg of room.groyp.feet){const position=leg.end.getWorldPosition(new THREE.Vector3()),old=last.get(leg.side);lift[leg.side]=Math.max(lift[leg.side],position.y-leg.home.y);
-    if(model.phase==='fight'&&model.elapsed>.3&&leg.planted){samples++;maxFloorError=Math.max(maxFloorError,Math.abs(position.y-leg.home.y));if(old?.planted&&old.stepId===leg.stepId){const slide=position.distanceTo(old.position);if(slide>maxSlide){maxSlide=slide;detail=JSON.stringify({frame,side:leg.side,phase:leg.lastPhase,position,old,plant:leg.plant})}}}
+    if(model.phase==='fight'&&model.elapsed>.3&&leg.planted){samples++;maxFloorError=Math.max(maxFloorError,Math.abs(position.y-leg.home.y));if(old?.planted&&old.stepId===leg.stepId){const slide=position.distanceTo(old.position);if(slide>maxSlide){maxSlide=slide;detail=JSON.stringify({frame,enemy:model.enemy,side:leg.side,phase:leg.lastPhase,position,old,plant:leg.plant})}}}
     last.set(leg.side,{position,stepId:leg.stepId,planted:leg.planted});
    }
   }

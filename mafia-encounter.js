@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=129';
-import {createMafiaRoom} from './mafia-room.js?v=129';
-import {createMafiaAudio} from './mafia-audio.js?v=128';
+import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=131';
+import {createMafiaRoom} from './mafia-room.js?v=131';
+import {createMafiaAudio} from './mafia-audio.js?v=131';
+import {MAFIA_ENEMY_RULES} from './mafia-ai.js?v=131';
 import {mountKnockoutRecovery} from './knockout-recovery.js?v=105';
 
 const clamp=t=>Math.max(0,Math.min(1,t)),smooth=t=>{t=clamp(t);return t*t*(3-2*t)};
@@ -15,9 +16,9 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
  const audio=makeAudio(),recovery=mountKnockoutRecovery(viewer);
  function sound(kind){
   if(kind==='shot'||kind==='reload')audio.play(kind,{duration:MAFIA_RULES.reload});
-  else if(kind==='enemy-shot'){
+  else if(kind==='enemy-shot'||kind==='enemy-reload'){
    const dx=model.enemy.x-model.player.x,dz=model.enemy.z-model.player.z,side=dx*Math.cos(viewer.yaw)-dz*Math.sin(viewer.yaw);
-   audio.play(kind,{pan:side/Math.max(1,Math.hypot(dx,dz)),distance:Math.hypot(dx,dz)});
+   audio.play(kind,{pan:side/Math.max(1,Math.hypot(dx,dz)),distance:Math.hypot(dx,dz),duration:MAFIA_ENEMY_RULES.reload});
   }else audio.tone(kind);
  }
  function restorePose(){
@@ -68,7 +69,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
    phase=model.phase;
    // A defeated boss does not take away the player's weapon or controls.
    if(phase!=='victory'){viewer.clearWalkInput();held=false}
-   if(phase==='victory'){step=0;room.guard.visible=true}
+   if(phase==='victory'){audio.stop('enemy-reload');step=0;room.guard.visible=true}
    if(phase==='capture'){audio.stop('reload');model.reloadTime=0;recoil=0}
    if(phase==='lost')audio.stop('reload');
    if(phase==='return'){audio.stop();restorePose();void recovery.begin();bag.style.opacity='0';sync();return}
@@ -76,6 +77,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
   }
   room.pose(model,recoil,enemyKick);
   if(events.includes('enemy-shot')){sound('enemy-shot');room.enemyFlash.getWorldPosition(from);impact.set(model.lastShot.x,model.lastShot.y,model.lastShot.z);direction.copy(impact).sub(from);const length=direction.length();direction.normalize();const coverDistance=Math.min(...MAFIA_COVER.map(c=>rayBox(from,direction,coverBox(c))));impact.copy(from).addScaledVector(direction,Math.min(length,coverDistance));room.trace(from,impact);traceTime=.09}
+  if(events.includes('enemy-reload'))sound('enemy-reload');
   if(events.includes('player-hit')){hurt=.8;sound('hit')}
   room.playerFlash.visible=recoil>.5;room.enemyFlash.visible=enemyFlashTime>0;room.playerLight.intensity=recoil*8;room.tracer.visible=traceTime>0;room.gun.visible=['wake','fight','victory','lost'].includes(model.phase)||model.phase==='capture'&&model.elapsed<.24;
   if(model.phase==='victory'||model.phase==='capture'){

@@ -39,17 +39,17 @@ export function createMafiaAudio({Context=globalThis.AudioContext||globalThis.we
  function play(kind,{pan=0,distance=0,duration=2.1}={}){
   if(disposed||doc?.hidden)return false;
   unlock();if(!context)return false;
-  const recording=kind==='enemy-shot'?'shot':kind;
+  const recording=kind==='enemy-shot'?'shot':kind==='enemy-reload'?'reload':kind;
   if(!MAFIA_SOUNDS[recording])return false;
   const buffer=buffers.get(recording);if(!buffer)return false;
   if(kind==='reload')stop('reload');
   const source=context.createBufferSource(),gain=context.createGain(),nodes=[source,gain];source.buffer=buffer;
-  const enemy=kind==='enemy-shot',level=enemy?.30/(1+Math.max(0,distance)*.055):kind==='reload'?.65:.52;
+  const enemy=kind.startsWith('enemy-'),level=enemy?.30/(1+Math.max(0,distance)*.055):kind==='reload'?.65:.52;
   gain.gain.value=level;source.connect(gain);let output=gain;
   if(enemy){const filter=context.createBiquadFilter();filter.type='lowpass';filter.frequency.value=4800;gain.connect(filter);output=filter;nodes.push(filter)}
   if(context.createStereoPanner){const stereo=context.createStereoPanner();stereo.pan.value=Math.max(-1,Math.min(1,pan));output.connect(stereo);output=stereo;nodes.push(stereo)}
   output.connect(master);
-  if(kind==='reload')source.playbackRate.value=buffer.duration/Math.max(.1,duration);
+  if(recording==='reload')source.playbackRate.value=buffer.duration/Math.max(.1,duration);
   const voice={kind,source,nodes};voices.add(voice);source.onended=()=>{voices.delete(voice);for(const node of nodes)node.disconnect()};source.start();return true;
  }
  function tone(kind){

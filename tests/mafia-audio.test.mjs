@@ -49,3 +49,6 @@ test('a failed download is retryable and never plays a delayed gunshot after dec
 test('leaving while a recording is loading cannot create a voice or decode on a closed context',async()=>{
  let finish;const wait=new Promise(resolve=>finish=resolve),e=setup(async()=>{await wait;return {ok:true,arrayBuffer:async()=>new ArrayBuffer(1)}}),loading=e.audio.prepare();e.audio.dispose();finish();assert.equal(await loading,false);assert.equal(e.ctx.decodes,0);assert.equal(e.ctx.sources.length,0);
 });
+test('the enemy reload is a separate quieter voice and cannot interrupt the player reload',async()=>{
+ const e=setup();await e.audio.prepare();e.audio.play('reload');e.audio.play('enemy-reload',{distance:6,duration:2.4});const [player,enemy]=e.ctx.sources;assert.equal(player.stopped,undefined);assert.equal(enemy.buffer,player.buffer);assert.ok(enemy.target.gain.value<player.target.gain.value);assert.ok(Math.abs(enemy.playbackRate.value-2.1/2.4)<1e-8);e.audio.stop('enemy-reload');assert.ok(enemy.stopped);assert.equal(player.stopped,undefined);e.audio.dispose();
+});

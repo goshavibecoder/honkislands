@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {mafiaPatrolAt,MAFIA_RULES} from './mafia-combat.js?v=129';
+import {MAFIA_RULES} from './mafia-combat.js?v=131';
+import {mafiaStepAhead,MAFIA_ENEMY_RULES} from './mafia-ai.js?v=131';
 import {createKalashnikov} from './mafia-weapon.js?v=127';
 const clamp=t=>THREE.MathUtils.clamp(t,0,1),ease=t=>{t=clamp(t);return t*t*(3-2*t)};
 const Y=new THREE.Vector3(0,1,0),X=new THREE.Vector3(1,0,0);
@@ -51,12 +52,13 @@ export function prepareMafiaGroyp(enemy,source,m){
  }
  function flatFoot(leg,desiredQ){leg.end.parent.getWorldQuaternion(parentQ);leg.end.quaternion.copy(parentQ.invert().multiply(desiredQ));leg.end.updateWorldMatrix(false,true)}
  function boneTurn(bone,axis,angle){if(!bone)return;body.getWorldQuaternion(q);pole.copy(axis).applyQuaternion(q);bone.parent.getWorldQuaternion(parentQ);pole.applyQuaternion(parentQ.invert());bone.quaternion.premultiply(turn.setFromAxisAngle(pole,angle));bone.updateWorldMatrix(false,true)}
- let lastClock=-1,wasDefeated=false,gaitOrigin=0,dropReady=false;const dropOrigin=new THREE.Vector3();
+ let lastClock=-1,wasDefeated=false,gaitOrigin=0,dropReady=false,lastVX=0,lastVZ=0;const dropOrigin=new THREE.Vector3();
  function pose(model,enemyKick=0){
   const defeated=['victory','capture','return','done'].includes(model.phase),t=defeated?(model.phase==='victory'?model.elapsed:MAFIA_RULES.victory):0,kneel=ease((t-.26)/.73),collapse=ease((t-1.05)/.83),speed=Math.hypot(model.enemy.vx||0,model.enemy.vz||0),walk=model.phase==='fight'?ease(model.elapsed/.20)*ease(speed/.30):0,distance=model.enemy.distance||0;
-  if(model.clock<lastClock||model.phase==='wake'||(!defeated&&wasDefeated)||(model.phase==='fight'&&speed<.18)){gaitOrigin=distance;for(const leg of feet)leg.ready=false}lastClock=model.clock;wasDefeated=defeated;const cycle=(distance-gaitOrigin)/.65;
+  const oldSpeed=Math.hypot(lastVX,lastVZ),turning=speed>.18&&oldSpeed>.18&&((model.enemy.vx||0)*lastVX+(model.enemy.vz||0)*lastVZ)/(speed*oldSpeed)<.5;lastVX=model.enemy.vx||0;lastVZ=model.enemy.vz||0;
+  if(turning||model.clock<lastClock||model.phase==='wake'||(!defeated&&wasDefeated)||(model.phase==='fight'&&speed<.18)){gaitOrigin=distance;for(const leg of feet)leg.ready=false}lastClock=model.clock;wasDefeated=defeated;const cycle=(distance-gaitOrigin)/.48;
   if(!defeated)dropReady=false;for(const [bone,r] of rest)bone.quaternion.copy(r);
-  body.position.set(0,.68-.085*walk+.008*Math.cos(cycle*4*Math.PI)*walk,0);body.rotation.set(0,0,.018*Math.sin(cycle*2*Math.PI)*walk);
+  body.position.set(0,.68-.125*walk+.008*Math.cos(cycle*4*Math.PI)*walk,0);body.rotation.set(0,0,.018*Math.sin(cycle*2*Math.PI)*walk);
   if(defeated){body.position.y=.68-.255*kneel;body.rotation.set(-.13*Math.sin(Math.PI*ease(t/.4))+.16*kneel,0,-.065*kneel+.045*Math.sin(t*18)*(1-kneel))}
   body.updateWorldMatrix(true,true);enemy.getWorldQuaternion(worldQ);
   for(const leg of feet){
@@ -67,7 +69,7 @@ export function prepareMafiaGroyp(enemy,source,m){
    else if(walk<.01){leg.plant.copy(home);leg.start.copy(home);leg.goal.copy(home);leg.plantQ.copy(homeQ);leg.startQ.copy(homeQ);leg.goalQ.copy(homeQ);target.copy(home);footQ.copy(homeQ)}
    else{
     // Predict the landing point through the patrol turn; stance feet stay in world space.
-    if(phase>=.56&&(leg.lastPhase<.56||!leg.goal.distanceTo(leg.start))){leg.start.copy(leg.plant);leg.startQ.copy(leg.plantQ);leg.goal.copy(home);if(speed>.01){const next=mafiaPatrolAt(model.elapsed+Math.min(.65,(.65*(1-phase)+.182)/Math.max(speed,.4)));leg.goal.x+=next.x-model.enemy.x;leg.goal.z+=next.z-model.enemy.z}leg.goalQ.copy(homeQ)}
+    if(phase>=.56&&(leg.lastPhase<.56||!leg.goal.distanceTo(leg.start))){leg.start.copy(leg.plant);leg.startQ.copy(leg.plantQ);leg.goal.copy(home);if(speed>.01){const next=mafiaStepAhead(model.enemy,Math.min(.45,(.48*(1-phase)+.06)/Math.max(speed,.4)));leg.goal.x+=next.x-model.enemy.x;leg.goal.z+=next.z-model.enemy.z}leg.goalQ.copy(homeQ)}
     if(phase<.56&&leg.lastPhase>=.56){leg.plant.copy(leg.goal);leg.plantQ.copy(leg.goalQ);leg.stepId++}
     if(phase>=.56){const f=(phase-.56)/.44;target.lerpVectors(leg.start,leg.goal,ease(f));target.y+=Math.sin(Math.PI*f)*.095*walk;footQ.slerpQuaternions(leg.startQ,leg.goalQ,ease(f))}
     else{target.copy(leg.plant);footQ.copy(leg.plantQ);leg.planted=walk>.999}
@@ -75,7 +77,8 @@ export function prepareMafiaGroyp(enemy,source,m){
    }
    leg.lastPhase=phase;const knee=new THREE.Vector3(leg.side==='l'?.12:-.12,0,1).transformDirection(enemy.matrixWorld);solve(leg,target,knee);flatFoot(leg,footQ);
   }
-  rifle.position.set(-.035,1.38-.68,.30-enemyKick*.025);rifle.rotation.set(-enemyKick*.035,.60,-.025);if(rifle.parent!==body)body.add(rifle);
+  const reload=model.enemy.reloadTime>0?Math.sin(Math.PI*model.enemy.reloadTime/MAFIA_ENEMY_RULES.reload):0;
+  rifle.position.set(-.035,1.38-.68-.12*reload,.30-enemyKick*.025);rifle.rotation.set(-enemyKick*.035+.35*reload,.60,-.025-.18*reload);if(rifle.parent!==body)body.add(rifle);
   boneTurn(bones.spine_03,X,-enemyKick*.03);
   for(const chain of arms){
    const target=rifle.localToWorld(rifle.userData[chain.side==='r'?'rightGrip':'leftGrip'].clone());

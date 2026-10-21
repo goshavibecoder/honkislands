@@ -28,7 +28,7 @@ jobs:
       - name: Desktop controls and mouse capture
         run: node --experimental-default-type=module --test tests/desktop-controls.test.mjs
       - name: Mafia encounter and castle return
-        run: node --experimental-default-type=module --test tests/mafia-audio.test.mjs tests/mafia-combat.test.mjs tests/mafia-encounter.test.mjs tests/wardrobe-ambush.test.mjs
+        run: node --experimental-default-type=module --test tests/mafia-ai.test.mjs tests/mafia-audio.test.mjs tests/mafia-combat.test.mjs tests/mafia-encounter.test.mjs tests/wardrobe-ambush.test.mjs
       - name: Ticket handoff and balloon departure
         run: node --experimental-default-type=module --test tests/groyp-air.test.mjs tests/balloon-travel.test.mjs
       - name: Mountain geometry and gameplay checks

@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {MAFIA_COVER,MAFIA_RULES} from './mafia-combat.js?v=129';
+import {MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=131';
 import {createMafiaFinishes,createKalashnikov} from './mafia-weapon.js?v=127';
-import {prepareMafiaGroyp} from './mafia-groyp.js?v=129';
+import {prepareMafiaGroyp} from './mafia-groyp.js?v=131';
 
 export function createMafiaRoom(camera,source){
  const scene=new THREE.Scene();scene.background=new THREE.Color(0x080b10);scene.fog=new THREE.Fog(0x080b10,10,24);
@@ -55,11 +55,19 @@ export function createMafiaRoom(camera,source){
  const sackBody=new THREE.Mesh(new THREE.CylinderGeometry(.24,.29,.48,16,1,true),sackMaterial);sack.add(sackBody);
  const sackTop=new THREE.Mesh(new THREE.CircleGeometry(.24,16),sackMaterial);sackTop.position.y=.24;sackTop.rotation.x=-Math.PI/2;sack.add(sackTop);
  const tracerGeometry=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),tracer=new THREE.Line(tracerGeometry,new THREE.LineBasicMaterial({color:0xf7ce75,transparent:true,opacity:.7}));scene.add(tracer);tracer.visible=false;
+ const aimLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:0xff6540,transparent:true,opacity:.30,depthWrite:false}));aimLine.name='Groyp warning laser';scene.add(aimLine);aimLine.visible=false;
+ const aimFrom=new THREE.Vector3(),aimTo=new THREE.Vector3(),aimDirection=new THREE.Vector3();
  batchRideMeshes(scene);
- let enemyYaw=0;
+ let enemyYaw=null,lastPoseClock=null;
  function pose(model,recoil=0,enemyKick=0){
-  if(['wake','fight','lost'].includes(model.phase))enemyYaw=Math.atan2(model.player.x-model.enemy.x,model.player.z-model.enemy.z)-.60;
+  const poseDt=lastPoseClock===null?0:Math.max(0,Math.min(.1,model.clock-lastPoseClock));lastPoseClock=model.clock;
+  if(['wake','fight','lost'].includes(model.phase)){const look=model.target||model.enemy.look||model.player,wanted=Math.atan2(look.x-model.enemy.x,look.z-model.enemy.z)-.60;if(enemyYaw===null||model.phase==='wake')enemyYaw=wanted;else{const delta=Math.atan2(Math.sin(wanted-enemyYaw),Math.cos(wanted-enemyYaw));enemyYaw+=THREE.MathUtils.clamp(delta,-poseDt*3,poseDt*3)}}
   enemy.position.set(model.enemy.x,0,model.enemy.z);enemy.rotation.set(0,enemyYaw,0);groyp.pose(model,enemyKick);
+  aimLine.visible=model.phase==='fight'&&model.warning>0&&!!model.target;
+  if(aimLine.visible){
+   enemyFlash.getWorldPosition(aimFrom);aimTo.set(model.target.x,model.target.y,model.target.z);aimDirection.copy(aimTo).sub(aimFrom);const distance=aimDirection.length();aimDirection.normalize();
+   const blocked=Math.min(...MAFIA_COVER.map(c=>rayBox(aimFrom,aimDirection,coverBox(c))));aimTo.copy(aimFrom).addScaledVector(aimDirection,Math.min(distance,blocked));const p=aimLine.geometry.attributes.position;p.setXYZ(0,aimFrom.x,aimFrom.y,aimFrom.z);p.setXYZ(1,aimTo.x,aimTo.y,aimTo.z);p.needsUpdate=true;aimLine.geometry.computeBoundingSphere();
+  }
   const ending=model.phase==='victory'||model.phase==='capture',t=model.phase==='victory'?model.elapsed:MAFIA_RULES.victory+model.elapsed,walk=ending?Math.max(0,Math.min(1,(t-2)*3,(MAFIA_RULES.victory-t)*3)):0,stride=Math.sin(Math.max(0,t-2)*Math.PI*3)*walk,reach=model.phase==='capture'?THREE.MathUtils.smoothstep(model.elapsed,0,.20):0;
   for(const {hip,knee,sign} of guardLegs){hip.rotation.x=stride*sign*.22;knee.rotation.x=Math.max(0,-stride*sign)*.30}
   for(const {shoulder,elbow,sign} of guardArms){shoulder.rotation.x=-.75-reach*1.35;shoulder.rotation.z=-sign*(.15+.10*reach);elbow.rotation.x=-1.05+reach*.65}

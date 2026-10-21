@@ -1,3 +1,4 @@
+import {MafiaOpponent} from './mafia-ai.js?v=131';
 export const MAFIA_COVER=[
  {x:-2.6,z:1.1,w:1.7,d:1.5,h:1.85},
  {x:2.55,z:-1.3,w:1.8,d:1.4,h:1.9},
@@ -23,7 +24,7 @@ export function clearShot(from,to,covers=MAFIA_COVER){
 }
 export class MafiaCombat{
  constructor(){this.reset()}
- reset(){this.phase='wake';this.elapsed=this.clock=0;this.health=100;this.enemyHealth=MAFIA_RULES.enemyHealth;this.ammo=MAFIA_RULES.magazine;this.reloadTime=this.cooldown=this.warning=this.hitFlash=0;this.enemyDelay=1.4;this.target=null;this.lastShot=null;this.player={x:0,y:1.62,z:5.5};this.enemy={x:0,y:0,z:-5.05,vx:0,vz:0,distance:0};this.events=[];return this}
+ reset(){this.phase='wake';this.elapsed=this.clock=0;this.health=100;this.enemyHealth=MAFIA_RULES.enemyHealth;this.ammo=MAFIA_RULES.magazine;this.reloadTime=this.cooldown=this.warning=this.hitFlash=0;this.enemyDelay=1.4;this.target=null;this.lastShot=null;this.player={x:0,y:1.62,z:5.5};this.enemy={x:0,y:0,z:-5.05,vx:0,vz:0,distance:0};this.events=[];this.opponent=new MafiaOpponent(MAFIA_COVER,clearShot);return this}
  get fighting(){return this.phase==='fight'}
  get controllable(){return this.fighting||this.phase==='victory'}
  canStand(x,z){const r=.27;return Math.abs(x)<=5.6&&Math.abs(z)<=7.2&&!MAFIA_COVER.some(c=>Math.abs(x-c.x)<c.w/2+r&&Math.abs(z-c.z)<c.d/2+r)}
@@ -33,7 +34,8 @@ export class MafiaCombat{
   if(!this.controllable||this.cooldown>0||this.reloadTime>0)return false;
   if(!this.ammo){this.reload();return false}
   this.ammo--;this.cooldown=MAFIA_RULES.shotDelay;
-  if(hit&&this.fighting){this.enemyHealth=Math.max(0,this.enemyHealth-MAFIA_RULES.damage);this.hitFlash=.14;if(!this.enemyHealth){this.phase='victory';this.elapsed=0;this.warning=0;this.target=null;this.events.push('victory')}}
+  this.opponent.hear(this);
+  if(hit&&this.fighting){this.enemyHealth=Math.max(0,this.enemyHealth-MAFIA_RULES.damage);this.hitFlash=.14;if(!this.enemyHealth){this.phase='victory';this.elapsed=0;this.warning=0;this.target=null;this.events.push('victory')}else this.opponent.hit(this)}
   return true;
  }
  update(dt,{crouch=false}={}){
@@ -42,17 +44,7 @@ export class MafiaCombat{
   if(this.controllable)this.player.y+=((crouch?.94:1.62)-this.player.y)*(1-Math.exp(-13*dt));
   if(this.phase==='wake'&&this.elapsed>=MAFIA_RULES.wake){this.phase='fight';this.elapsed=0}
   else if(this.fighting){
-   const oldX=this.enemy.x,oldZ=this.enemy.z,next=mafiaPatrolAt(this.elapsed);this.enemy.x=next.x;this.enemy.z=next.z;
-   this.enemy.vx=dt>0?(this.enemy.x-oldX)/dt:0;this.enemy.vz=dt>0?(this.enemy.z-oldZ)/dt:0;this.enemy.distance+=Math.hypot(this.enemy.x-oldX,this.enemy.z-oldZ);
-   this.enemyDelay-=dt;
-   if(this.target){
-    this.warning=Math.max(0,this.warning-dt);
-    if(this.warning===0){const source={x:this.enemy.x,y:1.38,z:this.enemy.z+.45};this.lastShot={...this.target};this.events.push('enemy-shot');
-     if(Math.hypot(this.player.x-this.target.x,this.player.z-this.target.z)<.58&&Math.abs(this.player.y-this.target.y)<.42&&clearShot(source,this.player)){
-      this.health=Math.max(0,this.health-16);this.events.push('player-hit');if(!this.health){this.phase='lost';this.elapsed=0}
-     }this.target=null;this.enemyDelay=1.5;
-    }
-   }else if(this.enemyDelay<=0){this.target={...this.player};this.warning=.85;this.events.push('enemy-aim')}
+   this.opponent.update(this,dt);
   }else{
    this.enemy.vx=this.enemy.vz=0;
    const next={victory:['capture',MAFIA_RULES.victory],capture:['return',MAFIA_RULES.capture],return:['done',MAFIA_RULES.return]}[this.phase];
