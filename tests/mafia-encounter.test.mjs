@@ -44,9 +44,20 @@ test('a phone thumb can hold fire and drag to aim while another pointer cannot s
  emit('pointerdown',{pointerId:3,pointerType:'touch',clientX:20,clientY:30});const yaw=e.viewer.motion.targetYaw;emit('pointermove',{pointerId:4,clientX:180,clientY:70});assert.equal(e.viewer.motion.targetYaw,yaw);emit('pointermove',{pointerId:3,clientX:70,clientY:40});assert.ok(e.viewer.motion.targetYaw<yaw);assert.ok(e.viewer.motion.targetPitch<0);
  emit('pointercancel',{pointerId:3});const ammo=e.c.model.ammo;advance(e.c,.7);assert.equal(e.c.model.ammo,ammo);e.c.dispose();
 });
-test('the original rigged Groyp wears mafia accessories and remains finite while aiming and falling',async()=>{
+test('Groyp keeps his original body and a same-side hand-held pistol through aiming and falling',async()=>{
  setup();globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,height:1,close(){}});
  const manifest=JSON.parse(readFileSync(new URL('../models/groyp-air-v74.json',import.meta.url))),buffer=gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url))))),source=(await new GLTFLoader().parseAsync(buffer.buffer.slice(buffer.byteOffset,buffer.byteOffset+buffer.byteLength),'')).scene;
+ const body=source.getObjectByProperty('isSkinnedMesh',true),positions=Array.from(body.geometry.attributes.position.array),head=source.getObjectByName('head'),headRest=head.quaternion.clone(),legs=['thigh_l','thigh_r','calf_l','calf_r'].map(name=>{const bone=source.getObjectByName(name);return [bone,bone.quaternion.clone()]}),originalTriangles=body.geometry.index.count;
  const room=createMafiaRoom(new THREE.PerspectiveCamera(),source);let skins=0;room.enemy.traverse(o=>{if(o.isSkinnedMesh)skins++});assert.ok(skins>0);
- for(const phase of ['fight','victory','capture'])for(const time of [0,.3,1,2]){room.pose({phase,elapsed:time,clock:time,enemy:{x:Math.sin(time)*3,z:-5},player:{x:1,z:5},reloadTime:0});room.enemy.updateMatrixWorld(true);room.enemy.traverse(o=>{assert.ok(o.matrixWorld.elements.every(Number.isFinite));if(o.isSkinnedMesh)for(const b of o.skeleton.bones)assert.ok(b.matrixWorld.elements.every(Number.isFinite))})}room.dispose();
+ for(const phase of ['fight','victory','capture'])for(const time of [0,.3,1,2]){room.pose({phase,elapsed:time,clock:time,enemy:{x:Math.sin(time)*3,z:-5},player:{x:1,z:5},reloadTime:0});room.enemy.updateMatrixWorld(true);room.enemy.traverse(o=>{assert.ok(o.matrixWorld.elements.every(Number.isFinite));if(o.isSkinnedMesh)for(const b of o.skeleton.bones)assert.ok(b.matrixWorld.elements.every(Number.isFinite))});
+  const hand=source.getObjectByName('hand_r'),grip=room.enemy.getObjectByName('Groyp right hand grip'),wrist=hand.getWorldPosition(new THREE.Vector3());
+  assert.ok(wrist.distanceTo(grip.getWorldPosition(new THREE.Vector3()))<1e-6,'gun grip must follow the real wrist, including falls and turns');
+  assert.ok(room.enemy.worldToLocal(wrist.clone()).x<-.25,'right arm must stay on its own side of the torso');
+  assert.ok(head.quaternion.angleTo(headRest)<1e-7);for(const [bone,q] of legs)assert.ok(bone.quaternion.angleTo(q)<1e-7,'leg rest pose stays intact');
+ }
+ assert.deepEqual(Array.from(body.geometry.attributes.position.array),positions,'original mesh proportions remain unchanged');
+ assert.ok(body.geometry.index.count<originalTriangles,'unrigged open right fingers are replaced with a closed grip');
+ const hat=room.enemy.getObjectByName('Groyp fitted fedora');room.enemy.rotation.set(0,0,0);room.enemy.updateMatrixWorld(true);
+ assert.ok(new THREE.Box3().setFromObject(hat).getSize(new THREE.Vector3()).x<.75,'fedora is fitted to the head');
+ room.dispose();
 });

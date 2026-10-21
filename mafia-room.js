@@ -29,26 +29,40 @@ export function createMafiaRoom(camera,source){
  const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.6,1.15),new THREE.MeshBasicMaterial({map:texture}));sign.position.set(0,2.65,-7.88);scene.add(sign);
  box(1.5,2.65,.12,m.trim,scene,0,1.325,7.84);box(.13,.13,.1,m.gold,scene,-.5,1.2,7.73);
  const enemy=new THREE.Group();enemy.name='GROYP_mafia_boss';scene.add(enemy);
- const joints=[];
+ const joints=[];let rightHand;
  if(source){
   const bounds=new THREE.Box3().setFromObject(source),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3()),scale=1.8/size.y,model=new THREE.Group();model.scale.setScalar(scale);model.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);model.add(source);enemy.add(model);
-  source.traverse(o=>{if(o.isSkinnedMesh)o.frustumCulled=false});
+  source.traverse(o=>{
+   if(!o.isSkinnedMesh)return;o.frustumCulled=false;
+   // This model has no finger bones. Replace only the open right palm with a
+   // closed grip; keep the body, face, original texture and skin weights intact.
+   const g=o.geometry.clone(),idx=g.index,handVertex=[];
+   for(let i=0;i<g.attributes.position.count;i++){handVertex[i]=false;for(let k=0;k<4;k++)if(g.attributes.skinWeight.getComponent(i,k)>.5&&o.skeleton.bones[g.attributes.skinIndex.getComponent(i,k)].name==='hand_r')handVertex[i]=true}
+   const kept=[];for(let i=0;i<(idx?.count||g.attributes.position.count);i+=3){const tri=[0,1,2].map(k=>idx?idx.getX(i+k):i+k);if(!tri.some(v=>handVertex[v]))kept.push(...tri)}
+   g.setIndex(kept);o.geometry.dispose();o.geometry=g;
+  });
+  rightHand=source.getObjectByName('hand_r');
   for(const side of ['l','r']){const upper=source.getObjectByName('upperarm_'+side),lower=source.getObjectByName('lowerarm_'+side),hand=source.getObjectByName('hand_'+side);if(upper&&lower&&hand)joints.push({upper,lower,hand,restUpper:upper.quaternion.clone(),restLower:lower.quaternion.clone(),sign:side==='l'?1:-1})}
  }else{
   ball(0,.83,0,.48,.66,.29,m.skin,enemy);ball(0,1.45,.05,.47,.31,.32,m.skin,enemy);
   for(const x of [-.23,.23]){ball(x,1.68,.15,.17,.16,.13,m.skin,enemy);ball(x,1.69,.26,.11,.10,.025,m.shirt,enemy);ball(x,1.69,.282,.045,.065,.012,m.black,enemy)}
   box(.48,.045,.035,m.black,enemy,0,1.35,.36);for(const x of [-.22,.22])box(.22,.4,.3,m.black,enemy,x,.2,0);
  }
- // Pinstripe jacket, lapels, narrow tie and a low fedora over the original frog.
- ball(0,.87,-.07,.48,.46,.32,m.black,enemy);box(.22,.54,.02,m.shirt,enemy,0,1.02,.253);
- for(const sign of [-1,1]){const lapel=box(.13,.44,.025,m.trim,enemy,sign*.16,1.09,.275);lapel.rotation.z=sign*.3;for(let i=-3;i<=3;i++)box(.008,.54,.018,m.trim,enemy,sign*.22+i*.033,.83,.245)}
- const tie=box(.055,.35,.025,m.gold,enemy,0,1.02,.29);tie.rotation.z=-.06;
- const hat=new THREE.Group();hat.name='Groyp pinstripe fedora';hat.position.set(0,1.72,-.015);hat.rotation.z=-.055;enemy.add(hat);const brim=cylinder(.49,.49,.035,m.black,hat,0,0,0);brim.scale.z=.76;const crown=cylinder(.31,.35,.22,m.black,hat,0,.12,0);crown.scale.z=.82;const band=cylinder(.325,.34,.065,m.gold,hat,0,.055,0);band.scale.z=.83;
+ // Keep Groyp's original silhouette. A fitted fedora and a hand-held pistol
+ // provide the mafia look without rigid clothing cutting through his skin.
+ const hat=new THREE.Group();hat.name='Groyp fitted fedora';hat.position.set(0,1.77,-.015);hat.rotation.z=-.035;enemy.add(hat);
+ const brim=cylinder(.34,.34,.025,m.black,hat,0,0,0);brim.scale.z=.84;
+ const crown=cylinder(.225,.25,.17,m.black,hat,0,.09,0);crown.scale.z=.88;
+ const band=cylinder(.239,.249,.035,m.gold,hat,0,.035,0);band.scale.z=.88;
  function pistol(parent,scale=1){
   const group=new THREE.Group();group.scale.setScalar(scale);parent.add(group);box(.095,.11,.37,m.trim,group,0,.025,.12);box(.11,.055,.22,m.black,group,0,.092,.11);const grip=box(.085,.20,.10,m.glove,group,0,-.09,-.01);grip.rotation.x=-.2;
   const barrel=cylinder(.026,.026,.08,m.black,group,0,.033,.34);barrel.rotation.x=Math.PI/2;box(.015,.025,.02,m.gold,group,0,.105,.25);return group;
  }
- const enemyGun=pistol(enemy,1.2);enemyGun.position.set(.25,1.12,.39);ball(.25,1.02,.37,.07,.08,.09,m.skin,enemy);ball(-.11,1.06,.43,.07,.07,.08,m.skin,enemy);
+ const grip=new THREE.Group();grip.name='Groyp right hand grip';enemy.add(grip);
+ const enemyGun=pistol(grip,.9);enemyGun.name='Groyp pistol';enemyGun.position.set(0,.075,.025);
+ const palm=ball(0,0,.008,.048,.055,.043,m.skin,grip);palm.name='Groyp closed right palm';
+ for(const y of [-.033,-.011,.011,.033])ball(0,y,.036,.048,.013,.019,m.skin,grip);
+ ball(-.04,.025,.005,.019,.032,.023,m.skin,grip);
  const gun=new THREE.Group();gun.name='First person pistol';camera.add(gun);gun.position.set(.24,-.28,-.48);gun.rotation.y=Math.PI;
  const weapon=pistol(gun,1.0);ball(0,-.13,-.02,.065,.12,.085,m.glove,gun);box(.11,.23,.2,m.black,gun,0,-.28,-.13);
  function muzzle(parent,x,y,z){const mesh=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6),new THREE.MeshBasicMaterial({color:0xffdf83,transparent:true,opacity:.95,depthWrite:false}));mesh.position.set(x,y,z);mesh.scale.z=2;mesh.visible=false;parent.add(mesh);return mesh}
@@ -62,15 +76,16 @@ export function createMafiaRoom(camera,source){
   enemy.updateWorldMatrix(true,true);
   for(const j of joints){
    j.upper.quaternion.copy(j.restUpper);j.lower.quaternion.copy(j.restLower);enemy.updateWorldMatrix(true,true);j.upper.getWorldPosition(a);j.lower.getWorldPosition(b);j.hand.getWorldPosition(c);const l1=a.distanceTo(b),l2=b.distanceTo(c);
-   target.set(j.sign<0?.25:-.11,j.sign<0?1.04:1.07,j.sign<0?.37:.43);enemy.localToWorld(target);axis.copy(target).sub(a).normalize();const d=Math.min(a.distanceTo(target),l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),bend=Math.sqrt(Math.max(0,l1*l1-along*along)),pole=new THREE.Vector3(j.sign*.7,-.3,-.2).transformDirection(enemy.matrixWorld);pole.addScaledVector(axis,-pole.dot(axis)).normalize();elbow.copy(a).addScaledVector(axis,along).addScaledVector(pole,bend);
+   target.set(j.sign<0?-.32:.43,j.sign<0?1.14:.96,j.sign<0?.34:.02);enemy.localToWorld(target);axis.copy(target).sub(a).normalize();const d=Math.min(a.distanceTo(target),l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),bend=Math.sqrt(Math.max(0,l1*l1-along*along)),pole=new THREE.Vector3(j.sign*.7,-.3,-.2).transformDirection(enemy.matrixWorld);pole.addScaledVector(axis,-pole.dot(axis)).normalize();target.copy(a).addScaledVector(axis,d);elbow.copy(a).addScaledVector(axis,along).addScaledVector(pole,bend);
    rotateJoint(j.upper,b.clone().sub(a),elbow.clone().sub(a));j.lower.getWorldPosition(b);j.hand.getWorldPosition(c);rotateJoint(j.lower,c.clone().sub(b),target.clone().sub(b));
   }
  }
- const originalQuaternions=new Map();source?.traverse(o=>{if(o.isBone&&/^(thigh|calf)_/.test(o.name))originalQuaternions.set(o,o.quaternion.clone())});
+ const wrist=new THREE.Vector3();
  function pose(model,recoil=0){
   enemy.position.set(model.enemy.x,0,model.enemy.z);enemy.rotation.set(0,Math.atan2(model.player.x-model.enemy.x,model.player.z-model.enemy.z),model.phase==='victory'?-.6*Math.min(1,model.elapsed):0);
   if(['capture','return','done'].includes(model.phase))enemy.rotation.z=-1.2;
-  for(const [bone,q] of originalQuaternions){bone.quaternion.copy(q);bone.rotateX(Math.sin(model.clock*4.5)*(bone.name.includes('_l')?1:-1)*.07)}aimArms();
+  aimArms();
+  if(rightHand){rightHand.getWorldPosition(wrist);grip.position.copy(enemy.worldToLocal(wrist))}else grip.position.set(-.32,1.14,.34);
   gun.position.set(.24,-.28+(model.reloadTime>0?-.22*Math.sin(Math.PI*model.reloadTime/1.3):0),-.48+recoil*.075);gun.rotation.x=-recoil*.10;gun.rotation.z=model.reloadTime>0?-.35:0;
  }
  function trace(from,to){const positions=tracer.geometry.attributes.position;positions.setXYZ(0,from.x,from.y,from.z);positions.setXYZ(1,to.x,to.y,to.z);positions.needsUpdate=true;tracer.geometry.computeBoundingSphere();tracer.visible=true}

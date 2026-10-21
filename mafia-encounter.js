@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=125';
-import {createMafiaRoom} from './mafia-room.js?v=125';
+import {createMafiaRoom} from './mafia-room.js?v=126';
 
 const clamp=t=>Math.max(0,Math.min(1,t)),smooth=t=>{t=clamp(t);return t*t*(3-2*t)};
 export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(),makeRoom=createMafiaRoom}={}){
