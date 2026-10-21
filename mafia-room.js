@@ -39,9 +39,6 @@ export function createMafiaRoom(camera,source){
  for(const [x,y,z] of [[0,-.12,-.085],[0,-.045,.20]]){const hand=ball(x,y,z,.052,.065,.055,m.glove,weapon);hand.name=z>0?'Player rifle support hand':'Player rifle trigger hand'}
  const rearSleeve=box(.10,.24,.13,m.black,weapon,0,-.29,-.13,'Player right sleeve');rearSleeve.rotation.x=.25;
  const frontSleeve=box(.10,.26,.13,m.black,weapon,-.035,-.23,.24,'Player left sleeve');frontSleeve.rotation.x=-.4;
- const brace=new THREE.Group();brace.name='Player bracing left hand';camera.add(brace);brace.visible=false;
- const braceSleeve=box(.105,.25,.12,m.black,brace,0,-.10,.09,'Player reaching sleeve');braceSleeve.rotation.x=-.65;
- ball(0,.035,-.025,.065,.035,.075,m.glove,brace);for(const x of [-.045,-.015,.015,.045])ball(x,.035,-.10,.014,.016,.053,m.glove,brace);ball(-.075,.018,-.025,.03,.02,.045,m.glove,brace);
  function muzzle(parent){const mesh=new THREE.Mesh(new THREE.SphereGeometry(.046,8,6),new THREE.MeshBasicMaterial({color:0xffdf83,transparent:true,opacity:.95,depthWrite:false}));mesh.position.copy(parent.userData.muzzle);mesh.scale.z=2.2;mesh.visible=false;parent.add(mesh);return mesh}
  const playerFlash=muzzle(weapon),enemyFlash=muzzle(enemyGun),playerLight=new THREE.PointLight(0xffc879,0,5,2);playerLight.position.copy(weapon.userData.muzzle).multiplyScalar(.82);gun.add(playerLight);
  const guard=new THREE.Group();guard.name='Silent guard behind the player';scene.add(guard);guard.visible=false;
@@ -84,11 +81,10 @@ export function createMafiaRoom(camera,source){
    shoulder.rotation.x=Math.atan2(-z,-y)-Math.atan2(.28*Math.sin(bend),.29+.28*Math.cos(bend));shoulder.rotation.z=-sign*.12;elbow.rotation.x=bend;
   }
   sack.visible=ending&&(model.phase!=='capture'||model.elapsed>MAFIA_CAPTURE.bag-.35&&model.elapsed<MAFIA_CAPTURE.covered+.15);sack.position.set(0,sackY,sackZ);sack.rotation.x=-.25*(1-reach);
-  const supporting=model.phase==='capture'&&capturePoseAt(model.elapsed).brace>.01;frontSleeve.visible=!supporting;weapon.getObjectByName('Player rifle support hand').visible=!supporting;
   const reload=model.reloadTime>0?Math.sin(Math.PI*model.reloadTime/MAFIA_RULES.reload):0;
   gun.position.set(.23,-.29-.26*reload,-.55+recoil*.045);gun.rotation.x=-recoil*.045+.12*reload;gun.rotation.z=-.40*reload;
  }
  function trace(from,to){const positions=tracer.geometry.attributes.position;positions.setXYZ(0,from.x,from.y,from.z);positions.setXYZ(1,to.x,to.y,to.z);positions.needsUpdate=true;tracer.geometry.computeBoundingSphere();tracer.visible=true}
- function dispose(){gun.removeFromParent();brace.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set(),skeletons=new Set();for(const root of [scene,gun,brace])root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.isSkinnedMesh)skeletons.add(o.skeleton);for(const mat of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(mat);for(const v of Object.values(mat))if(v?.isTexture)textures.add(v)}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures){t.image?.close?.();t.dispose()}for(const s of skeletons)s.dispose();scene.clear()}
- return {scene,enemy,enemyGun,groyp,gun,guard,brace,playerFlash,enemyFlash,playerLight,tracer,pose,trace,dispose};
+ function dispose(){gun.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set(),skeletons=new Set();for(const root of [scene,gun])root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.isSkinnedMesh)skeletons.add(o.skeleton);for(const mat of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(mat);for(const v of Object.values(mat))if(v?.isTexture)textures.add(v)}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures){t.image?.close?.();t.dispose()}for(const s of skeletons)s.dispose();scene.clear()}
+ return {scene,enemy,enemyGun,groyp,gun,guard,playerFlash,enemyFlash,playerLight,tracer,pose,trace,dispose};
 }

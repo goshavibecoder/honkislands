@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=132';
-import {createMafiaRoom} from './mafia-room.js?v=132';
+import {createMafiaRoom} from './mafia-room.js?v=133';
 import {createMafiaAudio} from './mafia-audio.js?v=132';
 import {MAFIA_ENEMY_RULES} from './mafia-ai.js?v=131';
 import {capturePoseAt,captureLanding,MAFIA_CAPTURE} from './mafia-capture.js?v=132';
@@ -25,9 +25,9 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
  function restorePose(){
   if(!saved||returning)return;returning=true;const old=saved;viewer.camera.removeFromParent();if(old.parent)old.parent.add(viewer.camera);viewer.camera.position.copy(old.position);viewer.camera.quaternion.copy(old.quaternion);viewer.camera.near=old.near;viewer.camera.far=old.far;viewer.camera.updateProjectionMatrix();viewer.foot=old.foot;viewer.yaw=old.yaw;viewer.pitch=old.pitch;viewer.motion.reset(old.yaw,old.pitch);viewer.physics?.reset();viewer.controls.enabled=old.controls;viewer.renderer.toneMappingExposure=old.exposure;room.gun.visible=false;viewer.clearWalkInput();
  }
- function cancel(){caught=null;kickPlayed=false;if(room){room.brace.visible=false;room.guard.visible=false}recovery.cancel();audio.stop();epoch++;loading=false;held=false;firePointer=null;restorePose();saved=null;returning=false;ui.hidden=true;bag.style.opacity='0';host.classList.remove('mafia-encounter','mafia-cinematic');viewer.clearWalkInput()}
+ function cancel(){caught=null;kickPlayed=false;if(room){room.guard.visible=false}recovery.cancel();audio.stop();epoch++;loading=false;held=false;firePointer=null;restorePose();saved=null;returning=false;ui.hidden=true;bag.style.opacity='0';host.classList.remove('mafia-encounter','mafia-cinematic');viewer.clearWalkInput()}
  function restart(){
-  if(!saved||!room)return;recovery.cancel();audio.stop();model.reset();phase='';caught=null;kickPlayed=false;held=crouched=false;recoil=hurt=traceTime=enemyFlashTime=enemyKick=0;returning=false;room.scene.add(viewer.camera);room.gun.visible=true;room.brace.visible=false;room.guard.visible=false;room.tracer.visible=false;room.playerFlash.visible=room.enemyFlash.visible=false;viewer.camera.near=.045;viewer.camera.far=70;viewer.camera.updateProjectionMatrix();viewer.renderer.toneMappingExposure=1.15;viewer.motion.reset(0,0);viewer.clearWalkInput();result.hidden=true;crouch.setAttribute('aria-pressed','false');update(0);
+  if(!saved||!room)return;recovery.cancel();audio.stop();model.reset();phase='';caught=null;kickPlayed=false;held=crouched=false;recoil=hurt=traceTime=enemyFlashTime=enemyKick=0;returning=false;room.scene.add(viewer.camera);room.gun.visible=true;room.guard.visible=false;room.tracer.visible=false;room.playerFlash.visible=room.enemyFlash.visible=false;viewer.camera.near=.045;viewer.camera.far=70;viewer.camera.updateProjectionMatrix();viewer.renderer.toneMappingExposure=1.15;viewer.motion.reset(0,0);viewer.clearWalkInput();result.hidden=true;crouch.setAttribute('aria-pressed','false');update(0);
  }
  async function begin(){
   if(disposed||loading||saved||!viewer.active)return false;loading=true;audio.unlock();void audio.prepare();const ticket=++epoch;
@@ -75,7 +75,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
     caught={position:viewer.camera.position.clone(),yaw:viewer.camera.rotation.y,pitch:viewer.camera.rotation.x};caught.distance=captureLanding(caught.position,caught.yaw,(x,z)=>model.canStand(x,z));kickPlayed=false;
    }
    if(phase==='lost')audio.stop('reload');
-   if(phase==='return'){room.brace.visible=false;audio.stop();restorePose();void recovery.begin();bag.style.opacity='0';sync();return}
+   if(phase==='return'){audio.stop();restorePose();void recovery.begin();bag.style.opacity='0';sync();return}
    if(phase==='done'){cancel();return}
   }
   room.pose(model,recoil,enemyKick);
@@ -91,7 +91,6 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
   if(model.phase==='capture'&&caught){
    const pose=capturePoseAt(model.elapsed,caught.position.y,caught.pitch),travel=Math.min(caught.distance,pose.forward);
    viewer.camera.position.set(caught.position.x-Math.sin(caught.yaw)*travel,pose.height,caught.position.z-Math.cos(caught.yaw)*travel);viewer.camera.rotation.set(pose.pitch,caught.yaw,pose.roll,'YXZ');
-   room.brace.visible=pose.brace>.01;viewer.camera.updateWorldMatrix(true,false);impact.set(-.25,-.23,-.42);viewer.camera.localToWorld(impact);impact.y=Math.max(.14,impact.y);room.brace.position.copy(viewer.camera.worldToLocal(impact));room.brace.rotation.x=-.30*pose.brace;
    room.gun.position.y-=pose.gunDip;room.gun.rotation.x-=.30*pose.brace;room.gun.rotation.z+=.13*pose.brace;
    if(!kickPlayed&&model.elapsed>=MAFIA_CAPTURE.impact){kickPlayed=true;hurt=.65;sound('kick')}
   }
