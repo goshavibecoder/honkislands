@@ -87,6 +87,16 @@ export function createMafiaRoom(camera,source){
   gun.position.set(.23,-.29-.26*reload,-.55+recoil*.045);gun.rotation.x=-recoil*.045+.12*reload;gun.rotation.z=-.40*reload;
  }
  function trace(from,to){const positions=tracer.geometry.attributes.position;positions.setXYZ(0,from.x,from.y,from.z);positions.setXYZ(1,to.x,to.y,to.z);positions.needsUpdate=true;tracer.geometry.computeBoundingSphere();tracer.visible=true}
+ // Snapshot only the visible, deformed body, without stars, dust or the dropped AK.
+ function fallenBodyBounds(){
+  const bounds=new THREE.Box3(),part=new THREE.Box3(),vertex=new THREE.Vector3();groyp.body.updateWorldMatrix(true,true);
+  groyp.body.traverseVisible(o=>{
+   if(!o.isMesh)return;
+   if(o.isSkinnedMesh){const indices=o.geometry.index;for(const i of indices?new Set(indices.array):Array.from({length:o.geometry.attributes.position.count},(_,i)=>i)){o.getVertexPosition(i,vertex).applyMatrix4(o.matrixWorld);bounds.expandByPoint(vertex)}}
+   else{if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();part.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);bounds.union(part)}
+  });
+  return bounds;
+ }
  function dispose(){blood.mesh.dispose();blood.puddles.dispose();gun.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set(),skeletons=new Set();for(const root of [scene,gun])root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.isSkinnedMesh)skeletons.add(o.skeleton);for(const mat of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(mat);for(const v of Object.values(mat))if(v?.isTexture)textures.add(v)}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures){t.image?.close?.();t.dispose()}for(const s of skeletons)s.dispose();scene.clear()}
- return {scene,enemy,enemyGun,groyp,gun,guard,blood,playerFlash,enemyFlash,playerLight,tracer,pose,trace,dispose};
+ return {scene,enemy,enemyGun,groyp,gun,guard,blood,fallenBodyBounds,playerFlash,enemyFlash,playerLight,tracer,pose,trace,dispose};
 }

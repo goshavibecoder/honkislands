@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=132';
-import {createMafiaRoom} from './mafia-room.js?v=135';
+import {createMafiaRoom} from './mafia-room.js?v=136';
 import {createMafiaAudio} from './mafia-audio.js?v=132';
 import {MAFIA_ENEMY_RULES} from './mafia-ai.js?v=131';
-import {capturePoseAt,captureLanding,MAFIA_CAPTURE} from './mafia-capture.js?v=132';
+import {capturePoseAt,captureLanding,captureCollisionPosition,MAFIA_CAPTURE} from './mafia-capture.js?v=136';
 import {mountKnockoutRecovery} from './knockout-recovery.js?v=105';
 
 const clamp=t=>Math.max(0,Math.min(1,t)),smooth=t=>{t=clamp(t);return t*t*(3-2*t)};
@@ -79,6 +79,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
    if(phase==='done'){cancel();return}
   }
   room.pose(model,recoil,enemyKick);
+  if(model.phase==='capture'&&caught&&!caught.body)caught.body=room.fallenBodyBounds();
   if(events.includes('enemy-shot')){sound('enemy-shot');room.enemyFlash.getWorldPosition(from);impact.set(model.lastShot.x,model.lastShot.y,model.lastShot.z);direction.copy(impact).sub(from);const length=direction.length();direction.normalize();const coverDistance=Math.min(...MAFIA_COVER.map(c=>rayBox(from,direction,coverBox(c))));impact.copy(from).addScaledVector(direction,Math.min(length,coverDistance));room.trace(from,impact);traceTime=.09}
   if(events.includes('enemy-reload'))sound('enemy-reload');
   if(events.includes('player-hit')){hurt=.8;sound('hit')}
@@ -90,7 +91,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
   }
   if(model.phase==='capture'&&caught){
    const pose=capturePoseAt(model.elapsed,caught.position.y,caught.pitch),travel=Math.min(caught.distance,pose.forward);
-   viewer.camera.position.set(caught.position.x-Math.sin(caught.yaw)*travel,pose.height,caught.position.z-Math.cos(caught.yaw)*travel);viewer.camera.rotation.set(pose.pitch,caught.yaw,pose.roll,'YXZ');
+   const landing=captureCollisionPosition(caught.position,{x:caught.position.x-Math.sin(caught.yaw)*travel,y:pose.height,z:caught.position.z-Math.cos(caught.yaw)*travel},caught.body);viewer.camera.position.set(landing.x,landing.y,landing.z);viewer.camera.rotation.set(pose.pitch,caught.yaw,pose.roll,'YXZ');
    room.gun.position.y-=pose.gunDip;room.gun.rotation.x-=.30*pose.brace;room.gun.rotation.z+=.13*pose.brace;
    if(!kickPlayed&&model.elapsed>=MAFIA_CAPTURE.impact){kickPlayed=true;hurt=.65;sound('kick')}
   }

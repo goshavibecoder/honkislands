@@ -8,3 +8,20 @@ export function capturePoseAt(time,eye=1.62,pitch=0){
 export function captureLanding(start,yaw,canStand){
  let distance=0;for(let d=.02;d<=.461;d+=.02){if(!canStand(start.x-Math.sin(yaw)*d,start.z-Math.cos(yaw)*d))break;distance=d}return distance;
 }
+
+// Sweep the fall from its standing pose, including vertical motion. This also
+// catches a body crossed entirely between frames or directly below the player.
+export function captureCollisionPosition(start,target,body,clearance=.16){
+ if(!body||body.min.x>body.max.x)return target;
+ const lo={},hi={},origin={...start};
+ for(const axis of ['x','y','z']){lo[axis]=body.min[axis]-clearance;hi[axis]=body.max[axis]+clearance}
+ if(['x','y','z'].every(axis=>origin[axis]>=lo[axis]&&origin[axis]<=hi[axis]))origin.y=hi.y+.001;
+ let enter=0,leave=1;
+ for(const axis of ['x','y','z']){
+  const d=target[axis]-origin[axis];
+  if(Math.abs(d)<1e-9){if(origin[axis]<lo[axis]||origin[axis]>hi[axis])return target;continue}
+  let a=(lo[axis]-origin[axis])/d,b=(hi[axis]-origin[axis])/d;if(a>b)[a,b]=[b,a];enter=Math.max(enter,a);leave=Math.min(leave,b);if(enter>leave)return target;
+ }
+ const stop=Math.max(0,enter-.0001);
+ return {x:origin.x+(target.x-origin.x)*stop,y:origin.y+(target.y-origin.y)*stop,z:origin.z+(target.z-origin.z)*stop};
+}

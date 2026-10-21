@@ -179,3 +179,16 @@ test('blood pools spread along the floor, merge locally, stay after the spray an
  blood.emit(new THREE.Vector3(-3,1.3,2),direction,{fatal:true});assert.equal(blood.puddleCount,2);blood.update(20);assert.equal(blood.puddles.visible,true);assert.ok(blood.puddles.instanceMatrix.array.every(Number.isFinite));
  for(let i=0;i<100;i++)blood.emit(new THREE.Vector3(i,1,0),direction);assert.ok(blood.puddleCount<=24,'floor stains have a fixed memory budget');blood.clear();assert.equal(blood.puddleCount,0);assert.equal(blood.puddles.visible,false);room.dispose();
 });
+
+test('the capture camera collides with the actual fallen skinned Groyp, including when starting above him',async()=>{
+ for(const hz of [30,60,120]){
+  const source=await loadGroyp();let room;const e=setup({loadActor:async()=>source,makeRoom(...args){return room=createMafiaRoom(...args)}});
+  for(const above of [false,true]){
+   await e.c.begin();advance(e.c,1.9);e.c.model.phase='victory';e.c.model.elapsed=3.8;e.c.update(0);const bounds=room.fallenBodyBounds(),center=bounds.getCenter(new THREE.Vector3());assert.ok(bounds.max.y<1,'hidden stars must not inflate the collider');
+   e.c.model.player.x=center.x;e.c.model.player.z=above?center.z:bounds.max.z+.20;e.viewer.motion.reset(0,0);e.c.model.elapsed=MAFIA_RULES.victory;e.c.update(0);const yaw=e.viewer.camera.rotation.y;
+   for(let i=0;i<hz*3;i++){e.c.update(1/hz);assert.ok(bounds.distanceToPoint(e.viewer.camera.position)>=.1599,'camera penetrated the fallen body');assert.equal(e.viewer.camera.rotation.y,yaw)}
+   assert.equal(e.c.model.phase,'capture');assert.equal(e.ui.querySelector('.mafia-bag').style.opacity,'1');e.c.cancel();
+  }
+  e.c.dispose();
+ }
+});
