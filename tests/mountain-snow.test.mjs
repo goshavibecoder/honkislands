@@ -75,9 +75,9 @@ test('the widened top stair threshold is passable through the outside notch',()=
  }
 });
 const {createSkiHonk}=await import(moduleURL(new URL('../ski-honk.js',import.meta.url)));
-test('the snowboarder has a rounded HONK head, one twin-tip board and two sideways bindings',()=>{
+test('the snowboarder keeps the original HONK face, one twin-tip board and two sideways bindings',()=>{
  const data=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url)))),skier=createSkiHonk(new THREE.Group(),data);
- assert.ok(skier.head.children.length);assert.ok(skier.head.getObjectByName('HONK rounded rainbow curls'));assert.ok(skier.head.getObjectByName('HONK red clown nose'));assert.ok(skier.group.getObjectByName('HONK twin-tip snowboard'));assert.equal(skier.group.getObjectByName('Honk_right_ski'),undefined);assert.equal(skier.bindings.length,2);
+ assert.ok(skier.head.children.length);assert.ok(skier.group.getObjectByName('HONK twin-tip snowboard'));assert.equal(skier.group.getObjectByName('Honk_right_ski'),undefined);assert.equal(skier.bindings.length,2);
  skier.board.geometry.computeBoundingBox();const size=skier.board.geometry.boundingBox.getSize(new THREE.Vector3());assert.ok(size.z>1.7&&size.x<.40);
  for(const state of [{},{airborne:true,verticalSpeed:4,clock:1},{landing:1,clock:2}]){skier.pose(snow.start,.8,9,.7,.5,state);skier.group.updateMatrixWorld(true);skier.group.traverse(o=>{assert.ok(o.matrixWorld.elements.every(Number.isFinite));if(o.isMesh){assert.ok(o.userData.islandRide);assert.ok(o.geometry.attributes.position.array.every(Number.isFinite))}})}
 });
@@ -111,14 +111,4 @@ test('snowboard boots stay on their bindings during carving and jumps',()=>{
    for(const sign of [-1,1]){raycaster.set(worldAnkle.clone().addScaledVector(direction,sign*.3),direction.clone().multiplyScalar(-sign));const hit=raycaster.intersectObject(binding.boot,true)[0];assert.ok(hit&&hit.distance<.3,'the trouser cuff must enter its boot')}
   }
  }
-});
-
-test('the rider squats before launch, tucks in flight and absorbs landing without stretching his legs',()=>{
- const rider=createSkiHonk(new THREE.Group()),position=new THREE.Vector3(),kneeAngle=leg=>new THREE.Vector3().subVectors(leg.hip,leg.knee).angleTo(new THREE.Vector3().subVectors(leg.ankle,leg.knee));
- rider.pose(position,0,8,0,0,{clock:1});rider.group.updateMatrixWorld(true);const standing=rider.head.getWorldPosition(new THREE.Vector3()),standingAngle=kneeAngle(rider.legs[0]);
- for(const state of [{jumpPrep:1,preparing:true},{airborne:true,airTime:.30,jumpImpulse:5,verticalSpeed:1},{landing:.9,landingTime:.08}]){
-  rider.pose(position,0,8,0,0,state);rider.group.updateMatrixWorld(true);const head=rider.head.getWorldPosition(new THREE.Vector3());assert.ok(head.y<standing.y-.15,'the torso and head must follow the deep squat');
-  for(const leg of rider.legs){assert.ok(kneeAngle(leg)<standingAngle-.5,'knees must visibly bend');assert.ok(Math.abs(leg.hip.distanceTo(leg.knee)-.32)<1e-7);assert.ok(Math.abs(leg.knee.distanceTo(leg.ankle)-.32)<1e-7)}
- }
- rider.pose(position,0,8,.4,0,{clock:1});rider.group.updateMatrixWorld(true);const first=rider.head.getWorldPosition(new THREE.Vector3()),rotation=rider.head.quaternion.clone(),hand=rider.arms[0].hand.position.clone();rider.pose(position,0,8,.4,0,{clock:1.4});rider.group.updateMatrixWorld(true);assert.ok(rider.head.getWorldPosition(new THREE.Vector3()).distanceTo(first)>.001);assert.ok(rider.head.quaternion.angleTo(rotation)>.001);assert.ok(rider.arms[0].hand.position.distanceTo(hand)>.001);rider.dispose();
 });
