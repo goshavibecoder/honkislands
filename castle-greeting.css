@@ -2,4 +2,3 @@
 .castle-greeting-blush{position:absolute;inset:0;z-index:29;pointer-events:none;background:radial-gradient(ellipse at center,transparent 34%,#f98bb077 80%,#ff5a8faa);opacity:0}
 .castle-greeting-skip[hidden],.castle-greeting-blush[hidden]{display:none!important}
 #world.castle-greeting #walk-controls,#world.castle-greeting .reticle,#world.castle-greeting #hint,#world.castle-greeting .wardrobe-open,#world.castle-greeting .balloon-controls{display:none!important}
-.castle-greeting-credit{position:absolute;z-index:28;right:max(14px,env(safe-area-inset-right));bottom:env(safe-area-inset-bottom);display:flex;align-items:center;min-height:44px;padding:0 6px;color:#fff;font:11px system-ui;text-shadow:0 1px 4px #000;text-decoration:underline;text-underline-offset:3px;opacity:.8}.castle-greeting-credit[hidden]{display:none!important}

@@ -1,5 +1,5 @@
 import {mountDesktopControls} from './desktop-controls.js?v=121';
-import {mountCastleGreeting} from './castle-greeting.js?v=119';
+import {mountCastleGreeting} from './castle-greeting.js?v=123';
 import {createAssetCache,fetchAssetBytes,fetchAssetJSON,fetchGzipJSON,loadCompressedScene} from './asset-loader.js?v=116';
 import * as THREE from 'three';
 import {createArchitectureCollision} from './walk-architecture.js?v=77';

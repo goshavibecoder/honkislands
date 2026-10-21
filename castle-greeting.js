@@ -7,12 +7,11 @@ export const CASTLE_GREETING_HOME={x:1.65,y:.028,z:3.35};
 
 export function mountCastleGreeting(viewer,{loader=loadCastleGuest,makeActor=createCastleGuest}={}){
  const host=document.getElementById('world'),skip=document.createElement('button'),blush=document.createElement('div');skip.className='castle-greeting-skip glass';skip.type='button';skip.textContent='Skip';skip.setAttribute('aria-label','Skip greeting');skip.hidden=true;blush.className='castle-greeting-blush';blush.hidden=true;blush.setAttribute('aria-hidden','true');host.append(skip,blush);
- const credit=document.createElement('a');credit.className='castle-greeting-credit';credit.href='./assets/castle-guest-CREDITS.md';credit.target='_blank';credit.rel='noopener noreferrer';credit.textContent='Model credits';credit.title='Rias Gremory by mendezedward444 · CC BY 4.0';credit.hidden=true;host.append(credit);
  const heartShape=new THREE.Shape();heartShape.moveTo(0,-.115);heartShape.bezierCurveTo(-.028,-.08,-.15,.005,-.125,.078);heartShape.bezierCurveTo(-.105,.147,-.025,.143,0,.085);heartShape.bezierCurveTo(.025,.143,.105,.147,.125,.078);heartShape.bezierCurveTo(.15,.005,.028,-.08,0,-.115);
  const heartMaterial=new THREE.MeshBasicMaterial({color:0xff4d89,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,toneMapped:false}),heart=new THREE.Mesh(new THREE.ExtrudeGeometry(heartShape,{depth:.025,bevelEnabled:true,bevelSize:.012,bevelThickness:.01,bevelSegments:2,curveSegments:12}),heartMaterial);heart.name='Castle_first_person_kiss_heart';heart.visible=false;viewer.scene.add(heart);
  let actor=null,disposed=false,armed=false,entered=false,outside=false,played=false,saved=null,time=0,heartOrigin=null;
  const home=new THREE.Vector3(CASTLE_GREETING_HOME.x,CASTLE_GREETING_HOME.y,CASTLE_GREETING_HOME.z),aim=new THREE.Vector3(),direction=new THREE.Vector3(),near=new THREE.Vector3(),mouth=new THREE.Vector3(),right=new THREE.Vector3(),look=new THREE.Quaternion(),matrix=new THREE.Matrix4(),up=new THREE.Vector3(0,1,0);
- function placeHome(){if(!actor)return;actor.group.position.copy(home);actor.group.rotation.set(0,0,0);actor.pose();actor.group.visible=armed||played;credit.hidden=!actor.group.visible}
+ function placeHome(){if(!actor)return;actor.group.position.copy(home);actor.group.rotation.set(0,0,0);actor.pose();actor.group.visible=armed||played}
  function otherRide(){return viewer.balloonTravel?.active||viewer.balloonTravel?.mapOpen||viewer.wardrobeAmbush?.active||viewer.knockoutRecovery?.active||viewer.islandTransport?.active||viewer.galleryLift?.active||viewer.helicopterFlight?.active}
  const ready=Promise.resolve().then(loader).then(source=>{if(disposed){const unused=makeActor(new THREE.Group(),source);unused.dispose();return null}actor=makeActor(viewer.scene,source);placeHome();return actor}).catch(error=>{if(!disposed)console.warn('Castle greeting unavailable',error);return null});
  function arm(){if(disposed)return false;armed=true;entered=false;played=false;outside=viewer.camera.position.z>6.05;placeHome();return true}
@@ -51,7 +50,7 @@ export function mountCastleGreeting(viewer,{loader=loadCastleGuest,makeActor=cre
    }
    if(time>=beat.finish)finish();
   },
-  dispose(){if(disposed)return;cancel();disposed=true;actor?.dispose();actor=null;skip.removeEventListener('click',finish);skip.remove();blush.remove();credit.remove();heart.removeFromParent();heart.geometry.dispose();heartMaterial.dispose()}
+  dispose(){if(disposed)return;cancel();disposed=true;actor?.dispose();actor=null;skip.removeEventListener('click',finish);skip.remove();blush.remove();heart.removeFromParent();heart.geometry.dispose();heartMaterial.dispose()}
  };
  return control;
 }
