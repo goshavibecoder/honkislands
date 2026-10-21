@@ -3,7 +3,7 @@ import {batchRideMeshes} from './ride-performance.js?v=59';
 import {MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=132';
 import {createMafiaFinishes,createKalashnikov} from './mafia-weapon.js?v=127';
 import {prepareMafiaGroyp} from './mafia-groyp.js?v=132';
-import {createBloodSpray} from './mafia-blood.js?v=134';
+import {createBloodSpray} from './mafia-blood.js?v=135';
 import {capturePoseAt,MAFIA_CAPTURE} from './mafia-capture.js?v=132';
 
 export function createMafiaRoom(camera,source){
@@ -87,6 +87,6 @@ export function createMafiaRoom(camera,source){
   gun.position.set(.23,-.29-.26*reload,-.55+recoil*.045);gun.rotation.x=-recoil*.045+.12*reload;gun.rotation.z=-.40*reload;
  }
  function trace(from,to){const positions=tracer.geometry.attributes.position;positions.setXYZ(0,from.x,from.y,from.z);positions.setXYZ(1,to.x,to.y,to.z);positions.needsUpdate=true;tracer.geometry.computeBoundingSphere();tracer.visible=true}
- function dispose(){blood.mesh.dispose();gun.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set(),skeletons=new Set();for(const root of [scene,gun])root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.isSkinnedMesh)skeletons.add(o.skeleton);for(const mat of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(mat);for(const v of Object.values(mat))if(v?.isTexture)textures.add(v)}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures){t.image?.close?.();t.dispose()}for(const s of skeletons)s.dispose();scene.clear()}
+ function dispose(){blood.mesh.dispose();blood.puddles.dispose();gun.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set(),skeletons=new Set();for(const root of [scene,gun])root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.isSkinnedMesh)skeletons.add(o.skeleton);for(const mat of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(mat);for(const v of Object.values(mat))if(v?.isTexture)textures.add(v)}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures){t.image?.close?.();t.dispose()}for(const s of skeletons)s.dispose();scene.clear()}
  return {scene,enemy,enemyGun,groyp,gun,guard,blood,playerFlash,enemyFlash,playerLight,tracer,pose,trace,dispose};
 }

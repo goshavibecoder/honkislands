@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=132';
-import {createMafiaRoom} from './mafia-room.js?v=134';
+import {createMafiaRoom} from './mafia-room.js?v=135';
 import {createMafiaAudio} from './mafia-audio.js?v=132';
 import {MAFIA_ENEMY_RULES} from './mafia-ai.js?v=131';
 import {capturePoseAt,captureLanding,MAFIA_CAPTURE} from './mafia-capture.js?v=132';
@@ -43,7 +43,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
   const e=model.enemy,target={min:{x:e.x-.54,y:.25,z:e.z-.36},max:{x:e.x+.54,y:1.98,z:e.z+.42}},enemyDistance=model.fighting?rayBox(ray.ray.origin,direction,target):Infinity,coverDistance=Math.min(...MAFIA_COVER.map(c=>rayBox(ray.ray.origin,direction,coverBox(c)))),wallDistance=20;
   const wasReloading=model.reloadTime>0,healthBefore=model.enemyHealth;
   if(!model.fire(model.fighting&&enemyDistance<coverDistance&&enemyDistance<wallDistance)){if(!wasReloading&&model.reloadTime>0)sound('reload');sync();return false}
-  recoil=1;traceTime=.065;room.playerFlash.visible=true;room.playerLight.intensity=10;room.gun.updateWorldMatrix(true,true);room.playerFlash.getWorldPosition(muzzle);impact.copy(ray.ray.origin).addScaledVector(direction,Math.min(enemyDistance,coverDistance,wallDistance));room.trace(muzzle,impact);if(model.enemyHealth<healthBefore)room.blood.emit(impact,direction);sound('shot');sync();return true;
+  recoil=1;traceTime=.065;room.playerFlash.visible=true;room.playerLight.intensity=10;room.gun.updateWorldMatrix(true,true);room.playerFlash.getWorldPosition(muzzle);impact.copy(ray.ray.origin).addScaledVector(direction,Math.min(enemyDistance,coverDistance,wallDistance));room.trace(muzzle,impact);if(model.enemyHealth<healthBefore)room.blood.emit(impact,direction,{fatal:model.enemyHealth===0});sound('shot');sync();return true;
  }
  function requestReload(){if(model.reload())sound('reload');sync()}
  function toggleCrouch(){if(!model.controllable)return;crouched=!crouched;crouch.setAttribute('aria-pressed',String(crouched))}
