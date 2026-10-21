@@ -10,16 +10,16 @@ test('solid cover and room boundaries stop movement, and bullets cannot pass thr
 });
 test('shots obey cooldown, empty magazines reload, misses do no damage, and reload cannot be spammed',()=>{
  const m=fight();assert.equal(m.fire(false),true);assert.equal(m.enemyHealth,160);assert.equal(m.fire(true),false);
- for(let i=1;i<8;i++){advance(m,.25);assert.equal(m.fire(false),true)}assert.equal(m.ammo,0);advance(m,.25);assert.equal(m.fire(true),false);assert.ok(m.reloadTime>0);assert.equal(m.reload(),false);advance(m,1.31);assert.equal(m.ammo,8);assert.equal(m.fire(true),true);assert.equal(m.enemyHealth,140);
+ for(let i=1;i<MAFIA_RULES.magazine;i++){advance(m,.25);assert.equal(m.fire(false),true)}assert.equal(m.ammo,0);advance(m,.25);assert.equal(m.fire(true),false);assert.ok(m.reloadTime>0);assert.equal(m.reload(),false);advance(m,MAFIA_RULES.reload+.01);assert.equal(m.ammo,MAFIA_RULES.magazine);assert.equal(m.fire(true),true);assert.equal(m.enemyHealth,160-MAFIA_RULES.damage);
 });
 test('Groyp telegraphs shots, moving dodges them, and crouching behind a crate blocks them',()=>{
- const exposed=fight();exposed.player.x=4.5;while(!exposed.target)exposed.update(1/60);assert.ok(exposed.warning>0);const health=exposed.health;advance(exposed,.9);assert.equal(exposed.health,health-16);
- const dodge=fight();dodge.player.x=4.5;while(!dodge.target)dodge.update(1/60);dodge.move(-1.5,0);advance(dodge,.9);assert.equal(dodge.health,100);
+ const exposed=fight();exposed.player.x=4.5;exposed.player.z=-3.4;while(!exposed.target)exposed.update(1/60);assert.ok(exposed.warning>0);const health=exposed.health;advance(exposed,.9);assert.equal(exposed.health,health-16);
+ const dodge=fight();dodge.player.x=4.5;dodge.player.z=-3.4;while(!dodge.target)dodge.update(1/60);dodge.move(-1.5,0);advance(dodge,.9);assert.equal(dodge.health,100);
  const cover=fight();cover.player.x=-2.6;cover.player.z=3.2;advance(cover,.3,{crouch:true});while(!cover.target)cover.update(1/60,{crouch:true});advance(cover,.9,{crouch:true});assert.equal(cover.health,100);assert.ok(cover.player.y<1);
 });
 test('victory leads to footsteps, a bag and a return, with no further damage during the ending',()=>{
- for(const hz of [30,60,120]){const m=fight();for(let i=0;i<8;i++){assert.equal(m.fire(true),true);advance(m,.25,{},hz)}assert.equal(m.enemyHealth,0);assert.equal(m.phase,'victory');const health=m.health;assert.equal(m.fire(true),false);advance(m,MAFIA_RULES.victory,{},hz);assert.equal(m.phase,'capture');advance(m,MAFIA_RULES.capture+.02,{},hz);assert.equal(m.phase,'return');advance(m,MAFIA_RULES.return+.02,{},hz);assert.equal(m.phase,'done');assert.equal(m.health,health)}
+ for(const hz of [30,60,120]){const m=fight();for(let i=0;i<Math.ceil(MAFIA_RULES.enemyHealth/MAFIA_RULES.damage);i++){assert.equal(m.fire(true),true);advance(m,MAFIA_RULES.shotDelay+.01,{},hz)}assert.equal(m.enemyHealth,0);assert.equal(m.phase,'victory');const health=m.health;assert.equal(m.fire(true),false);advance(m,MAFIA_RULES.victory,{},hz);assert.equal(m.phase,'capture');advance(m,MAFIA_RULES.capture+.02,{},hz);assert.equal(m.phase,'return');advance(m,MAFIA_RULES.return+.02,{},hz);assert.equal(m.phase,'done');assert.equal(m.health,health)}
 });
 test('losing offers a fresh attempt with reset ammunition, health and timing',()=>{
- const m=fight();advance(m,35);assert.equal(m.phase,'lost');assert.equal(m.health,0);assert.equal(m.fire(true),false);m.reset();assert.equal(m.phase,'wake');assert.equal(m.health,100);assert.equal(m.enemyHealth,160);assert.equal(m.ammo,8);assert.equal(m.target,null);
+ const m=fight();advance(m,35);assert.equal(m.phase,'lost');assert.equal(m.health,0);assert.equal(m.fire(true),false);m.reset();assert.equal(m.phase,'wake');assert.equal(m.health,100);assert.equal(m.enemyHealth,160);assert.equal(m.ammo,MAFIA_RULES.magazine);assert.equal(m.target,null);
 });
