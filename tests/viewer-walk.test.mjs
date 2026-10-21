@@ -159,3 +159,11 @@ test('right Shift runs at the same speed as left Shift using the physical key co
  const left=setup(),right=setup();for(const [s,code] of [[left,'ShiftLeft'],[right,'ShiftRight']]){s.window.emit('keydown',{code:'KeyW'});s.window.emit('keydown',{code});for(let i=1;i<=30;i++)s.v.tick(1000+i*1000/60)}
  assert.equal(left.v.camera.position.z,right.v.camera.position.z);assert.ok(right.v.camera.position.z< -1.5);
 });
+
+test('the mafia room owns rendering and camera, pauses when hidden and restores the castle on exit',()=>{
+ const {v,canvas,window}=setup();let elapsed=0,cancelled=0,shots=0;const den={};v.mafiaFight={active:true,fighting:true,scene:den,update(dt){elapsed+=dt;v.camera.position.set(3,1.62,-2)},shoot(){shots++},cancel(){cancelled++;this.active=false;v.camera.position.set(0,1.65,0)}};
+ let rendered;v.renderer.render=scene=>rendered=scene;v.physics={fall(){throw Error('Castle gravity cannot run in the mafia room')}};window.emit('keydown',{code:'KeyW'});v.tick(1016);assert.equal(rendered,den);assert.equal(v.camera.position.x,3);assert.equal(v.camera.position.z,-2);v.launchGame(0,0);assert.equal(shots,1);assert.equal(v.gameAt(0,0),null);
+ v.setActive(false,{suspend:true});assert.equal(cancelled,0);const time=elapsed;v.tick(100000);assert.equal(elapsed,time);v.setActive(true,{suspend:true});v.tick(200000);assert.equal(elapsed,time);v.tick(200016);assert.ok(elapsed>time);
+ v.mafiaFight.fighting=false;v.clearWalkInput();window.emit('keydown',{code:'KeyW'});canvas.emit('pointerdown',{pointerId:1,clientX:0,clientY:0});assert.equal(v.keys.size,0);assert.equal(v.drag,null);
+ v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.x,0);assert.equal(v.walkPosition.z,0);
+});

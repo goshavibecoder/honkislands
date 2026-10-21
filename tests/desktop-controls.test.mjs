@@ -81,3 +81,8 @@ test('menus, cutscenes, overview and tab blur release captured mouse and suppres
  s.viewer.active=false;s.control.reset();assert.equal(s.created[0].hidden,true);assert.equal(s.created[1].hidden,true);
  s.control.dispose();assert.equal(s.created.every(e=>e.removed),true);assert.equal(s.world.classes.has('desktop-controls'),false);
 });
+
+test('captured mouse clicks shoot in the den while interaction prompts and vehicle shortcuts stay separate',()=>{
+ const s=setup();let shots=0;s.viewer.mafiaFight={active:true,fighting:true,shoot(){shots++}};s.viewer.gameAt=()=>({title:'A castle link that must not open'});s.key('KeyL');assert.equal(s.control.locked,true);s.canvas.emit('mousedown',{button:0});assert.equal(shots,1);assert.equal(s.launches.length,0);s.key('KeyE');assert.equal(s.launches.length,0);s.control.update(.2);assert.equal(s.created[1].hidden,true);
+ s.viewer.mafiaFight.fighting=false;s.control.update(.2);assert.equal(s.control.locked,false);assert.equal(s.created[0].hidden,true);
+});

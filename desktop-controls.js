@@ -19,7 +19,7 @@ export function mountDesktopControls(viewer,{document=globalThis.document,window
  const visible=element=>!!element&&!element.disabled&&!element.closest('[hidden]')&&element.getClientRects().length>0;
  const find=selector=>{const element=world.querySelector(selector);return visible(element)?element:null};
  const modalOpen=()=>viewer.balloonTravel?.mapOpen||!!find('.lift-menu');
- const cinematic=()=>viewer.castleGreeting?.active||viewer.knockoutRecovery?.active||viewer.wardrobeAmbush?.active||viewer.balloonTravel?.active;
+ const cinematic=()=>viewer.castleGreeting?.active||viewer.knockoutRecovery?.active||viewer.wardrobeAmbush?.active||viewer.balloonTravel?.active||viewer.mafiaFight?.active&&!viewer.mafiaFight.fighting;
  const canLook=()=>viewer.active&&viewer.mode==='walk'&&!cinematic()&&!modalOpen()&&help.hidden;
  function release(){if(locked())document.exitPointerLock?.()}
  function showHelp(show){release();viewer.clearWalkInput();help.hidden=!show;helpButton.setAttribute('aria-expanded',String(show));if(show)help.querySelector('.desktop-help-close').focus({preventScroll:true});else helpButton.focus({preventScroll:true});sync()}
@@ -33,7 +33,7 @@ export function mountDesktopControls(viewer,{document=globalThis.document,window
  }
  function buttonAction(selector,{freeCursor=true}={}){const button=find(selector);return button?{label:button.textContent.replace(/✦|⚡/g,'').trim(),run(){if(freeCursor)release();viewer.clearWalkInput();button.click()}}:null}
  function currentAction(){
-  if(!canLook())return null;
+  if(!canLook()||viewer.mafiaFight?.active)return null;
   if(viewer.mountainSki?.active)return buttonAction('.ski-exit');
   if(viewer.islandTransport?.active)return buttonAction('.ride-exit');
   if(viewer.helicopterFlight?.active)return buttonAction('.heli-land');
@@ -53,7 +53,8 @@ export function mountDesktopControls(viewer,{document=globalThis.document,window
   mouse.innerHTML=locked()?'Mouse look on <kbd>Esc</kbd>':'Enable mouse look <kbd>L</kbd>';
   status.textContent=failed?'Mouse capture unavailable · drag to look':locked()?'Esc frees the cursor for menus':'Or drag the scene to look around';
   let title='EXPLORE HONK',keys='<kbd>Shift</kbd> Run',moveLabel='Move';
-  if(viewer.mode==='orbit'){title='ISLAND OVERVIEW';keys='Drag to orbit · Scroll to zoom'}
+  if(viewer.mafiaFight?.fighting){title='GROYP’S DEN';keys='<kbd>Space</kbd> Shoot · <kbd>R</kbd> Reload · <kbd>C</kbd> Cover'}
+  else if(viewer.mode==='orbit'){title='ISLAND OVERVIEW';keys='Drag to orbit · Scroll to zoom'}
   else if(viewer.mountainSki?.active){title='GOAT MOUNTAIN · SKIS';moveLabel='Push / steer';keys='<kbd>W</kbd> Push · <kbd>Space</kbd> Brake'}
   else if(viewer.helicopterFlight?.active){title='HONK AIR · FLIGHT';moveLabel='Fly';keys='<kbd>Space</kbd> Up · <kbd>C</kbd> Down · <kbd>V</kbd> View'}
   else if(viewer.islandTransport?.active){const cable=!!find('.cable-ride');title=cable?'CABLE CAR':'HONK KART';moveLabel=cable?'':'Drive / steer';keys=cable?'<kbd>F</kbd> ×1 / ×2 · <kbd>V</kbd> View':'<kbd>W</kbd> Gas · <kbd>S</kbd> Reverse · <kbd>Space</kbd> Brake · <kbd>V</kbd> View'}
@@ -80,7 +81,7 @@ export function mountDesktopControls(viewer,{document=globalThis.document,window
   const x=e.movementX||0,y=e.movementY||0;
   if(viewer.mountainSki?.active)viewer.mountainSki.look(x*sensitivity,y*sensitivity);else viewer.motion.turn(x*sensitivity,y*sensitivity);
  }
- function down(e){if(locked()&&e.button===0){e.preventDefault();interact()}}
+ function down(e){if(locked()&&e.button===0){e.preventDefault();if(viewer.mafiaFight?.active)viewer.mafiaFight.shoot();else interact()}}
  function blur(){release();viewer.clearWalkInput()}
  mouse.addEventListener('click',toggleMouse);helpButton.addEventListener('click',()=>showHelp(help.hidden));help.querySelector('.desktop-help-close').addEventListener('click',()=>showHelp(false));prompt.addEventListener('click',interact);
  slider.addEventListener('input',()=>{sensitivity=Number(slider.value);syncSensitivity();try{window.localStorage.setItem('honk-desktop-sensitivity',String(sensitivity))}catch{}});
