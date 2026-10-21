@@ -27,7 +27,7 @@ export function trimSnowTriangles(positions,platforms,colors=null){
 }
 
 export function trimMountainSnow(group,nav,platforms){
- group.updateWorldMatrix(true,true);const inverse=group.matrixWorld.clone().invert(),meshes=[];group.traverse(o=>{if(o.isMesh&&/^Snow_(walkable_rear_descent|raised_safety_banks|terrain_supported_ice_sides|faceted_mountain_support|parallel_ski_tracks|finish_landing)$/.test(o.name))meshes.push(o)});
+ group.updateWorldMatrix(true,true);const inverse=group.matrixWorld.clone().invert(),meshes=[];group.traverse(o=>{if(o.isMesh&&/^Snow_(walkable_rear_descent|raised_safety_banks|terrain_supported_ice_sides|faceted_mountain_support|parallel_ski_tracks|snowboard_carve_track|finish_landing)$/.test(o.name))meshes.push(o)});
  for(const o of meshes){const old=o.geometry,g=old.index?old.toNonIndexed():old,positions=g.attributes.position.array,world=[];for(let i=0;i<positions.length;i+=3)world.push(...new THREE.Vector3().fromArray(positions,i).applyMatrix4(o.matrixWorld).toArray());const cut=trimSnowTriangles(world,platforms,g.attributes.color?.array),geometry=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(cut.positions,3));geometry.applyMatrix4(inverse);if(cut.colors.length)geometry.setAttribute('color',new THREE.Float32BufferAttribute(cut.colors,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();o.geometry=geometry;o.position.set(0,0,0);o.rotation.set(0,0,0);o.scale.set(1,1,1);if(g!==old)g.dispose();old.dispose();if(!cut.positions.length){o.removeFromParent();geometry.dispose()}}
  return trimSnowTriangles(nav,platforms).positions;
 }

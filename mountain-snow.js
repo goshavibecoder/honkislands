@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {mountainSnowPlatforms,trimMountainSnow} from './snow-platform-trim.js?v=106';
+import {mountainSnowPlatforms,trimMountainSnow} from './snow-platform-trim.js?v=138';
 
 // A supported, walkable route on the back of the real mountain, clear of the
 // existing front stairs and cable car. Coordinates are world aligned.
@@ -52,8 +52,9 @@ export function prepareMountainSnow(root,{flagTexture=null,balloonExit=new THREE
    facing(skirts,outerA,edgeA,outerB);facing(skirts,outerB,edgeA,edgeB);
 
   }
-  // Four fine grooves follow the same smooth surface; there are no coplanar overlays.
-  for(const across of [-.43,-.32,.25,.36]){const a=at(i,across-.009,.006),b=at(i,across+.009,.006),c=at(i+1,across-.009,.006),d=at(i+1,across+.009,.006);upward(trackPositions,a,b,c);upward(trackPositions,b,d,c)}
+  // A single shallow carving ribbon follows the board down the snow.
+  const across=Math.sin(distance[i]*.48)*.26,nextAcross=Math.sin(distance[i+1]*.48)*.26;
+  const ta=at(i,across-.017,.006),tb=at(i,across+.017,.006),tc=at(i+1,nextAcross-.017,.006),td=at(i+1,nextAcross+.017,.006);upward(trackPositions,ta,tb,tc);upward(trackPositions,tb,td,tc);
  }
  // Broad rock facets blend the supported trail into the mountain instead of
  // producing hundreds of thin vertical strips beneath the snow.
@@ -68,7 +69,7 @@ export function prepareMountainSnow(root,{flagTexture=null,balloonExit=new THREE
  const rockGeometry=geometry(supports),rockColors=[],low=new THREE.Color(0x8c7763),high=new THREE.Color(0xc9bca7);
  for(let i=0;i<supports.length;i+=9){const y=(supports[i+1]+supports[i+4]+supports[i+7])/3,color=low.clone().lerp(high,THREE.MathUtils.clamp(y/12,0,1)).multiplyScalar(.91+.16*(.5+.5*Math.sin(i*1.83)));for(let v=0;v<3;v++)rockColors.push(color.r,color.g,color.b)}
  rockGeometry.setAttribute('color',new THREE.Float32BufferAttribute(rockColors,3));
- mesh(geometry(top),m.snow,'Snow_walkable_rear_descent');navPositions.push(...top);mesh(geometry(banks),m.bank,'Snow_raised_safety_banks');mesh(geometry(skirts),m.ice,'Snow_terrain_supported_ice_sides');mesh(rockGeometry,m.rock,'Snow_faceted_mountain_support');mesh(geometry(trackPositions),m.tracks,'Snow_parallel_ski_tracks');
+ mesh(geometry(top),m.snow,'Snow_walkable_rear_descent');navPositions.push(...top);mesh(geometry(banks),m.bank,'Snow_raised_safety_banks');mesh(geometry(skirts),m.ice,'Snow_terrain_supported_ice_sides');mesh(rockGeometry,m.rock,'Snow_faceted_mountain_support');mesh(geometry(trackPositions),m.tracks,'Snow_snowboard_carve_track');
  // A broad, level finish remains on the rear foot of the mountain.
  const finish=points.at(-1).clone(),landing=new THREE.CylinderGeometry(1,1.02,.20,40);landing.scale(.95,1,.65);const deck=mesh(landing,m.snow,'Snow_finish_landing');deck.position.copy(finish);deck.position.y-=.10;
  for(let i=0;i<40;i++){const a=i*Math.PI*2/40,b=(i+1)*Math.PI*2/40;upward(navPositions,finish,new THREE.Vector3(finish.x+Math.sin(a)*.95,finish.y,finish.z+Math.cos(a)*.65),new THREE.Vector3(finish.x+Math.sin(b)*.95,finish.y,finish.z+Math.cos(b)*.65))}

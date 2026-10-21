@@ -36,7 +36,7 @@ test('route reaches the balloon, has GRAM flags throughout and stays within the 
  assert.ok(triangles<30000);assert.ok(snow.bounds.containsPoint(snow.start));assert.ok(snow.bounds.containsPoint(snow.finish));
 });
 
-const {SkiMotion}=await import(moduleURL(new URL('../ski-motion.js',import.meta.url)));
+const {SnowboardMotion:SkiMotion}=await import(moduleURL(new URL('../snowboard-motion.js',import.meta.url)));
 test('manual steering can complete the broad sweep and reach the balloon using real collision geometry',()=>{
  for(const fps of [30,60]){
   const model=new SkiMotion(snow.centerline,{widthAt:(i,t)=>THREE.MathUtils.lerp(snow.widths[i],snow.widths[i+1],t),canStand:(x,z,y)=>physics.clearAt(x,z,y)});
@@ -48,12 +48,23 @@ test('manual steering can complete the broad sweep and reach the balloon using r
   assert.ok(Math.hypot(model.position.x-snow.finish.x,model.position.z-snow.finish.z)<.4);
  }
 });
-test('ski braking, boundary stops and stationary steering keep the skier on the snow',()=>{
+test('fast snowboard runs with speed-dependent jumps reach the balloon on the real mountain',()=>{
+ for(const fps of [30,60,120]){
+  const model=new SkiMotion(snow.centerline,{widthAt:(i,t)=>THREE.MathUtils.lerp(snow.widths[i],snow.widths[i+1],t),canStand:(x,z,y)=>physics.clearAt(x,z,y)});let peakSpeed=0,peakHeight=0,jumps=0,time=0,wasAir=false;
+  for(let frame=0;frame<fps*100&&!model.finished;frame++){
+   const goal=snow.centerline[Math.min(model.segment+Math.max(5,Math.round(model.speed*4)),snow.centerline.length-1)],yaw=Math.atan2(goal.x-model.position.x,goal.z-model.position.z),error=Math.atan2(Math.sin(yaw-model.yaw),Math.cos(yaw-model.yaw)),jump=jumps<2&&!model.airborne&&model.speed>4&&Math.abs(error)<.10&&model.progress>(jumps===0?.12:.43)&&model.progress<.8;
+   model.update(1/fps,{steer:-Math.max(-1,Math.min(1,error*2.2)),drive:1,jump});if(model.airborne&&!wasAir)jumps++;wasAir=model.airborne;peakSpeed=Math.max(peakSpeed,model.speed);peakHeight=Math.max(peakHeight,model.airHeight);time+=1/fps;
+   assert.ok(model.position.y>=model.groundY-1e-6);assert.ok(model.nearest(model.position.x,model.position.z).distance<4);
+  }
+  assert.ok(model.finished,JSON.stringify({fps,time,progress:model.progress,position:model.position,speed:model.speed,warning:model.warning}));assert.ok(peakSpeed>6,'the new board should be substantially faster than skis');assert.equal(jumps,2);assert.ok(peakHeight>.5);assert.ok(time<75);
+ }
+});
+test('snowboard braking, boundaries and stationary steering keep the rider on the snow',()=>{
  const model=new SkiMotion([{x:0,y:1,z:0},{x:0,y:0,z:10},{x:0,y:0,z:20}]);
  for(let i=0;i<60;i++)model.update(1/60,{drive:1});assert.ok(model.speed>1);
  for(let i=0;i<60;i++)model.update(1/60,{brake:true});assert.equal(model.speed,0);
  model.update(.1,{steer:1,brake:true});assert.ok(model.yaw<0);
- for(let i=0;i<120;i++)model.update(1/60,{drive:1});assert.ok(Math.abs(model.position.x)<=.48);assert.ok(model.warning>0);
+ for(let i=0;i<120;i++)model.update(1/60,{drive:1});assert.ok(Math.abs(model.position.x)<=.49);assert.ok(model.warning>0);
 });
 
 test('the widened top stair threshold is passable through the outside notch',()=>{
@@ -64,51 +75,40 @@ test('the widened top stair threshold is passable through the outside notch',()=
  }
 });
 const {createSkiHonk}=await import(moduleURL(new URL('../ski-honk.js',import.meta.url)));
-test('the skier retains the original HONK face and joined body, with two skis and no invalid geometry',()=>{
+test('the snowboarder keeps the original HONK face, one twin-tip board and two sideways bindings',()=>{
  const data=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url)))),skier=createSkiHonk(new THREE.Group(),data);
- assert.ok(skier.head.children.length);assert.ok(skier.group.getObjectByName('Honk_right_ski'));assert.ok(skier.group.getObjectByName('Honk_left_ski'));
- const headPosition=skier.head.position.clone(),headRotation=skier.head.quaternion.clone();
- skier.pose(snow.start,1,2,.5,.7);assert.ok(skier.head.position.equals(headPosition));assert.ok(skier.head.quaternion.equals(headRotation));
- skier.pose(snow.start,-1,3,-1,0);assert.ok(skier.head.position.equals(headPosition));assert.ok(skier.head.quaternion.equals(headRotation));assert.ok(skier.group.position.distanceTo(snow.start)<1e-8);
- skier.group.traverse(o=>{if(o.isMesh){assert.ok(o.userData.islandRide);for(const n of o.geometry.attributes.position.array)assert.ok(Number.isFinite(n))}});
+ assert.ok(skier.head.children.length);assert.ok(skier.group.getObjectByName('HONK twin-tip snowboard'));assert.equal(skier.group.getObjectByName('Honk_right_ski'),undefined);assert.equal(skier.bindings.length,2);
+ skier.board.geometry.computeBoundingBox();const size=skier.board.geometry.boundingBox.getSize(new THREE.Vector3());assert.ok(size.z>1.7&&size.x<.40);
+ for(const state of [{},{airborne:true,verticalSpeed:4,clock:1},{landing:1,clock:2}]){skier.pose(snow.start,.8,9,.7,.5,state);skier.group.updateMatrixWorld(true);skier.group.traverse(o=>{assert.ok(o.matrixWorld.elements.every(Number.isFinite));if(o.isMesh){assert.ok(o.userData.islandRide);assert.ok(o.geometry.attributes.position.array.every(Number.isFinite))}})}
 });
 
-
-test('snow terrain and ski grooves leave the summit and boarding platforms uncovered',()=>{
+test('snow terrain and snowboard tracks leave the summit and boarding platforms uncovered',()=>{
  assert.ok(snow.platformExclusions.some(p=>p.name==='Summit_circular_terrace_2'));
  assert.ok(snow.platformExclusions.some(p=>p.name==='Balloon_access_walkway'));
- const terrain=[];snow.group.traverse(o=>{if(o.isMesh&&/^Snow_(walkable|raised|terrain|faceted|parallel|finish)/.test(o.name))terrain.push(o)});
+ const terrain=[];snow.group.traverse(o=>{if(o.isMesh&&/^Snow_(walkable|raised|terrain|faceted|parallel|snowboard|finish)/.test(o.name))terrain.push(o)});
  let checked=0;
  for(const mesh of terrain){const p=mesh.geometry.attributes.position;for(let i=0;i<p.count;i+=3){const vertices=[0,1,2].map(k=>new THREE.Vector3().fromBufferAttribute(p,i+k).applyMatrix4(mesh.matrixWorld));for(const cut of snow.platformExclusions){if(!vertices.some(v=>v.x>=cut.bounds.min.x&&v.x<=cut.bounds.max.x&&v.z>=cut.bounds.min.z&&v.z<=cut.bounds.max.z))continue;for(const weights of [[1/3,1/3,1/3],[.5,.5,0],[0,.5,.5],[.5,0,.5]]){const point=new THREE.Vector3();vertices.forEach((v,k)=>point.addScaledVector(v,weights[k]));const inside=cut.polygon.every((a,j)=>{const b=cut.polygon[(j+1)%cut.polygon.length];return (b.x-a.x)*(point.z-a.z)-(b.z-a.z)*(point.x-a.x)>2e-6*Math.hypot(b.x-a.x,b.z-a.z)});assert.equal(inside,false,JSON.stringify({mesh:mesh.name,cut:cut.name,point:point.toArray(),sides:cut.polygon.map((a,j)=>{const b=cut.polygon[(j+1)%cut.polygon.length];return (b.x-a.x)*(point.z-a.z)-(b.z-a.z)*(point.x-a.x)})}));checked++}}}}
  assert.ok(checked>100);
 });
 
-test('double-pole strokes keep wrists, elbows and grips connected without turning the head',()=>{
- const data=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url)))),skier=createSkiHonk(new THREE.Group(),data),rest=skier.arms[0].hand.position.clone(),head=skier.head.position.clone();
- const endpoint=(mesh,y)=>new THREE.Vector3(0,y,0).applyMatrix4(mesh.matrix);
- for(const phase of [0,.15,.22,.4,.67,.84,1,-1]){
-  skier.pose(snow.start,.3,3,.2,.4,phase);skier.group.updateMatrixWorld(true);
-  assert.ok(skier.head.position.equals(head));assert.equal(skier.head.rotation.y,0);
-  for(const arm of skier.arms){assert.ok(endpoint(arm.upper,-.5).distanceTo(arm.shoulder)<1e-7);assert.ok(endpoint(arm.upper,.5).distanceTo(arm.elbow.position)<1e-7);assert.ok(endpoint(arm.forearm,-.5).distanceTo(arm.elbow.position)<1e-7);assert.ok(endpoint(arm.forearm,.5).distanceTo(arm.hand.position)<1e-7);assert.ok(endpoint(arm.pole,.5).distanceTo(arm.hand.position)<1e-7);assert.ok(arm.hand.position.distanceTo(arm.shoulder)<.5)}
-  if(phase===.67)assert.ok(skier.arms[0].hand.position.distanceTo(rest)>.5);
+test('snowboard balancing and landing keep the wrists, elbows, knees and ankles connected',()=>{
+ const data=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url)))),skier=createSkiHonk(new THREE.Group(),data),endpoint=(mesh,y)=>new THREE.Vector3(0,y,0).applyMatrix4(mesh.matrix);
+ for(const state of [{},{airborne:true,verticalSpeed:5},{airborne:true,verticalSpeed:-5},{landing:1}])for(const turn of [-1,0,1]){
+  skier.pose(snow.start,.3,9,turn,.4,state);skier.group.updateMatrixWorld(true);
+  for(const arm of skier.arms){assert.ok(endpoint(arm.upper,-.5).distanceTo(arm.shoulder)<1e-7);assert.ok(endpoint(arm.upper,.5).distanceTo(arm.elbow.position)<1e-7);assert.ok(endpoint(arm.forearm,-.5).distanceTo(arm.elbow.position)<1e-7);assert.ok(endpoint(arm.forearm,.5).distanceTo(arm.hand.position)<1e-7);assert.equal(arm.pole,undefined)}
+  for(const leg of skier.legs){assert.ok(endpoint(leg.upper,-.5).distanceTo(leg.hip)<1e-7);assert.ok(endpoint(leg.upper,.5).distanceTo(leg.knee)<1e-7);assert.ok(endpoint(leg.lower,.5).distanceTo(leg.ankle)<1e-7)}
  }
- assert.ok(skier.arms[0].hand.position.equals(rest));
 });
-
-
-test('ski boots stay seated on their bindings and enclose the trouser ends on slopes and through pole strokes',()=>{
+test('snowboard boots stay on their bindings during carving and jumps',()=>{
  const data=JSON.parse(gunzipSync(readFileSync(new URL('../assets/honk-kart-head-v57.bin',import.meta.url)))),skier=createSkiHonk(new THREE.Group(),data),raycaster=new THREE.Raycaster();
- for(const slope of [-.4,0,.7])for(const phase of [-1,.22,.67,1]){
-  skier.pose(snow.start,.8,3.7,-.6,slope,phase);skier.group.updateMatrixWorld(true);
-  for(const ski of skier.skis){
-   assert.equal(ski.boot.parent,ski.group);
-   ski.sole.geometry.computeBoundingBox();ski.binding.geometry.computeBoundingBox();
-   const sole=ski.sole.geometry.boundingBox.clone().applyMatrix4(ski.sole.matrix),binding=ski.binding.geometry.boundingBox.clone().applyMatrix4(ski.binding.matrix);
-   assert.ok(Math.abs(sole.min.y-binding.max.y)<1e-8,'flat sole must sit on top of the binding');assert.ok(sole.min.x>=binding.min.x&&sole.max.x<=binding.max.x);
-   const ankle=ski.group.worldToLocal(skier.group.localToWorld(ski.ankle.clone())),direction=new THREE.Vector3(0,1,0).transformDirection(ski.group.matrixWorld),worldAnkle=ski.group.localToWorld(ankle.clone());
-   // Both rays start inside the boot shaft, where the lower leg ends.
-   for(const sign of [-1,1]){raycaster.set(worldAnkle.clone().addScaledVector(direction,sign*.3),direction.clone().multiplyScalar(-sign));const hit=raycaster.intersectObject(ski.boot,true)[0];assert.ok(hit&&hit.distance<.3,'ankle must enter the boot shaft')}
-   assert.ok(Math.abs(ankle.x)<1e-8);assert.ok(Math.abs(ankle.z-.015)<1e-8);
+ for(const slope of [-.4,0,.7])for(const state of [{},{airborne:true,verticalSpeed:4},{landing:1}]){
+  skier.pose(snow.start,.8,9,-.6,slope,state);skier.group.updateMatrixWorld(true);
+  for(const binding of skier.bindings){
+   const inverse=binding.group.matrixWorld.clone().invert();binding.sole.geometry.computeBoundingBox();binding.binding.geometry.computeBoundingBox();
+   const sole=binding.sole.geometry.boundingBox.clone().applyMatrix4(inverse.clone().multiply(binding.sole.matrixWorld)),base=binding.binding.geometry.boundingBox.clone().applyMatrix4(binding.binding.matrix);
+   assert.ok(Math.abs(sole.min.y-base.max.y)<1e-7,'both boots must stay seated on the same board');assert.ok(sole.min.x>=base.min.x&&sole.max.x<=base.max.x);
+   const worldAnkle=binding.ankle.clone().applyMatrix4(skier.board.parent.matrixWorld),direction=new THREE.Vector3(0,1,0).transformDirection(binding.group.matrixWorld);
+   for(const sign of [-1,1]){raycaster.set(worldAnkle.clone().addScaledVector(direction,sign*.3),direction.clone().multiplyScalar(-sign));const hit=raycaster.intersectObject(binding.boot,true)[0];assert.ok(hit&&hit.distance<.3,'the trouser cuff must enter its boot')}
   }
  }
 });
