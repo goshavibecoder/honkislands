@@ -6,11 +6,11 @@ import {BALLOON_ISLANDS} from '../balloon-route.js';
 
 function setup({fail=false,cancel=false}={}){
  class Element{constructor(){this.hidden=true;this.style={};this.attrs={};this.classes=new Set();this.className='';this.classList={add:(...a)=>a.forEach(s=>this.classes.add(s)),remove:(...a)=>a.forEach(s=>this.classes.delete(s)),toggle:(s,on)=>on?this.classes.add(s):this.classes.delete(s)}}animate(frames,options){(this.animations??=[]).push({frames,options});return {finished:Promise.resolve(),cancel(){}}}addEventListener(){}setAttribute(k,v){this.attrs[k]=v}focus(){}}
- const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id)},calls=[],history=[];
- const viewer={knockoutRecovery:{active:false,begin(){calls.push('wake');assert.equal(get('transition').style.opacity,'1');this.active=true;return Promise.resolve().then(()=>{this.active=false;return true})}},balloonTravel:{active:false,async depart(startFade){calls.push('depart');if(!cancel){startFade();assert.equal(get('transition').className,'active balloon-transfer');assert.deepEqual(Array.from(get('transition').animations[0].frames,f=>f.opacity),[0,1]);assert.equal(get('transition').animations[0].options.duration,2800)}return !cancel},cancel(){calls.push('cancel')}},async open(slug){calls.push('open:'+slug);if(fail)throw Error('offline');this.balloonTravel={active:true,async arrive(){calls.push('arrive');this.active=false;return true},cancel(){calls.push('cancel')}}},setActive(value){this.active=value;calls.push('active:'+value)}};
- const context=vm.createContext({console:{error(){}},document:{getElementById:get,querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){}},matchMedia:()=>({matches:false}),setTimeout:fn=>{queueMicrotask(fn);return 1},clearTimeout(){},requestAnimationFrame:fn=>queueMicrotask(fn),history:{replaceState:(a,b,url)=>history.push(url)},location:{pathname:'/'},mountTouchViewport:()=>{},mountEntryIntro:()=>({finish(){}}),fakeViewer:viewer});
+ const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id)},calls=[],history=[],activations=[],listeners={document:{},window:{}};
+ const viewer={knockoutRecovery:{active:false,begin(){calls.push('wake');assert.equal(get('transition').style.opacity,'1');this.active=true;return Promise.resolve().then(()=>{this.active=false;return true})}},balloonTravel:{active:false,async depart(startFade){calls.push('depart');if(!cancel){startFade();assert.equal(get('transition').className,'active balloon-transfer');assert.deepEqual(Array.from(get('transition').animations[0].frames,f=>f.opacity),[0,1]);assert.equal(get('transition').animations[0].options.duration,2800)}return !cancel},cancel(){calls.push('cancel')}},async open(slug){calls.push('open:'+slug);if(fail)throw Error('offline');this.balloonTravel={active:true,async arrive(){calls.push('arrive');this.active=false;return true},cancel(){calls.push('cancel')}}},setActive(value,options={}){this.active=value;calls.push('active:'+value);activations.push({value,suspend:options.suspend===true})}};
+ const context=vm.createContext({console:{error(){}},document:{getElementById:get,querySelectorAll:()=>[],addEventListener:(name,fn)=>listeners.document[name]=fn},window:{addEventListener:(name,fn)=>listeners.window[name]=fn},matchMedia:()=>({matches:false}),setTimeout:fn=>{queueMicrotask(fn);return 1},clearTimeout(){},requestAnimationFrame:fn=>queueMicrotask(fn),history:{replaceState:(a,b,url)=>history.push(url)},location:{pathname:'/'},mountTouchViewport:()=>{},mountEntryIntro:()=>({finish(){}}),fakeViewer:viewer});
  vm.runInContext(readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,''),context);vm.runInContext("viewer=fakeViewer;activeWorld='honkhub'",context);
- return {context,calls,nodes,get,history,run:(from,to)=>{vm.runInContext(`activeWorld=${JSON.stringify(from)}`,context);return context.flyByBalloon(to)}};
+ return {context,calls,nodes,get,history,activations,listeners,viewer,run:(from,to)=>{vm.runInContext(`activeWorld=${JSON.stringify(from)}`,context);return context.flyByBalloon(to)}};
 }
 
 test('every inter-island trip takes off before loading and starts landing before revealing the destination',async()=>{
@@ -29,4 +29,16 @@ test('wardrobe knockout starts the arena floor recovery under black before retur
 
 test('the castle greeting is armed after landing at HonkHub and not at other islands',async()=>{
  for(const slug of ['honkhub','citadel']){const s=setup();vm.runInContext('fakeViewer.castleGreeting={arm(){this.armed=true}}',s.context);await s.run('arena',slug);assert.equal(vm.runInContext('fakeViewer.castleGreeting.armed===true',s.context),slug==='honkhub')}
+});
+
+
+test('model credits tab changes suspend the scene while Back to map remains an explicit exit',async()=>{
+ const s=setup();s.get('world').hidden=false;
+ for(let visit=0;visit<3;visit++){
+  vm.runInContext('document.hidden=true',s.context);s.listeners.document.visibilitychange();assert.deepEqual(s.activations.at(-1),{value:false,suspend:true});
+  vm.runInContext('document.hidden=false',s.context);s.listeners.document.visibilitychange();assert.deepEqual(s.activations.at(-1),{value:true,suspend:true});
+ }
+ s.listeners.window.pagehide();assert.deepEqual(s.activations.at(-1),{value:false,suspend:true});
+ await s.context.back();assert.deepEqual(s.activations.at(-1),{value:false,suspend:false});assert.equal(s.get('world').hidden,true);
+ s.listeners.document.visibilitychange();assert.deepEqual(s.activations.at(-1),{value:false,suspend:true});assert.equal(s.viewer.active,false);
 });

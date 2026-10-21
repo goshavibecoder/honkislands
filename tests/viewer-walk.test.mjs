@@ -134,6 +134,19 @@ test('castle greeting owns first-person camera until finish and blocks game inte
  v.castleGreeting.active=true;v.setActive(false);assert.equal(v.castleGreeting.active,false);
 });
 
+test('opening model credits pauses the greeting in place and resumes without a time jump',()=>{
+ const {v}=setup();let elapsed=0,cancelled=0;
+ v.castleGreeting={active:true,update(dt){elapsed+=dt;v.camera.position.set(1.65,1.6,5.78);v.camera.rotation.set(0,elapsed)},cancel(){cancelled++;this.active=false}};
+ v.tick(1016);const time=elapsed,position=v.camera.position.clone(),rotation=v.camera.rotation.clone();v.keys.add('KeyW');
+ for(let tab=0;tab<3;tab++){
+  v.setActive(false,{suspend:true});assert.equal(v.active,false);assert.equal(v.frame,0);assert.equal(v.castleGreeting.active,true);assert.equal(v.keys.size,0);assert.equal(cancelled,0);
+  v.tick(90000+tab*1000);assert.equal(elapsed,time);assert.deepEqual(v.camera.position,position);assert.deepEqual(v.camera.rotation.clone(),rotation);
+  v.setActive(true,{suspend:true});v.tick(100000+tab*1000);assert.equal(elapsed,time,'first resumed frame must not include time spent reading credits');
+ }
+ v.tick(102016);assert.ok(elapsed>time&&elapsed<time+.02);assert.equal(v.castleGreeting.active,true);assert.equal(cancelled,0);
+ v.setActive(false);assert.equal(cancelled,1);assert.equal(v.castleGreeting.active,false,'leaving the island still cancels the greeting');
+});
+
 test('captured mouse bypasses drag input and desktop settings stop movement without changing touch ownership',()=>{
  const {v,canvas,window}=setup();let locked=true,menu=false;v.desktopControls={get locked(){return locked},get menuOpen(){return menu},update(){},reset(){}};
  canvas.emit('pointerdown',{pointerType:'mouse',button:0,pointerId:10,clientX:0,clientY:0});assert.equal(v.drag,null);
