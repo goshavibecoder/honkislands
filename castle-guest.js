@@ -1,65 +1,59 @@
 import * as THREE from 'three';
 import {GLTFLoader} from './vendor/GLTFLoader.js';
 import {fetchAssetBytes,decodeGzip} from './asset-loader.js?v=116';
-import {batchRideMeshes} from './ride-performance.js?v=59';
 
 export async function loadCastleGuest(){
- const bytes=await fetchAssetBytes('./assets/castle-guest-v118.bin'),buffer=await decodeGzip(bytes);
+ const bytes=await fetchAssetBytes('./assets/castle-guest-v119.bin'),buffer=await decodeGzip(bytes);
  return (await new GLTFLoader().parseAsync(buffer,'')).scene;
 }
 
-// Preserve the uploaded silhouette and arm surface under opaque clothing.
+// The supplied EXCLUSIVE model keeps its original body, uniform and facial rig.
 export function createCastleGuest(parent,source){
- const group=new THREE.Group();group.name='Rias_castle_guest';group.visible=false;parent.add(group);group.add(source);source.updateMatrixWorld(true);
- const bones={};source.traverse(o=>{if(o.isBone)bones[o.name]=o;if(o.isMesh){o.frustumCulled=false;if(o.material.map){o.material.emissive.set(0xffffff);o.material.emissiveMap=o.material.map;o.material.emissiveIntensity=.12}}});
- for(const name of ['head','chest','neck','hips','upperArmL','forearmL','handL','upperArmR','forearmR','handR','thighL','shinL','footL','thighR','shinR','footR'])if(!bones[name])throw Error('Castle guest joint missing: '+name);
- const expressions=[];
- source.traverse(mesh=>{if(!mesh.isSkinnedMesh||!mesh.material.map)return;const rest=mesh.geometry.attributes.position,kiss=rest.clone(),blink=rest.clone();let moved=0;for(let i=0;i<rest.count;i++){
-  const x=rest.getX(i)+.004,y=rest.getY(i)-1.494,z=rest.getZ(i),d=(x/.034)**2+(y/.014)**2;
-  if(z>.095&&z<.125&&d<1){const weight=(1-d)**2;kiss.setXYZ(i,rest.getX(i)-x*.55*weight,rest.getY(i)+y*.30*weight,z+.016*weight);moved++}
-  const ex=Math.abs(Math.abs(rest.getX(i))-.0385),ey=rest.getY(i)-1.542;
-  if(z>.085&&z<.13&&ex<.025&&Math.abs(ey)<.024){const weight=Math.min(1,Math.max(0,(.025-ex)/.009))*Math.min(1,Math.max(0,(.024-Math.abs(ey))/.010));blink.setY(i,1.542+ey*(1-.96*weight))}
- }mesh.geometry.morphAttributes.position=[kiss,blink];mesh.updateMorphTargets();mesh.userData.kissLipVertices=moved;expressions.push(mesh)});
- const mat=(name,color)=>new THREE.MeshStandardMaterial({name,color,roughness:.82,metalness:0});
- const m={ivory:mat('Guest ivory blouse',0xfff6e5),navy:mat('Guest tailored navy waistcoat',0x20283e),wine:mat('Guest pleated wine skirt',0x852c43),gold:mat('Guest brass buttons',0xdab76a),shoe:mat('Guest closed shoes',0x272638),skin:mat('Guest neck',0xffd3c9)};
- const origin=new THREE.Vector3(),bind={};for(const [name,bone] of Object.entries(bones))bind[name]=bone.getWorldPosition(new THREE.Vector3());
- function add(geometry,material,name,bone='chest',position=null){const mesh=new THREE.Mesh(geometry,material);mesh.name=name;bones[bone].add(mesh);if(position)mesh.position.copy(new THREE.Vector3(...position).sub(bind[bone]));return mesh}
- function form(rows,material,name,bone='chest',pleats=0){
-  const positions=[],segments=48,rings=rows.map(([y,rx,rz,cz=0])=>Array.from({length:segments},(_,j)=>{const a=j/segments*Math.PI*2,fold=1+pleats*Math.cos(a*18);return new THREE.Vector3(Math.sin(a)*rx*fold,y,cz+Math.cos(a)*rz*fold).sub(bind[bone])}));
-  const ascending=rows.at(-1)[0]>rows[0][0],triangle=(a,b,c)=>positions.push(...a.toArray(),...(ascending?c:b).toArray(),...(ascending?b:c).toArray());
-  for(let i=0;i<rings.length-1;i++)for(let j=0;j<segments;j++){const k=(j+1)%segments;triangle(rings[i][j],rings[i+1][j],rings[i][k]);triangle(rings[i][k],rings[i+1][j],rings[i+1][k])}
-  for(const [ring,reverse] of [[rings[0],false],[rings.at(-1),true]]){const center=new THREE.Vector3(0,rows[reverse?rows.length-1:0][0],0).sub(bind[bone]);for(let j=0;j<segments;j++){const k=(j+1)%segments;triangle(center,reverse?ring[k]:ring[j],reverse?ring[j]:ring[k])}}
-  const geometry=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.computeVertexNormals();return add(geometry,material,name,bone);
+ const group=new THREE.Group();group.name='Rias_EXCLUSIVE_castle_guest';group.visible=false;parent.add(group);group.add(source);group.updateMatrixWorld(true);
+ const bones={},rest=new Map(),skeletons=new Set();source.traverse(o=>{
+  if(o.isBone){bones[o.name]=o;rest.set(o,{position:o.position.clone(),quaternion:o.quaternion.clone(),scale:o.scale.clone()})}
+  if(o.isMesh){o.frustumCulled=false;o.material.roughness=.85;o.material.emissive.set(0xffffff);o.material.emissiveMap=o.material.map;o.material.emissiveIntensity=.075;
+   if(o.material.userData.irisClip){const [x,y,rx,ry]=o.material.userData.irisClip;o.material.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>\nif(length((vMapUv-vec2(${x},${y}))/vec2(${rx},${ry}))>1.0) discard;`)};o.material.customProgramCacheKey=()=>`castle-iris-${x}-${y}-${rx}-${ry}`}
+   if(o.material.userData.eyeOverlay){o.material.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\nif(max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b))<.035) discard;')};o.material.customProgramCacheKey=()=> 'castle-eyelid-transparency'}
+   if(o.isSkinnedMesh)skeletons.add(o.skeleton)}o.userData.islandRide=true;
+ });
+ for(const name of ['hips','spine','chest','neck','head','upperArmL','forearmL','handL','upperArmR','forearmR','handR','thighL','shinL','footL','thighR','shinR','footR','mouthBase','mouthMove','lipCornerL','lipCornerR','lipLower','lipUpper'])if(!bones[name])throw Error('Castle guest joint missing: '+name);
+ const point=new THREE.Vector3(),delta=new THREE.Vector3(),parentQ=new THREE.Quaternion(),groupQ=new THREE.Quaternion(),change=new THREE.Quaternion(),euler=new THREE.Euler(),localQ=new THREE.Quaternion();
+ function move(bone,x=0,y=0,z=0){
+  bone.updateWorldMatrix(true,false);bone.getWorldPosition(point);group.getWorldQuaternion(groupQ);delta.set(x,y,z).applyQuaternion(groupQ);point.add(delta);bone.parent.worldToLocal(point);bone.position.copy(point);
  }
- form([[1.09,.124,.088,.028],[1.15,.103,.083,.045],[1.23,.145,.12,.065],[1.29,.158,.132,.061],[1.35,.155,.098,.035],[1.40,.132,.067,.021],[1.445,.052,.044,.023]],m.ivory,'Rias_closed_blouse');
- form([[1.09,.130,.095,.028],[1.15,.111,.091,.045],[1.23,.153,.128,.065],[1.29,.166,.140,.061],[1.35,.163,.106,.035]],m.navy,'Rias_tailored_waistcoat');
- form([[1.105,.127,.093,.028],[1.02,.158,.12,.018],[.92,.184,.129,.012],[.73,.214,.153,.015],[.56,.244,.175,.018]],m.wine,'Rias_knee_length_pleated_skirt','hips',.025);
- form([[1.418,.053,.045,.023],[1.466,.044,.040,.023]],m.ivory,'Rias_high_collar','neck');
- add(new THREE.CylinderGeometry(.041,.044,.055,20),m.skin,'Rias_neck','neck',[0,1.473,.023]);
- for(const side of ['L','R']){
-  const sign=side==='L'?1:-1;
-  const cuff=add(new THREE.CylinderGeometry(.027,.028,.032,16),m.ivory,'Rias_closed_cuff','hand'+side);cuff.rotation.z=Math.PI/2;cuff.position.z=.018;
-  const shoe=add(new THREE.SphereGeometry(1,16,10),m.shoe,'Rias_closed_shoe','foot'+side);shoe.position.set(0,-.043,.07);shoe.scale.set(.057,.040,.14);
-  const bow=add(new THREE.SphereGeometry(1,12,8),m.wine,'Rias_ribbon','neck',[sign*.027,1.418,.074]);bow.scale.set(.030,.019,.010);bow.rotation.z=sign*.22;
+ function rotate(bone,x=0,y=0,z=0){
+  bone.parent.updateWorldMatrix(true,false);bone.parent.getWorldQuaternion(parentQ);group.getWorldQuaternion(groupQ);change.setFromEuler(euler.set(x,y,z));localQ.copy(parentQ).invert().multiply(groupQ).multiply(change).multiply(groupQ.clone().invert()).multiply(parentQ);bone.quaternion.copy(localQ).multiply(rest.get(bone).quaternion);
  }
- for(const [y,z] of [[1.12,.132],[1.20,.181],[1.28,.204]])add(new THREE.SphereGeometry(.006,8,6),m.gold,'Rias_waistcoat_button','chest',[0,y,z]);
- add(new THREE.SphereGeometry(.010,10,8),m.gold,'Rias_ribbon_center','neck',[0,1.418,.082]);
- for(const bone of Object.values(bones))batchRideMeshes(bone);
- const mouth=new THREE.Object3D();mouth.name='Rias_kiss_anchor';mouth.position.set(-.004,.014,.113);bones.head.add(mouth);
- group.traverse(o=>o.userData.islandRide=true);
+ // Locate the actual lip surface, rather than placing the anchor at the nose.
+ const mouth=new THREE.Object3D();mouth.name='Rias_kiss_anchor';bones.mouthMove.add(mouth);mouth.position.set(0,0,.12);
+ const eyelids=[];for(const [name,bone] of Object.entries(bones)){const match=name.match(/^cf_J_Eye0([1-8])_s_[LR]_/);if(match){bone.getWorldPosition(point);eyelids.push({bone,neutralY:point.y,part:Number(match[1])})}}
+ const pupils=[bones.pupilL,bones.pupilR];
+ const irisMaterials=new Set(),whiteMaterials=new Set(),lidColor=new THREE.Color(0xffded7);source.traverse(o=>{if(o.isMesh&&o.material.userData.irisClip){irisMaterials.add(o.material);o.material.transparent=true;o.material.depthWrite=false;o.material.alphaTest=.01}if(o.isMesh&&o.material.userData.eyeWhite)whiteMaterials.add(o.material)});
+ const lashes=[];for(const sign of [-1,1]){const positions=[[.021,1.551,.060],[.030,1.548,.062],[.041,1.547,.060],[.052,1.550,.055],[.061,1.554,.050]].map(([x,y,z])=>bones.head.worldToLocal(new THREE.Vector3(x*sign,y,z)));const scale=bones.head.getWorldScale(new THREE.Vector3()).x,material=new THREE.MeshBasicMaterial({color:0x482331,transparent:true,opacity:0,depthWrite:false}),mesh=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(positions),16,.00065/scale,4,false),material);mesh.name='Rias_closed_eyelash';bones.head.add(mesh);mesh.userData.islandRide=true;lashes.push(mesh)}
+ const lipIndices=[];source.traverse(mesh=>{if(!mesh.isSkinnedMesh)return;const skin=mesh.geometry.attributes.skinIndex,weight=mesh.geometry.attributes.skinWeight;for(const i of new Set(mesh.geometry.index?.array||Array.from({length:skin.count},(_,i)=>i))){let lipWeight=0;for(let j=0;j<4;j++)if(['lipUpper','lipLower','lipCornerL','lipCornerR'].includes(mesh.skeleton.bones[skin.getComponent(i,j)]?.name))lipWeight+=weight.getComponent(i,j);if(lipWeight>.15){mesh.getVertexPosition(i,point);point.applyMatrix4(mesh.matrixWorld);if(Math.abs(point.x)<.035)lipIndices.push({mesh,index:i,point:point.clone()})}}});
+ if(!lipIndices.length)throw Error('Original facial rig has no weighted lip surface');
+ const maxZ=Math.max(...lipIndices.map(v=>v.point.z));const front=lipIndices.filter(v=>v.point.z>maxZ-.006),lipCenter=front.reduce((p,v)=>p.add(v.point),new THREE.Vector3()).multiplyScalar(1/front.length);mouth.position.copy(bones.mouthMove.worldToLocal(lipCenter.clone()));
  function pose({walk=0,clock=0,lean=0,wave=0,kiss=0,eyes=0}={}){
-  for(const bone of Object.values(bones))bone.rotation.set(0,0,0);
-  const stride=Math.sin(clock*7.4)*walk,step=Math.max(0,Math.sin(clock*7.4));
-  bones.hips.position.y=.95+Math.abs(stride)*.012;
-  bones.thighL.rotation.x=stride*.28;bones.thighR.rotation.x=-stride*.28;bones.shinL.rotation.x=Math.max(0,-stride)*.30;bones.shinR.rotation.x=Math.max(0,stride)*.30;
-  bones.upperArmL.rotation.set(-stride*.19-lean*.50,0,-1.38+lean*.40);bones.upperArmR.rotation.set(stride*.19-lean*.50,0,1.38-lean*.40-wave*.72);
-  bones.forearmL.rotation.set(-lean*.25,0,-.08);bones.forearmR.rotation.set(-lean*.25,0,.08+wave*(.18+Math.sin(clock*10)*.16));
-  bones.chest.rotation.set(0,0,0);bones.neck.rotation.set(0,0,0);bones.head.rotation.set(-.015*lean,.02*Math.sin(clock*.6)*(1-lean),.20*lean);
-  for(const mesh of expressions){mesh.morphTargetInfluences[0]=kiss;mesh.morphTargetInfluences[1]=eyes}mouth.position.z=.113+.016*kiss;
-  group.updateMatrixWorld(true);source.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.update()});
+  for(const [bone,initial] of rest){bone.position.copy(initial.position);bone.quaternion.copy(initial.quaternion);bone.scale.copy(initial.scale)}
+  const stride=Math.sin(clock*7.0)*walk;
+  move(bones.hips,0,Math.abs(stride)*.006,0);
+  rotate(bones.thighL,stride*.24);rotate(bones.thighR,-stride*.24);rotate(bones.shinL,Math.max(0,-stride)*.25);rotate(bones.shinR,Math.max(0,stride)*.25);
+  rotate(bones.upperArmL,-stride*.15-lean*.23,0,-1.28+lean*.08);rotate(bones.upperArmR,stride*.15-lean*.23,0,1.28-lean*.08-wave*.45);
+  rotate(bones.forearmL,-.14-lean*.28);rotate(bones.forearmR,-.14-lean*.28,0,wave*.18);rotate(bones.handL,0,.08);rotate(bones.handR,0,-.08);
+  rotate(bones.head,-.025*lean,-.16*lean,.22*lean);
+  // Use the authored mouth bones: no guessed whole-face morph deformation.
+  move(bones.mouthMove,0,0,.012*kiss);bones.mouthMove.scale.x=rest.get(bones.mouthMove).scale.x*(1-.45*kiss);bones.mouthMove.scale.y=rest.get(bones.mouthMove).scale.y*(1-.15*kiss);
+  move(bones.lipUpper,0,-.0014*kiss,.005*kiss);move(bones.lipLower,0,.0018*kiss,.004*kiss);move(bones.lipCornerL,-.0015*kiss,0,.002*kiss);move(bones.lipCornerR,.0015*kiss,0,.002*kiss);
+  for(const {bone,neutralY,part} of eyelids){const target=part<=5?1.549:1.548;move(bone,0,(target-neutralY)*eyes,0)}
+  for(const bone of pupils)move(bone,0,-.004*eyes,0);
+  for(const material of irisMaterials)material.opacity=1-eyes;
+  for(const material of whiteMaterials)material.color.setRGB(THREE.MathUtils.lerp(1,lidColor.r,eyes),THREE.MathUtils.lerp(1,lidColor.g,eyes),THREE.MathUtils.lerp(1,lidColor.b,eyes));
+  for(const lash of lashes)lash.material.opacity=THREE.MathUtils.smoothstep(eyes,.55,.95);
+  group.updateMatrixWorld(true);for(const skeleton of skeletons)skeleton.update();
  }
  pose();
- return {group,bones,mouth,pose,mouthPosition(target=new THREE.Vector3()){return mouth.getWorldPosition(target)},
-  dispose(){const geometries=new Set(),materials=new Set(),textures=new Set();group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const material of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(material);for(const value of Object.values(material))if(value?.isTexture)textures.add(value)}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures)t.dispose();group.removeFromParent()}
+ return {group,bones,mouth,pose,lipIndices,eyelids,mouthPosition(target=new THREE.Vector3()){return mouth.getWorldPosition(target)},
+  dispose(){const geometries=new Set(),materials=new Set(),textures=new Set();group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const material of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(material);for(const value of Object.values(material))if(value?.isTexture)textures.add(value)}});for(const skeleton of skeletons)skeleton.dispose();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures)t.dispose();group.removeFromParent()}
  };
 }
