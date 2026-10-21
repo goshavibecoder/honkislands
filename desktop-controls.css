@@ -1,0 +1,47 @@
+.desktop-hud,.desktop-action,.desktop-help-panel{display:none}
+@media(hover:hover) and (pointer:fine){
+ #world.desktop-controls{--desktop-edge:24px}
+ #world.desktop-controls #walk-controls,#world.desktop-controls .kart-game-controls,#world.desktop-controls #hint{display:none!important}
+ #world.desktop-controls .desktop-hud{display:grid;gap:12px;position:absolute;z-index:19;left:var(--desktop-edge);bottom:var(--desktop-edge);width:310px;padding:15px;border-radius:18px;font-size:12px}
+ .desktop-heading,.desktop-help-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+ .desktop-heading strong{font-size:10px;letter-spacing:.1em;color:#9c263d}
+ #world .desktop-help{border:0;background:none;padding:3px;color:#77583b;font-size:11px;white-space:nowrap}
+ #world kbd{display:inline-grid;place-items:center;min-width:22px;height:24px;padding:0 6px;border:1px solid #cfaf73;border-bottom-width:3px;border-radius:6px;background:#fffbea;color:#7b3040;font:700 11px/1 system-ui;white-space:nowrap}
+ .desktop-keys{display:grid;gap:10px;line-height:1.9}.desktop-keys b{font-weight:600;margin-left:4px}.desktop-keys kbd+kbd{margin-left:3px}.desktop-extra{font-size:11px;color:#77583b}
+ #world .desktop-mouse{display:flex;align-items:center;justify-content:space-between;min-height:42px;width:100%;padding:9px 11px;border:1px solid #982138;border-radius:10px;background:#bf243e;color:#fff6df;font-size:12px;font-weight:750;box-shadow:0 2px 0 #85192e}
+ #world .desktop-mouse[aria-pressed=true]{background:#517555;border-color:#365b40;box-shadow:0 2px 0 #365b40}
+ .desktop-mouse-status{margin:0;font-size:10px;line-height:1.4;color:#856440}
+ #world .desktop-action{position:absolute;z-index:19;left:50%;bottom:32px;translate:-50% 0;display:flex;align-items:center;gap:12px;min-height:50px;max-width:calc(100vw - 730px);padding:10px 18px 10px 12px;border-radius:15px;font-size:13px;font-weight:750;text-align:left}
+ #world .desktop-action kbd{width:30px;height:30px;flex:none;background:#bf243e;border-color:#a11d36;color:#fff6df;font-size:13px}
+ #world.desktop-has-action .reticle{width:10px;height:10px;margin:-5px;background:#fff9e8cc;box-shadow:0 0 0 2px #bf243e,0 0 0 5px #fff6df66}
+ #world .desktop-help-panel{display:block;position:absolute;z-index:25;top:88px;left:var(--desktop-edge);width:350px;max-height:calc(100svh - 112px);overflow:auto;padding:20px;border-radius:20px}
+ .desktop-help-heading h2{margin:0;color:#a0253d;font-size:17px;line-height:1.25}.desktop-help-heading button{flex:none;width:32px;height:32px;border:1px solid #c28a28;border-radius:50%;background:#fffbea;color:#a0253d;font-size:22px}
+ .desktop-help-panel p{font-size:12px;line-height:1.65;color:#806043;margin:12px 0 16px}.desktop-help-panel dl{margin:0 0 20px}.desktop-help-panel dl>div{display:flex;justify-content:space-between;gap:15px;padding:8px 0;border-bottom:1px solid #dfcba3;font-size:11px;line-height:1.4}.desktop-help-panel dt{color:#806043}.desktop-help-panel dd{margin:0;text-align:right;font-weight:750;white-space:nowrap;color:#9c263d}
+ .desktop-sensitivity{display:flex;justify-content:space-between;font-size:12px;font-weight:700}.desktop-sensitivity output{color:#a0253d}#desktop-sensitivity{display:block;width:100%;margin:15px 0 0;accent-color:#bf243e;cursor:pointer}.desktop-help-panel .desktop-help-note{margin-bottom:0;font-size:10px}
+ #world.desktop-controls .ride-controls,#world.desktop-controls .heli-controls,#world.desktop-controls .gallery-lift,#world.desktop-controls .ski-controls{top:88px;right:var(--desktop-edge);bottom:auto;width:270px;max-height:calc(100svh - 180px);overflow:auto}
+ #world.desktop-controls .ride-dashboard,#world.desktop-controls .heli-dashboard{padding:12px}
+ #world.desktop-controls .ride-status,#world.desktop-controls .heli-status{display:none}
+ #world.desktop-controls .ride-warning,#world.desktop-controls .heli-warning{display:block}
+ #world.desktop-controls .transport-menu-toggle{display:none}
+ #world.desktop-controls .ride-dashboard{position:static;width:auto;max-height:none;background:#fff6df;padding:12px;border:2px solid #c28a28;overflow:visible;display:block}
+ #world.desktop-controls .ride-dashboard>:not([hidden]):not(.ride-status),#world.desktop-controls .heli-dashboard>:not([hidden]):not(.heli-status){display:block!important}
+ #world.desktop-controls .ride-dashboard .ride-heading,#world.desktop-controls .heli-dashboard .heli-heading{display:flex!important}
+ #world.desktop-controls .ride-dashboard .ride-status,#world.desktop-controls .heli-dashboard .heli-status{display:none!important}
+ #world.desktop-controls .ride-dashboard button,#world.desktop-controls .heli-dashboard button{display:block;width:100%;min-height:40px;margin-top:8px}
+ #world.desktop-controls .heli-dashboard .heli-height{display:flex!important;position:static;width:auto;gap:8px}#world.desktop-controls .heli-height button{width:auto;flex:1}
+ #world.desktop-controls .ride-controls .ride-dashboard,#world.desktop-controls .heli-controls .heli-dashboard{position:static;width:auto;max-height:none;overflow:visible;padding:12px;border:2px solid #c28a28;background:#fff6df;gap:8px}
+ #world.desktop-controls .ride-dashboard .ride-brake{position:static;width:100%;min-height:40px!important}
+ #world.desktop-controls .ski-brake{display:none}
+ #world.desktop-controls .balloon-controls{bottom:100px}
+ #world.desktop-controls .reticle{z-index:10}
+ #world.desktop-controls.overview .desktop-keys>span:first-child{display:none}
+ #world.desktop-mouse-locked #viewport{cursor:none}
+ #world.balloon-in-flight .desktop-hud,#world.balloon-in-flight .desktop-action,#world.choosing-balloon .desktop-hud,#world.choosing-balloon .desktop-action,#world.wardrobe-ambushed .desktop-hud,#world.knockout-recovering .desktop-hud{display:none!important}
+ @media(max-width:1100px){
+  #world.desktop-controls{--desktop-edge:16px}
+  #world.desktop-controls .desktop-hud{width:270px;padding:12px;gap:9px}
+  #world .desktop-action{max-width:calc(100vw - 390px);left:auto;right:80px;translate:none;bottom:24px;font-size:12px}
+  #world.desktop-controls .ride-controls,#world.desktop-controls .heli-controls,#world.desktop-controls .gallery-lift,#world.desktop-controls .ski-controls{width:240px}
+ }
+ @media(max-height:650px){#world.desktop-controls .desktop-hud{gap:7px;padding:10px}.desktop-mouse-status{display:none}.desktop-keys{gap:5px}#world .desktop-help-panel{top:80px;max-height:calc(100svh - 96px)}}
+}

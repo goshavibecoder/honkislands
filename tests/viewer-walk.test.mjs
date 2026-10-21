@@ -25,7 +25,7 @@ function setup(){
  const document={getElementById:id=>id==='knob'?knob:new Surface(),querySelectorAll:()=>buttons};
  const context=vm.createContext({WalkMotion,createAssetCache,fetchAssetJSON:async()=>({}),window,document,performance,fetch:async()=>({ok:true,json:async()=>({})}),requestAnimationFrame:()=>1,cancelAnimationFrame(){},
   THREE:{Vector3,MathUtils:{clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),damp:(a,b,k,dt)=>b+(a-b)*Math.exp(-k*dt)}},
-  attachTapGesture:()=>({reset(){}}),createTouchStick:(element,knob,onChange)=>({reset(){onChange(0,0)}})});
+  mountDesktopControls:()=>null,attachTapGesture:()=>({reset(){}}),createTouchStick:(element,knob,onChange)=>({reset(){onChange(0,0)}})});
  const source=readFileSync(new URL('../viewer.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace('export class IslandViewer','globalThis.IslandViewer=class IslandViewer');
  vm.runInContext(source,context);
  const v=Object.create(context.IslandViewer.prototype),rotation={x:0,y:0,set(x,y){this.x=x;this.y=y},clone(){return {x:this.x,y:this.y}},copy(r){Object.assign(this,r)}};
@@ -132,4 +132,17 @@ test('castle greeting owns first-person camera until finish and blocks game inte
  v.keys.add('KeyW');const start=v.camera.position.clone();for(let i=1;i<=30;i++)v.tick(1000+i*1000/60);assert.equal(v.camera.position.z,start.z);assert.equal(v.gameAt(0,0),null);
  canvas.emit('pointerdown',{pointerId:88,clientX:0,clientY:0});assert.equal(v.drag,null);assert.equal(updates,30);v.castleGreeting.active=false;v.tick(1600);assert.ok(v.camera.position.z<start.z);
  v.castleGreeting.active=true;v.setActive(false);assert.equal(v.castleGreeting.active,false);
+});
+
+test('captured mouse bypasses drag input and desktop settings stop movement without changing touch ownership',()=>{
+ const {v,canvas,window}=setup();let locked=true,menu=false;v.desktopControls={get locked(){return locked},get menuOpen(){return menu},update(){},reset(){}};
+ canvas.emit('pointerdown',{pointerType:'mouse',button:0,pointerId:10,clientX:0,clientY:0});assert.equal(v.drag,null);
+ locked=false;canvas.emit('pointerdown',{pointerType:'touch',pointerId:11,clientX:0,clientY:0});assert.equal(v.drag.id,11);canvas.emit('pointermove',{pointerType:'touch',pointerId:11,clientX:30,clientY:0});assert.ok(v.motion.targetYaw<0);v.clearWalkInput();
+ menu=true;window.emit('keydown',{code:'KeyW'});assert.equal(v.keys.size,0);v.keys.add('KeyW');v.tick(1016);assert.equal(v.camera.position.z,0);
+ menu=false;window.emit('keydown',{code:'KeyD',defaultPrevented:true});window.emit('keydown',{code:'ArrowUp',target:{matches:()=>true}});assert.equal(v.keys.has('KeyD'),false);assert.equal(v.keys.has('ArrowUp'),false);
+});
+
+test('right Shift runs at the same speed as left Shift using the physical key codes',()=>{
+ const left=setup(),right=setup();for(const [s,code] of [[left,'ShiftLeft'],[right,'ShiftRight']]){s.window.emit('keydown',{code:'KeyW'});s.window.emit('keydown',{code});for(let i=1;i<=30;i++)s.v.tick(1000+i*1000/60)}
+ assert.equal(left.v.camera.position.z,right.v.camera.position.z);assert.ok(right.v.camera.position.z< -1.5);
 });
