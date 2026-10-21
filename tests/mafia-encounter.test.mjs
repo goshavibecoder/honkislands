@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import * as THREE from '../vendor/three.module.min.js';
 import {MafiaCombat,MAFIA_RULES} from '../mafia-combat.js';
+import {MAFIA_CAPTURE} from '../mafia-capture.js';
 import {WalkMotion} from '../walk-motion.js';
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
 function moduleURL(url){if(modules.has(url.href))return modules.get(url.href);const source=readFileSync(url,'utf8').replace(/(^import\s[\s\S]*?\sfrom\s+)(['"])([^'"]+)\2/gm,(_,a,q,p)=>a+"'"+(p==='three'?threeURL:moduleURL(new URL(p,url)))+"'"),result='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(url.href,result);return result}
@@ -19,7 +20,7 @@ function setup(options={}){
  const c=mountMafiaEncounter(viewer,options);return {c,viewer,host,ui:host.children[0],window};
 }
 function advance(c,seconds){for(let t=0;t<seconds-1e-8;t+=1/60)c.update(Math.min(1/60,seconds-t))}
-test('victory keeps the AK and free movement, then a sudden bag freezes the same view before waking in the castle',async()=>{
+test('victory keeps movement and the AK, then a kick, fall and attempt to rise precede the sack and castle recovery',async()=>{
  const e=setup(),position=e.viewer.camera.position.clone(),q=e.viewer.camera.quaternion.clone();assert.equal(await e.c.begin(),true);assert.equal(e.viewer.wardrobeAmbush.cancelled,true);assert.equal(e.c.active,true);assert.notEqual(e.c.scene,e.viewer.scene);advance(e.c,1.9);assert.equal(e.c.fighting,true);
  e.c.model.player.x=4.4;e.c.model.player.z=-3.4;
  for(let i=0;i<Math.ceil(MAFIA_RULES.enemyHealth/MAFIA_RULES.damage);i++){
@@ -29,13 +30,15 @@ test('victory keeps the AK and free movement, then a sudden bag freezes the same
  const before={...e.c.model.player};e.viewer.keys.add('KeyW');e.viewer.keys.add('ShiftRight');advance(e.c,.5);assert.ok(Math.hypot(e.c.model.player.x-before.x,e.c.model.player.z-before.z)>1,'the player can keep running after killing the boss');e.viewer.clearWalkInput();
  advance(e.c,1.7);assert.equal(e.viewer.camera.rotation.y,victoryYaw,'never turn to look at the guard');assert.equal(gun.visible,true);assert.equal(e.host.classes.has('mafia-cinematic'),false);
  advance(e.c,MAFIA_RULES.victory-e.c.model.elapsed+.01);assert.equal(e.c.model.phase,'capture');assert.equal(e.c.fighting,false);const bag=e.ui.querySelector('.mafia-bag'),captured=e.viewer.camera.quaternion.clone(),caught=e.viewer.camera.position.clone();assert.equal(gun.visible,true);
- advance(e.c,.25);assert.equal(Number(bag.style.opacity),1);assert.equal(gun.visible,false,'weapon is concealed only after the bag covers it');assert.ok(e.viewer.camera.quaternion.angleTo(captured)<1e-7);assert.ok(e.viewer.camera.position.equals(caught));assert.equal(e.c.shoot(),false);
+ advance(e.c,.80);assert.equal(Number(bag.style.opacity),0,'the sack cannot hide the kick and fall');assert.equal(gun.visible,true);assert.ok(e.viewer.camera.position.y<.30,'fall to the floor');assert.ok(e.viewer.camera.position.distanceTo(caught)>.9);assert.equal(e.viewer.camera.rotation.y,victoryYaw,'do not turn to face the attacker');assert.ok(e.viewer.camera.quaternion.angleTo(captured)>.3);assert.equal(e.c.shoot(),false);
+ const floorHeight=e.viewer.camera.position.y;advance(e.c,1.20);assert.ok(e.viewer.camera.position.y>floorHeight+.4,'try to stand before the sack');assert.equal(Number(bag.style.opacity),0);assert.equal(e.viewer.camera.getObjectByName('Player bracing left hand').visible,true);assert.equal(gun.visible,true);
+ advance(e.c,.60);assert.equal(Number(bag.style.opacity),1);assert.equal(gun.visible,false,'weapon is concealed only after the sack covers it');assert.equal(e.viewer.camera.rotation.y,victoryYaw);assert.equal(e.viewer.camera.getObjectByName('Player bracing left hand').visible,false);
  advance(e.c,MAFIA_RULES.capture-e.c.model.elapsed+.01);assert.equal(e.c.model.phase,'return');assert.equal(e.c.scene,e.viewer.scene);assert.ok(e.viewer.camera.position.y<position.y-1,'wake lying on the castle floor');assert.equal(bag.style.opacity,'0');assert.ok(e.host.classes.has('knockout-recovering'));assert.equal(e.viewer.renderer.toneMappingExposure,.92);
  advance(e.c,2.1);assert.ok(e.viewer.camera.position.y>position.y-1.2&&e.viewer.camera.position.y<position.y-.6,'sit before standing');advance(e.c,2.3);assert.ok(e.viewer.camera.position.y>position.y-.03);assert.ok(Math.abs(e.viewer.camera.rotation.y-.4)>.001,'slight dizziness after getting up');assert.equal(e.c.model.phase,'return');
  advance(e.c,MAFIA_RULES.return-e.c.model.elapsed+.05);assert.equal(e.c.active,false);assert.ok(e.viewer.camera.position.equals(position));assert.ok(e.viewer.camera.quaternion.angleTo(q)<1e-7);assert.equal(e.viewer.renderer.domElement.style.filter,'contrast(1)');assert.equal(e.host.classes.has('knockout-recovering'),false);assert.equal(e.ui.hidden,true);assert.equal(e.viewer.camera.near,.035);assert.equal(e.viewer.camera.far,1100);e.c.dispose();
 });
 test('cover blocks actual player shots, cancellation restores the castle, and repeated games clean up',async()=>{
- const e=setup(),position=e.viewer.camera.position.clone();for(let n=0;n<2;n++){await e.c.begin();advance(e.c,1.9);e.viewer.camera.position.set(-2.6,1.1,3.5);e.c.model.enemy.x=-2.6;e.c.model.enemy.z=-4.5;e.viewer.camera.lookAt(-2.6,1.1,-4.5);const health=e.c.model.enemyHealth;e.c.shoot();assert.equal(e.c.model.enemyHealth,health);e.c.cancel();assert.ok(e.viewer.camera.position.equals(position));assert.equal(e.c.active,false);assert.equal(e.viewer.camera.children.length,1,'room weapon is retained once for replay')}
+ const e=setup(),position=e.viewer.camera.position.clone();for(let n=0;n<2;n++){await e.c.begin();advance(e.c,1.9);e.viewer.camera.position.set(-2.6,1.1,3.5);e.c.model.enemy.x=-2.6;e.c.model.enemy.z=-4.5;e.viewer.camera.lookAt(-2.6,1.1,-4.5);const health=e.c.model.enemyHealth;e.c.shoot();assert.equal(e.c.model.enemyHealth,health);e.c.cancel();assert.ok(e.viewer.camera.position.equals(position));assert.equal(e.c.active,false);assert.equal(e.viewer.camera.children.length,2,'weapon and bracing hand are retained once for replay')}
  e.c.dispose();assert.equal(e.viewer.camera.children.length,0);assert.equal(e.ui.removed,true);assert.equal(e.window.events.keydown.length,0);
 });
 test('leaving during asynchronous actor loading does not start a late encounter',async()=>{
@@ -118,8 +121,35 @@ test('leaving during the castle recovery removes dizziness and replay restores c
    await e.c.begin();advance(e.c,1.9);e.c.model.phase='victory';e.c.model.elapsed=MAFIA_RULES.victory;e.c.update(0);
    for(let t=0;t<MAFIA_RULES.capture+1.8;t+=1/hz)e.c.update(1/hz);
    assert.equal(e.c.model.phase,'return');assert.equal(e.c.scene,e.viewer.scene);assert.ok(e.viewer.camera.position.y<position.y-.7);assert.match(e.viewer.renderer.domElement.style.filter,/blur/);
-   e.c.cancel();assert.ok(e.viewer.camera.position.equals(position));assert.ok(e.viewer.camera.quaternion.angleTo(q)<1e-7);assert.equal(e.viewer.renderer.domElement.style.filter,'contrast(1)');assert.equal(e.host.classes.has('knockout-recovering'),false);assert.equal(e.viewer.camera.children.length,1);
+   e.c.cancel();assert.ok(e.viewer.camera.position.equals(position));assert.ok(e.viewer.camera.quaternion.angleTo(q)<1e-7);assert.equal(e.viewer.renderer.domElement.style.filter,'contrast(1)');assert.equal(e.host.classes.has('knockout-recovering'),false);assert.equal(e.viewer.camera.children.length,2);
   }
   e.c.dispose();assert.equal(e.host.children[1].removed,true);
  }
+});
+
+test('a separate marker confirms actual hits and fades without changing the crosshair',async()=>{
+ const e=setup();await e.c.begin();advance(e.c,1.9);const crosshair=e.ui.querySelector('.mafia-crosshair'),marker=e.ui.querySelector('.mafia-hit'),before={...crosshair.style};
+ e.c.model.player.x=4.4;e.c.model.player.z=-3.4;e.viewer.camera.position.set(4.4,e.c.model.player.y,-3.4);e.viewer.camera.lookAt(e.c.model.enemy.x,1.2,e.c.model.enemy.z);e.viewer.motion.reset(e.viewer.camera.rotation.y,e.viewer.camera.rotation.x);
+ const hp=e.c.model.enemyHealth;assert.equal(e.c.shoot(),true);assert.equal(e.c.model.enemyHealth,hp-MAFIA_RULES.damage);assert.equal(Number(marker.style.opacity),1);assert.deepEqual(crosshair.style,before);assert.equal(crosshair.classes.size,0);
+ advance(e.c,.07);assert.ok(Number(marker.style.opacity)>0&&Number(marker.style.opacity)<1);advance(e.c,.10);assert.equal(Number(marker.style.opacity),0);
+ e.viewer.camera.lookAt(4.4,3,7);const hpAfter=e.c.model.enemyHealth;assert.equal(e.c.shoot(),true);assert.equal(e.c.model.enemyHealth,hpAfter);assert.equal(Number(marker.style.opacity),0,'a miss cannot show the marker');assert.deepEqual(crosshair.style,before);assert.equal(crosshair.classes.size,0);e.c.dispose();
+});
+test('kick and capture play once and cancellation restores the camera during each part of the animation',async()=>{
+ for(const hz of [30,60,120])for(const stopAt of [.3,1.4,2.4]){
+  const tones=[],audio={prepare:async()=>true,unlock(){},play(){},tone(kind){tones.push(kind)},stop(){},dispose(){}},e=setup({makeAudio:()=>audio}),position=e.viewer.camera.position.clone(),q=e.viewer.camera.quaternion.clone();
+  await e.c.begin();advance(e.c,1.9);e.c.model.phase='victory';e.c.model.elapsed=MAFIA_RULES.victory;e.c.update(0);
+  for(let t=0;t<stopAt;t+=1/hz)e.c.update(1/hz);assert.equal(tones.filter(k=>k==='kick').length,1);assert.ok(e.viewer.camera.position.toArray().every(Number.isFinite));e.c.cancel();assert.ok(e.viewer.camera.position.equals(position));assert.ok(e.viewer.camera.quaternion.angleTo(q)<1e-7);assert.equal(e.viewer.camera.getObjectByName('Player bracing left hand').visible,false);e.c.dispose();
+ }
+});
+test('the attacker kicks toward the player and keeps his hands on the sack while lowering it',()=>{
+ setup();const room=createMafiaRoom(new THREE.PerspectiveCamera()),model=new MafiaCombat();model.phase='capture';let maxKick=0;
+ for(let i=0;i<=150;i++){
+  model.elapsed=i/60;model.clock=i/60;room.pose(model);room.guard.updateMatrixWorld(true);maxKick=Math.min(maxKick,room.guard.getObjectByName('Guard kicking hip').rotation.x);
+  const sack=room.guard.getObjectByName('Guard woven head sack');
+  for(const sign of [-1,1]){
+   const palm=room.guard.getObjectByName('Guard sack grip '+sign).getWorldPosition(new THREE.Vector3()),rim=sack.localToWorld(new THREE.Vector3(sign*.23,-.16,0));assert.ok(palm.distanceTo(rim)<.09,`hand separates from sack by ${palm.distanceTo(rim)} at ${model.elapsed}`);
+  }
+  room.guard.traverse(o=>assert.ok(o.matrixWorld.elements.every(Number.isFinite)));
+ }
+ assert.ok(maxKick<-1.8);assert.equal(room.guard.getObjectByName('Guard woven head sack').visible,true);room.dispose();
 });

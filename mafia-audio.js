@@ -54,7 +54,7 @@ export function createMafiaAudio({Context=globalThis.AudioContext||globalThis.we
  }
  function tone(kind){
   if(disposed||doc?.hidden)return;unlock();if(!context)return;
-  const t=context.currentTime,source=context.createOscillator(),gain=context.createGain(),nodes=[source,gain];source.type='triangle';source.frequency.setValueAtTime(kind==='step'?75:180,t);source.frequency.exponentialRampToValueAtTime(45,t+.12);gain.gain.setValueAtTime(.035,t);gain.gain.exponentialRampToValueAtTime(.001,t+.15);source.connect(gain);gain.connect(master);const voice={kind,source,nodes};voices.add(voice);source.onended=()=>{voices.delete(voice);nodes.forEach(node=>node.disconnect())};source.start();source.stop(t+.17);
+  const t=context.currentTime,source=context.createOscillator(),gain=context.createGain(),nodes=[source,gain];source.type='triangle';source.frequency.setValueAtTime(kind==='kick'?100:kind==='step'?75:180,t);source.frequency.exponentialRampToValueAtTime(45,t+.12);gain.gain.setValueAtTime(kind==='kick'?.20:.035,t);gain.gain.exponentialRampToValueAtTime(.001,t+.15);source.connect(gain);gain.connect(master);const voice={kind,source,nodes};voices.add(voice);source.onended=()=>{voices.delete(voice);nodes.forEach(node=>node.disconnect())};source.start();source.stop(t+.17);
  }
  const visibility=()=>{if(doc?.hidden)stop()};doc?.addEventListener?.('visibilitychange',visibility);
  return {prepare,unlock,play,tone,stop,

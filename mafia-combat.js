@@ -1,3 +1,4 @@
+import {MAFIA_CAPTURE} from './mafia-capture.js?v=132';
 import {MafiaOpponent} from './mafia-ai.js?v=131';
 export const MAFIA_COVER=[
  {x:-2.6,z:1.1,w:1.7,d:1.5,h:1.85},
@@ -5,7 +6,7 @@ export const MAFIA_COVER=[
  {x:0,z:-.6,w:2.0,d:.85,h:1.15},
  {x:-4.6,z:-3.5,w:1.3,d:1.5,h:2.1}
 ];
-export const MAFIA_RULES={magazine:30,enemyHealth:160,damage:8,shotDelay:.11,reload:2.1,wake:1.8,victory:4.2,capture:1.25,return:5.6};
+export const MAFIA_RULES={magazine:30,enemyHealth:160,damage:8,shotDelay:.11,reload:2.1,wake:1.8,victory:4.2,capture:MAFIA_CAPTURE.duration,return:5.6};
 export function mafiaPatrolAt(time){return {x:Math.sin(time*.44)*3.3,z:-5.3+Math.cos(time*.55)*.25}}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function rayBox(origin,direction,box){

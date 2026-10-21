@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {MAFIA_RULES} from './mafia-combat.js?v=131';
+import {MAFIA_RULES} from './mafia-combat.js?v=132';
 import {mafiaStepAhead,MAFIA_ENEMY_RULES} from './mafia-ai.js?v=131';
 import {createKalashnikov} from './mafia-weapon.js?v=127';
 const clamp=t=>THREE.MathUtils.clamp(t,0,1),ease=t=>{t=clamp(t);return t*t*(3-2*t)};
