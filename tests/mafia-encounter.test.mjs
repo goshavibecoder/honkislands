@@ -37,7 +37,7 @@ test('victory keeps movement and the AK, then a kick, fall and attempt to rise p
  advance(e.c,MAFIA_RULES.return-e.c.model.elapsed+.05);assert.equal(e.c.active,false);assert.ok(e.viewer.camera.position.equals(position));assert.ok(e.viewer.camera.quaternion.angleTo(q)<1e-7);assert.equal(e.viewer.renderer.domElement.style.filter,'contrast(1)');assert.equal(e.host.classes.has('knockout-recovering'),false);assert.equal(e.ui.hidden,true);assert.equal(e.viewer.camera.near,.035);assert.equal(e.viewer.camera.far,1100);e.c.dispose();
 });
 test('cover blocks actual player shots, cancellation restores the castle, and repeated games clean up',async()=>{
- const e=setup(),position=e.viewer.camera.position.clone();for(let n=0;n<2;n++){await e.c.begin();advance(e.c,1.9);e.viewer.camera.position.set(-2.6,1.1,3.5);e.c.model.enemy.x=-2.6;e.c.model.enemy.z=-4.5;e.viewer.camera.lookAt(-2.6,1.1,-4.5);const health=e.c.model.enemyHealth;e.c.shoot();assert.equal(e.c.model.enemyHealth,health);e.c.cancel();assert.ok(e.viewer.camera.position.equals(position));assert.equal(e.c.active,false);assert.equal(e.viewer.camera.children.length,1,'the weapon is retained once for replay')}
+ const e=setup(),position=e.viewer.camera.position.clone();for(let n=0;n<2;n++){await e.c.begin();advance(e.c,1.9);e.viewer.camera.position.set(-2.6,1.1,3.5);e.c.model.enemy.x=-2.6;e.c.model.enemy.z=-4.5;e.viewer.camera.lookAt(-2.6,1.1,-4.5);const health=e.c.model.enemyHealth;e.c.shoot();assert.equal(e.c.model.enemyHealth,health);assert.equal(e.c.scene.getObjectByName('Groyp hit blood spray').visible,false,'cover produces no blood');e.c.cancel();assert.ok(e.viewer.camera.position.equals(position));assert.equal(e.c.active,false);assert.equal(e.viewer.camera.children.length,1,'the weapon is retained once for replay')}
  e.c.dispose();assert.equal(e.viewer.camera.children.length,0);assert.equal(e.ui.removed,true);assert.equal(e.window.events.keydown.length,0);
 });
 test('leaving during asynchronous actor loading does not start a late encounter',async()=>{
@@ -126,12 +126,14 @@ test('leaving during the castle recovery removes dizziness and replay restores c
  }
 });
 
-test('a separate marker confirms actual hits and fades without changing the crosshair',async()=>{
- const e=setup();await e.c.begin();advance(e.c,1.9);const crosshair=e.ui.querySelector('.mafia-crosshair'),marker=e.ui.querySelector('.mafia-hit'),before={...crosshair.style};
+test('blood comes from an actual hit on Groyp, fades in world space and never changes the crosshair',async()=>{
+ let room;const e=setup({makeRoom(...args){return room=createMafiaRoom(...args)}});await e.c.begin();advance(e.c,1.9);const crosshair=e.ui.querySelector('.mafia-crosshair'),before={...crosshair.style};
  e.c.model.player.x=4.4;e.c.model.player.z=-3.4;e.viewer.camera.position.set(4.4,e.c.model.player.y,-3.4);e.viewer.camera.lookAt(e.c.model.enemy.x,1.2,e.c.model.enemy.z);e.viewer.motion.reset(e.viewer.camera.rotation.y,e.viewer.camera.rotation.x);
- const hp=e.c.model.enemyHealth;assert.equal(e.c.shoot(),true);assert.equal(e.c.model.enemyHealth,hp-MAFIA_RULES.damage);assert.equal(Number(marker.style.opacity),1);assert.deepEqual(crosshair.style,before);assert.equal(crosshair.classes.size,0);
- advance(e.c,.07);assert.ok(Number(marker.style.opacity)>0&&Number(marker.style.opacity)<1);advance(e.c,.10);assert.equal(Number(marker.style.opacity),0);
- e.viewer.camera.lookAt(4.4,3,7);const hpAfter=e.c.model.enemyHealth;assert.equal(e.c.shoot(),true);assert.equal(e.c.model.enemyHealth,hpAfter);assert.equal(Number(marker.style.opacity),0,'a miss cannot show the marker');assert.deepEqual(crosshair.style,before);assert.equal(crosshair.classes.size,0);e.c.dispose();
+ const hp=e.c.model.enemyHealth;assert.equal(e.c.shoot(),true);assert.equal(e.c.model.enemyHealth,hp-MAFIA_RULES.damage);assert.equal(room.blood.activeCount,12);assert.equal(room.blood.mesh.parent,room.scene,'blood belongs to the world, not the camera');assert.deepEqual(crosshair.style,before);assert.equal(crosshair.classes.size,0);
+ const matrix=new THREE.Matrix4(),origin=new THREE.Vector3();room.blood.mesh.getMatrixAt(0,matrix);origin.setFromMatrixPosition(matrix);assert.ok(Math.hypot(origin.x-e.c.model.enemy.x,origin.z-e.c.model.enemy.z)<.7,'spray starts at Groyp');
+ advance(e.c,.48);assert.equal(room.blood.activeCount,0);assert.equal(room.blood.mesh.visible,false);
+ e.viewer.camera.lookAt(4.4,3,7);const hpAfter=e.c.model.enemyHealth;assert.equal(e.c.shoot(),true);assert.equal(e.c.model.enemyHealth,hpAfter);assert.equal(room.blood.activeCount,0,'misses produce no blood');assert.deepEqual(crosshair.style,before);assert.equal(crosshair.classes.size,0);
+ advance(e.c,.15);e.c.model.enemyHealth=MAFIA_RULES.damage;e.viewer.camera.lookAt(e.c.model.enemy.x,1.2,e.c.model.enemy.z);assert.equal(e.c.shoot(),true);assert.equal(e.c.model.phase,'victory');assert.equal(room.blood.activeCount,12,'the killing hit also produces blood');e.c.cancel();assert.equal(room.blood.activeCount,0);await e.c.begin();assert.equal(room.blood.activeCount,0);e.c.dispose();
 });
 test('kick and capture play once and cancellation restores the camera during each part of the animation',async()=>{
  for(const hz of [30,60,120])for(const stopAt of [.3,1.4,2.4]){
@@ -162,4 +164,10 @@ test('falling and trying to rise never spawn a detached hand in front of the cam
   }
   e.c.dispose();
  }
+});
+
+test('automatic hits reuse a bounded blood pool and every droplet disappears after firing stops',()=>{
+ setup();const room=createMafiaRoom(new THREE.PerspectiveCamera()),blood=room.blood,geometry=blood.mesh.geometry,point=new THREE.Vector3(1,1.2,-4),direction=new THREE.Vector3(0,0,-1);
+ for(let i=0;i<100;i++){blood.emit(point,direction);blood.update(.11);assert.ok(blood.activeCount<=64);assert.equal(blood.mesh.geometry,geometry);assert.ok(blood.mesh.instanceMatrix.array.every(Number.isFinite))}
+ blood.update(.5);assert.equal(blood.activeCount,0);assert.equal(blood.mesh.visible,false);room.dispose();
 });

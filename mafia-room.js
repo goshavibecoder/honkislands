@@ -3,6 +3,7 @@ import {batchRideMeshes} from './ride-performance.js?v=59';
 import {MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=132';
 import {createMafiaFinishes,createKalashnikov} from './mafia-weapon.js?v=127';
 import {prepareMafiaGroyp} from './mafia-groyp.js?v=132';
+import {createBloodSpray} from './mafia-blood.js?v=134';
 import {capturePoseAt,MAFIA_CAPTURE} from './mafia-capture.js?v=132';
 
 export function createMafiaRoom(camera,source){
@@ -60,9 +61,10 @@ export function createMafiaRoom(camera,source){
  const aimLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:0xff6540,transparent:true,opacity:.30,depthWrite:false}));aimLine.name='Groyp warning laser';scene.add(aimLine);aimLine.visible=false;
  const aimFrom=new THREE.Vector3(),aimTo=new THREE.Vector3(),aimDirection=new THREE.Vector3();
  batchRideMeshes(scene);
+ const blood=createBloodSpray(scene);
  let enemyYaw=null,lastPoseClock=null;
  function pose(model,recoil=0,enemyKick=0){
-  const poseDt=lastPoseClock===null?0:Math.max(0,Math.min(.1,model.clock-lastPoseClock));lastPoseClock=model.clock;
+  const poseDt=lastPoseClock===null?0:Math.max(0,Math.min(.1,model.clock-lastPoseClock));lastPoseClock=model.clock;blood.update(poseDt);
   if(['wake','fight','lost'].includes(model.phase)){const look=model.target||model.enemy.look||model.player,wanted=Math.atan2(look.x-model.enemy.x,look.z-model.enemy.z)-.60;if(enemyYaw===null||model.phase==='wake')enemyYaw=wanted;else{const delta=Math.atan2(Math.sin(wanted-enemyYaw),Math.cos(wanted-enemyYaw));enemyYaw+=THREE.MathUtils.clamp(delta,-poseDt*3,poseDt*3)}}
   enemy.position.set(model.enemy.x,0,model.enemy.z);enemy.rotation.set(0,enemyYaw,0);groyp.pose(model,enemyKick);
   aimLine.visible=model.phase==='fight'&&model.warning>0&&!!model.target;
@@ -85,6 +87,6 @@ export function createMafiaRoom(camera,source){
   gun.position.set(.23,-.29-.26*reload,-.55+recoil*.045);gun.rotation.x=-recoil*.045+.12*reload;gun.rotation.z=-.40*reload;
  }
  function trace(from,to){const positions=tracer.geometry.attributes.position;positions.setXYZ(0,from.x,from.y,from.z);positions.setXYZ(1,to.x,to.y,to.z);positions.needsUpdate=true;tracer.geometry.computeBoundingSphere();tracer.visible=true}
- function dispose(){gun.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set(),skeletons=new Set();for(const root of [scene,gun])root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.isSkinnedMesh)skeletons.add(o.skeleton);for(const mat of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(mat);for(const v of Object.values(mat))if(v?.isTexture)textures.add(v)}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures){t.image?.close?.();t.dispose()}for(const s of skeletons)s.dispose();scene.clear()}
- return {scene,enemy,enemyGun,groyp,gun,guard,playerFlash,enemyFlash,playerLight,tracer,pose,trace,dispose};
+ function dispose(){blood.mesh.dispose();gun.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set(),skeletons=new Set();for(const root of [scene,gun])root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.isSkinnedMesh)skeletons.add(o.skeleton);for(const mat of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){materials.add(mat);for(const v of Object.values(mat))if(v?.isTexture)textures.add(v)}});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures){t.image?.close?.();t.dispose()}for(const s of skeletons)s.dispose();scene.clear()}
+ return {scene,enemy,enemyGun,groyp,gun,guard,blood,playerFlash,enemyFlash,playerLight,tracer,pose,trace,dispose};
 }

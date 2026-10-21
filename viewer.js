@@ -1,4 +1,4 @@
-import {mountMafiaEncounter} from './mafia-encounter.js?v=133';
+import {mountMafiaEncounter} from './mafia-encounter.js?v=134';
 import {mountDesktopControls} from './desktop-controls.js?v=125';
 import {mountCastleGreeting} from './castle-greeting.js?v=123';
 import {createAssetCache,fetchAssetBytes,fetchAssetJSON,fetchGzipJSON,loadCompressedScene} from './asset-loader.js?v=116';
