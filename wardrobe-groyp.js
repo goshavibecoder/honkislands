@@ -1,6 +1,35 @@
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
+// Relax small scan dents without shrinking the body or splitting UV seams.
+// Positions shared by texture seams move together; texture coordinates and
+// skin weights stay authored. The displacement cap protects facial details.
+function softenWardrobeSurface(source){
+ const geometry=source.clone(),position=geometry.attributes.position,normal=geometry.attributes.normal,groups=[],lookup=new Map(),weld=new Uint32Array(position.count);
+ geometry.computeBoundingBox();const limit=geometry.boundingBox.getSize(new THREE.Vector3()).length()*.0025;
+ for(let i=0;i<position.count;i++){
+  const x=position.getX(i),y=position.getY(i),z=position.getZ(i),key=[x,y,z].map(v=>Math.round(v*1e5)).join(',');let id=lookup.get(key);
+  if(id===undefined){id=groups.length;lookup.set(key,id);groups.push({position:[x,y,z],neighbors:new Set(),normal:[0,0,0],boundary:false})}weld[i]=id;
+ }
+ const indices=geometry.index?.array||Uint32Array.from({length:position.count},(_,i)=>i),edges=new Map();
+ for(let i=0;i<indices.length;i+=3)for(let k=0;k<3;k++){
+  const a=weld[indices[i+k]],b=weld[indices[i+(k+1)%3]];if(a===b)continue;groups[a].neighbors.add(b);groups[b].neighbors.add(a);const key=Math.min(a,b)*groups.length+Math.max(a,b);edges.set(key,(edges.get(key)||0)+1);
+ }
+ for(const [edge,count] of edges)if(count===1){groups[Math.floor(edge/groups.length)].boundary=true;groups[edge%groups.length].boundary=true}
+ let points=groups.map(g=>g.position.slice());
+ for(let pass=0;pass<6;pass++){
+  const strength=pass%2?-.40:.38;points=points.map((p,i)=>{const g=groups[i];if(g.boundary||!g.neighbors.size)return p;const sum=[0,0,0];for(const j of g.neighbors)for(let k=0;k<3;k++)sum[k]+=points[j][k];return p.map((v,k)=>v+strength*(sum[k]/g.neighbors.size-v))});
+ }
+ for(let i=0;i<groups.length;i++){
+  const from=groups[i].position,to=points[i],distance=Math.hypot(...to.map((v,k)=>v-from[k])),factor=Math.min(1,limit/Math.max(distance,1e-12));points[i]=to.map((v,k)=>from[k]+(v-from[k])*factor);
+ }
+ for(let i=0;i<position.count;i++)position.setXYZ(i,...points[weld[i]]);
+ const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),cross=new THREE.Vector3();
+ for(let i=0;i<indices.length;i+=3){a.fromBufferAttribute(position,indices[i]);b.fromBufferAttribute(position,indices[i+1]);c.fromBufferAttribute(position,indices[i+2]);cross.crossVectors(b.sub(a),c.sub(a));for(let j=0;j<3;j++){const n=groups[weld[indices[i+j]]].normal;n[0]+=cross.x;n[1]+=cross.y;n[2]+=cross.z}}
+ for(let i=0;i<position.count;i++){a.fromArray(groups[weld[i]].normal);if(a.lengthSq()>1e-12){a.normalize();normal.setXYZ(i,a.x,a.y,a.z)}}
+ position.needsUpdate=true;normal.needsUpdate=true;geometry.computeBoundingBox();geometry.computeBoundingSphere();return geometry;
+}
+
 export function createWardrobeGroyp(parent,m,actorScene=null){
  const group=new THREE.Group();group.name='Antique_carved_wardrobe';group.position.set(5.42,.028,2.83);group.rotation.y=-Math.PI/2;parent.add(group);
  const shell=new THREE.Group();group.add(shell);
@@ -42,6 +71,7 @@ export function createWardrobeGroyp(parent,m,actorScene=null){
   actorScene.removeFromParent();actorScene.updateWorldMatrix(true,true);const initial=new THREE.Box3().setFromObject(actorScene),size=initial.getSize(new THREE.Vector3()),center=initial.getCenter(new THREE.Vector3()),scale=1.75/size.y;
   groyp=new THREE.Group();groyp.name='GROYP_hidden_in_wardrobe';groyp.position.y=.26;group.add(groyp);
   const model=new THREE.Group();model.name='Wardrobe_original_GROYP_model';model.scale.setScalar(scale);model.position.set(-center.x*scale,-initial.min.y*scale,-center.z*scale);model.add(actorScene);groyp.add(model);
+  actorScene.traverse(o=>{if(!o.isSkinnedMesh)return;const original=o.geometry;o.geometry=softenWardrobeSurface(original);original.dispose()});
   // The source has open, unrigged fingers. Replace those faces with closed
   // palms around the tool, keeping the supplied forearms and their skinning.
   actorScene.traverse(o=>{if(!o.isSkinnedMesh)return;o.frustumCulled=false;const g=o.geometry,idx=g.index,handVertex=[];for(let i=0;i<g.attributes.position.count;i++){handVertex[i]=false;for(let k=0;k<4;k++)if(g.attributes.skinWeight.getComponent(i,k)>.5&&/^hand_[lr]$/.test(o.skeleton.bones[g.attributes.skinIndex.getComponent(i,k)].name))handVertex[i]=true}const kept=[];for(let i=0;i<(idx?.count||g.attributes.position.count);i+=3){const tri=[0,1,2].map(k=>idx?idx.getX(i+k):i+k);if(!tri.some(v=>handVertex[v]))kept.push(...tri)}g.setIndex(kept)});

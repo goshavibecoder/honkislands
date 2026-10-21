@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {createWardrobeGroyp} from './wardrobe-groyp.js?v=105';
+import {createWardrobeGroyp} from './wardrobe-groyp.js?v=137';
 import {addAntiqueCastle} from './antique-castle.js?v=101';
 import {hangFamilyPictures} from './family-wall.js?v=72';
 import {addClownTeaCabinet,rearrangeWorkshopNotes} from './antique-details.js?v=53';

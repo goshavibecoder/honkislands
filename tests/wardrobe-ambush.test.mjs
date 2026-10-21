@@ -13,7 +13,15 @@ globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,heigh
 async function parse(bytes){return (await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'')).scene}
 
 test('the original rigged GROYP replaces grandma, fits inside the wardrobe and holds the shovel in both hands',async()=>{
- const manifest=JSON.parse(readFileSync(new URL('../models/groyp-air-v74.json',import.meta.url))),actor=await parse(gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url)))))),root=await parse(gunzipSync(readFileSync(new URL('../models/honkhub.0.bin',import.meta.url)))),room=prepareAntiqueRoom(root,{balloonDoor:true,wardrobeActor:actor}),world=room.wardrobe;
+ const manifest=JSON.parse(readFileSync(new URL('../models/groyp-air-v74.json',import.meta.url))),actor=await parse(gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url)))))),root=await parse(gunzipSync(readFileSync(new URL('../models/honkhub.0.bin',import.meta.url))));
+ const authored=new Map();actor.traverse(o=>{if(o.isSkinnedMesh)authored.set(o,{position:Array.from(o.geometry.attributes.position.array),uv:Array.from(o.geometry.attributes.uv.array),weights:Array.from(o.geometry.attributes.skinWeight.array),map:o.material.map,normalMap:o.material.normalMap})});
+ const room=prepareAntiqueRoom(root,{balloonDoor:true,wardrobeActor:actor}),world=room.wardrobe;
+ for(const [mesh,before] of authored){
+  const {position,normal,uv,skinWeight}=mesh.geometry.attributes;let moved=0,maxMove=0;
+  for(let i=0;i<position.count;i++){const d=Math.hypot(position.getX(i)-before.position[i*3],position.getY(i)-before.position[i*3+1],position.getZ(i)-before.position[i*3+2]);if(d>1e-7)moved++;maxMove=Math.max(maxMove,d);assert.ok(Math.abs(Math.hypot(normal.getX(i),normal.getY(i),normal.getZ(i))-1)<1e-5)}
+  assert.ok(moved>100,'small surface dents are relaxed');assert.ok(maxMove<.008,'smoothing must preserve the face and silhouette');assert.deepEqual(Array.from(uv.array),before.uv);assert.deepEqual(Array.from(skinWeight.array),before.weights);assert.equal(mesh.material.map,before.map);assert.equal(mesh.material.normalMap,before.normalMap);
+ }
+
  assert.ok(world.groyp);assert.equal(world.arms.length,2);assert.ok(root.getObjectByName('GROYP_closed_grip_l'));assert.ok(root.getObjectByName('GROYP_closed_grip_r'));assert.ok(world.arms[0].palmTarget.distanceTo(world.arms[1].palmTarget)>.18);assert.equal(root.getObjectByName('Grandma_HONK_seated_storyteller'),undefined);assert.ok(root.getObjectByName('GROYP_shovel_blade'));let skins=0;actor.traverse(o=>{if(o.isSkinnedMesh)skins++});assert.ok(skins>0,'use the supplied GROYP model');
  for(const swing of [0,.35,.85,1.35,1.51]){
   world.pose(1,swing,.9,{lift:.22});root.updateMatrixWorld(true);
