@@ -45,10 +45,10 @@ test('dragging rotates the ski camera independently of steering and keeps the vi
 test('touch and Space trigger one jump, and stepping off in midair returns to supported snow',()=>{
  for(const touch of [true,false]){
   const {viewer,controller,panel}=setup(),fov=viewer.camera.fov;panel.querySelector('.ski-start').emit('click');viewer.keys.add('KeyW');for(let i=0;i<45;i++)controller.update(1/60);
-  if(touch)panel.querySelector('.snowboard-jump').emit('pointerdown');else viewer.keys.add('Space');controller.update(1/60);assert.equal(controller.model.airborne,true);assert.ok(controller.model.airHeight>0);assert.ok(viewer.camera.fov>fov);const floor={...controller.model.lastGround};
+  if(touch)panel.querySelector('.snowboard-jump').emit('pointerdown');else viewer.keys.add('Space');controller.update(1/60);assert.equal(controller.model.preparing,true);for(let i=0;i<15;i++)controller.update(1/60);assert.equal(controller.model.airborne,true);assert.ok(controller.model.airHeight>0);assert.ok(viewer.camera.fov>fov);const floor={...controller.model.lastGround};
   panel.querySelector('.ski-exit').emit('click');assert.equal(controller.active,false);assert.equal(viewer.foot,floor.y);assert.equal(viewer.camera.position.y,floor.y+viewer.config.eye);assert.equal(viewer.camera.fov,fov);controller.dispose();
  }
 });
 test('opening desktop controls pauses a jump and cannot leave a queued launch after closing',()=>{
- const {viewer,controller,panel}=setup();panel.querySelector('.ski-start').emit('click');viewer.keys.add('Space');controller.update(.08);assert.equal(controller.model.airborne,true);viewer.desktopControls={menuOpen:true};const position={...controller.model.position};controller.update(.08);assert.deepEqual(controller.model.position,position);viewer.keys.clear();viewer.desktopControls.menuOpen=false;controller.update(.08);assert.ok(controller.model.position.y!==position.y);controller.dispose();
+ const {viewer,controller,panel}=setup();panel.querySelector('.ski-start').emit('click');viewer.keys.add('Space');for(let i=0;i<3;i++)controller.update(.08);assert.equal(controller.model.airborne,true);viewer.desktopControls={menuOpen:true};const position={...controller.model.position};controller.update(.08);assert.deepEqual(controller.model.position,position);viewer.keys.clear();viewer.desktopControls.menuOpen=false;controller.update(.08);assert.ok(controller.model.position.y!==position.y);controller.dispose();
 });

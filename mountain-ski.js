@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SnowboardMotion} from './snowboard-motion.js?v=138';
+import {SnowboardMotion} from './snowboard-motion.js?v=139';
 
 export function mountMountainSki(viewer,world,skier){
  const host=document.getElementById('world'),panel=document.createElement('aside');panel.className='ski-controls';panel.hidden=true;
@@ -14,7 +14,7 @@ export function mountMountainSki(viewer,world,skier){
  }
  function sync(){
   const near=viewer.mode==='walk'&&Math.hypot(viewer.camera.position.x-world.start.x,viewer.camera.position.z-world.start.z)<1.85&&Math.abs(viewer.foot-world.start.y)<.55;
-  panel.hidden=viewer.mode!=='walk'||!saved&&!near;start.hidden=!!saved;running.hidden=!saved;brake.hidden=jump.hidden=!saved;jump.disabled=!!saved&&(model.airborne||model.jumpCooldown>0);
+  panel.hidden=viewer.mode!=='walk'||!saved&&!near;start.hidden=!!saved;running.hidden=!saved;brake.hidden=jump.hidden=!saved;jump.disabled=!!saved&&(model.airborne||model.preparing||model.jumpCooldown>0);
   if(saved)output.textContent=model.warning?'Trail edge — turn towards the snow':Math.round(model.speed*3.6)+' km/h · '+Math.round(model.progress*100)+'% · '+(model.airborne?'AIR +'+model.airHeight.toFixed(1)+' m':'↑ Tuck · Space / JUMP');
  }
  start.addEventListener('click',()=>{
@@ -32,7 +32,7 @@ export function mountMountainSki(viewer,world,skier){
    if(disposed)return;if(viewer.desktopControls?.menuOpen){braking=jumpQueued=false;return}
    if(saved){
     const keys=viewer.keys,steer=viewer.stick.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),drive=-viewer.stick.y+(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0);
-    model.update(dt,{steer,drive,brake:braking,jump:jumpQueued||keys.has('Space')});jumpQueued=false;const p=model.position,tangent=model.nearest(p.x,p.z);skier.pose(p,model.yaw,model.speed,model.turn,tangent.slope*(tangent.dx*Math.sin(model.yaw)+tangent.dz*Math.cos(model.yaw)),model);
+    model.update(dt,{steer,drive,brake:braking,jump:jumpQueued||keys.has('Space')});if(dt>0)jumpQueued=false;const p=model.position,tangent=model.nearest(p.x,p.z);skier.pose(p,model.yaw,model.speed,model.turn,tangent.slope*(tangent.dx*Math.sin(model.yaw)+tangent.dz*Math.cos(model.yaw)),model);
     // Dragging orbits the camera independently from the skier and joystick.
     // Indexed rock queries keep both the desired and eased camera outside scenery.
     const angle=model.yaw+orbitYaw,range=3.3+model.speed*.035,horizontal=range*Math.cos(orbitPitch);
