@@ -7,8 +7,6 @@ export function createSkiHonk(parent,headData){
  const original=createHonkKartDriver(new THREE.Group(),headData),head=original.head;head.removeFromParent();group.add(head);
  const mat=c=>new THREE.MeshStandardMaterial({color:c,roughness:.64}),m={blue:mat(0x164bdf),green:mat(0x659b3e),red:mat(0xec3349),gold:mat(0xd7b568),dark:mat(0x25243d),white:mat(0xf0f5ff),bow:mat(0xa9d7fa)};
  const deck=new THREE.Group(),body=new THREE.Group();group.add(deck);deck.add(body,head);
- // Compact the original rider above the fixed boots, keeping the same face and poses.
- const compactY=y=>.28+(y-.28)*.84;head.scale.multiply(new THREE.Vector3(.84,1.24,1.16));
  function ball(parent,x,y,z,sx,sy,sz,material){const o=new THREE.Mesh(new THREE.SphereGeometry(1,14,9),material);o.position.set(x,y,z);o.scale.set(sx,sy,sz);parent.add(o);return o}
  function box(parent,w,h,d,material,x,y,z,name){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);o.position.set(x,y,z);o.name=name;parent.add(o);return o}
  const shape=new THREE.Shape();shape.moveTo(-.17,-.64);shape.quadraticCurveTo(-.17,-.88,0,-.9);shape.quadraticCurveTo(.17,-.88,.17,-.64);shape.lineTo(.17,.64);shape.quadraticCurveTo(.17,.88,0,.9);shape.quadraticCurveTo(-.17,.88,-.17,.64);shape.closePath();
@@ -21,7 +19,7 @@ export function createSkiHonk(parent,headData){
  const up=new THREE.Vector3(0,1,0),delta=new THREE.Vector3();
  function limb(radius,material){const o=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,1,10),material);deck.add(o);return o}
  function connect(mesh,a,b){delta.subVectors(b,a);mesh.position.copy(a).add(b).multiplyScalar(.5);mesh.scale.y=delta.length();mesh.quaternion.setFromUnitVectors(up,delta.normalize())}
- const torso=ball(body,0,.95,0,.205,.235,.27,m.blue),pelvis=ball(body,0,.75,0,.18,.115,.22,m.blue),neck=ball(body,0,1.18,0,.09,.075,.095,m.green);
+ const torso=ball(body,0,.95,0,.18,.27,.24,m.blue),pelvis=ball(body,0,.75,0,.16,.13,.20,m.blue),neck=ball(body,0,1.18,0,.08,.08,.085,m.green);
  const bow=new THREE.Group();body.add(bow);for(const sign of [-1,1])ball(bow,.183,0,sign*.066,.028,.047,.071,m.bow);ball(bow,.204,0,0,.024,.025,.026,m.white);
  for(const sign of [-1,1]){
   // Sideways stance: the two boots sit across the same board, without poles.
@@ -41,10 +39,10 @@ export function createSkiHonk(parent,headData){
  function pose(position,yaw,speed,turn,slope=0,state={}){
   const air=!!state.airborne,crouch=Math.min(1,(air?.65:Math.min(1,speed/10)*.38)+(state.landing||0)*.7),lean=turn*Math.min(1,speed/5)*.14;
   group.position.copy(position);group.rotation.set(air?Math.atan(slope)*.35+THREE.MathUtils.clamp((state.verticalSpeed||0)*.025,-.14,.14):Math.atan(slope),yaw,0,'YXZ');deck.rotation.z=-lean;
-  const hipY=compactY(.76-crouch*.12),shoulderY=compactY(1.08-crouch*.15);
-  torso.position.set(lean,compactY(.95-crouch*.14),0);torso.rotation.z=-lean;pelvis.position.set(lean*.5,hipY,0);neck.position.set(lean,compactY(1.18-crouch*.15),0);head.position.set(lean,compactY(1.30-crouch*.15)+.057,.015);head.rotation.set(0,0,-lean*.35);bow.position.set(lean,compactY(1.12-crouch*.15),0);
-  for(const leg of legs){leg.hip.set(lean*.5-.03,hipY,leg.sign*.125);leg.knee.set(.17+crouch*.07,compactY(.51-crouch*.04),leg.sign*.23);leg.hipJoint.position.copy(leg.hip);leg.kneeJoint.position.copy(leg.knee);connect(leg.upper,leg.hip,leg.knee);connect(leg.lower,leg.knee,leg.ankle)}
-  for(const arm of arms){arm.shoulder.set(lean,shoulderY,arm.sign*.19);arm.joint.position.copy(arm.shoulder);arm.elbow.position.set(.02+lean,compactY(.94-crouch*.10),arm.sign*.40);arm.hand.position.set(.10+lean,compactY(.96-crouch*.06+(air?.10:0)),arm.sign*(air?.50:.59));connect(arm.upper,arm.shoulder,arm.elbow.position);connect(arm.forearm,arm.elbow.position,arm.hand.position)}
+  const hipY=.76-crouch*.12,shoulderY=1.08-crouch*.15;
+  torso.position.set(lean,.95-crouch*.14,0);torso.rotation.z=-lean;pelvis.position.set(lean*.5,hipY,0);neck.position.set(lean,1.18-crouch*.15,0);head.position.set(lean,1.30-crouch*.15,.015);head.rotation.set(0,0,-lean*.35);bow.position.set(lean,1.12-crouch*.15,0);
+  for(const leg of legs){leg.hip.set(lean*.5-.03,hipY,leg.sign*.125);leg.knee.set(.17+crouch*.07,.51-crouch*.04,leg.sign*.23);leg.hipJoint.position.copy(leg.hip);leg.kneeJoint.position.copy(leg.knee);connect(leg.upper,leg.hip,leg.knee);connect(leg.lower,leg.knee,leg.ankle)}
+  for(const arm of arms){arm.shoulder.set(lean,shoulderY,arm.sign*.19);arm.joint.position.copy(arm.shoulder);arm.elbow.position.set(.02+lean,.94-crouch*.10,arm.sign*.40);arm.hand.position.set(.10+lean,.96-crouch*.06+(air?.10:0),arm.sign*(air?.50:.59));connect(arm.upper,arm.shoulder,arm.elbow.position);connect(arm.forearm,arm.elbow.position,arm.hand.position)}
   powder.visible=!air&&(speed>2&&Math.abs(turn)>.15||(state.landing||0)>.15);
   if(powder.visible){for(let i=0;i<10;i++){const phase=((state.clock||0)*3+i*.103)%1;puff.position.set(-Math.sign(turn||1)*(.12+phase*.28),.10+Math.sin(phase*Math.PI)*.20,-.5-phase*.6);puff.scale.setScalar((.02+phase*.045)*(1-phase));puff.updateMatrix();powder.setMatrixAt(i,puff.matrix)}powder.instanceMatrix.needsUpdate=true}
  }
