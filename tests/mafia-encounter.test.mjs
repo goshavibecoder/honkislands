@@ -107,6 +107,13 @@ test('live combat uses the recorded shot and reload, distant enemy audio and cle
  e.c.reload();e.c.reload();assert.equal(calls.filter(k=>k==='reload').length,1,'one recording for a single reload');
  advance(e.c,2.5);assert.ok(calls.includes('enemy-shot'));e.c.cancel();assert.equal(calls.at(-1),'stop');e.c.dispose();assert.equal(calls.at(-1),'dispose');
 });
+test('the wardrobe touch unlocks enemy audio early and every automatic bullet has a recorded report',async()=>{
+ const calls=[],audio={prepare(){calls.push({kind:'prepare'});return Promise.resolve(true)},unlock(){calls.push({kind:'unlock'})},play(kind,options){calls.push({kind,options});return true},tone(){},stop(){},dispose(){}},e=setup({makeAudio:()=>audio});
+ for(const listener of e.host.events.pointerdown)listener({pointerType:'touch'});assert.ok(calls.some(c=>c.kind==='unlock'));assert.ok(calls.some(c=>c.kind==='prepare'));await e.c.begin();e.c.model.health=10000;e.c.model.phase='fight';Object.assign(e.c.model.player,{x:4.5,z:-3.4});
+ let bullets=0,consecutive=0,longest=0,last=-100;
+ for(let frame=0;frame<60*4;frame++){e.c.update(1/60);if(e.c.model.events.includes('enemy-shot')){bullets++;consecutive=e.c.model.clock-last<.15?consecutive+1:1;longest=Math.max(longest,consecutive);last=e.c.model.clock}}
+ const reports=calls.filter(c=>c.kind==='enemy-shot');assert.ok(longest>=10);assert.equal(reports.length,bullets);assert.ok(reports.every(c=>c.options.distance>0&&Number.isFinite(c.options.pan)));e.c.dispose();assert.equal(e.host.events.pointerdown.length,0);
+});
 test('the killing shot keeps a phone thumb moving and firing without restarting the ending',async()=>{
  const e=setup();await e.c.begin();advance(e.c,1.9);e.c.model.player.x=4.4;e.c.model.player.z=-3.4;e.c.model.enemyHealth=MAFIA_RULES.damage;
  e.viewer.camera.position.set(4.4,e.c.model.player.y,-3.4);e.viewer.camera.lookAt(e.c.model.enemy.x,1.2,e.c.model.enemy.z);e.viewer.motion.reset(e.viewer.camera.rotation.y,e.viewer.camera.rotation.x);e.viewer.stick.y=-.9;

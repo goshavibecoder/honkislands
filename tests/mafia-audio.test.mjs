@@ -33,7 +33,7 @@ test('recordings preload and decode once while every automatic shot gets its own
 });
 test('enemy shots reuse the AK sample and are quieter, filtered and positioned across the room',async()=>{
  const e=setup();await e.audio.prepare();e.audio.play('shot');e.audio.play('enemy-shot',{pan:1.5,distance:8});
- const [player,enemy]=e.ctx.sources;assert.equal(player.buffer,enemy.buffer);assert.ok(enemy.target.gain.value<player.target.gain.value);assert.equal(enemy.target.target.type,'lowpass');assert.equal(enemy.target.target.target.pan.value,1);e.audio.dispose();
+ const [player,enemy]=e.ctx.sources;assert.equal(player.buffer,enemy.buffer);assert.ok(enemy.target.gain.value<player.target.gain.value);assert.ok(enemy.target.gain.value>=player.target.gain.value*.8,'enemy fire must stay clearly audible across the room');assert.equal(enemy.target.target.type,'lowpass');assert.equal(enemy.target.target.target.pan.value,1);e.audio.dispose();
 });
 test('reload plays once for the gameplay duration and stopping it leaves gunshot tails intact',async()=>{
  const e=setup();await e.audio.prepare();e.audio.play('shot');e.audio.play('reload',{duration:2.1});e.audio.play('reload',{duration:2.1});

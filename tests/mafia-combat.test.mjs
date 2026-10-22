@@ -10,7 +10,7 @@ test('solid cover and room boundaries stop movement, and bullets cannot pass thr
  assert.equal(rayBox({x:c.x,y:1,z:c.z+2},{x:0,y:0,z:-1},coverBox(c)),2-c.d/2);
 });
 test('shots obey cooldown, empty magazines reload, misses do no damage, and reload cannot be spammed',()=>{
- const m=fight();assert.equal(m.fire(false),true);assert.equal(m.enemyHealth,160);assert.equal(m.fire(true),false);
+ const m=fight();m.health=10000;assert.equal(m.fire(false),true);assert.equal(m.enemyHealth,160);assert.equal(m.fire(true),false);
  for(let i=1;i<MAFIA_RULES.magazine;i++){advance(m,.25);assert.equal(m.fire(false),true)}assert.equal(m.ammo,0);advance(m,.25);assert.equal(m.fire(true),false);assert.ok(m.reloadTime>0);assert.equal(m.reload(),false);advance(m,MAFIA_RULES.reload+.01);assert.equal(m.ammo,MAFIA_RULES.magazine);assert.equal(m.fire(true),true);assert.equal(m.enemyHealth,160-MAFIA_RULES.damage);
 });
 test('Groyp telegraphs shots, moving dodges them, and crouching behind a crate blocks them',()=>{

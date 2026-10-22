@@ -1,0 +1,22 @@
+HONK shovel sounds (v144)
+
+Game source: OpenSpades Free Assets (DeathByDenim)
+https://github.com/DeathByDenim/openspades-free-pak
+Credits: https://github.com/DeathByDenim/openspades-free-pak/blob/main/License/Credits-pak001-Free.md
+
+Impact: Sounds/Weapons/Spade/HitPlayer.opus
+https://raw.githubusercontent.com/DeathByDenim/openspades-free-pak/main/Sounds/Weapons/Spade/HitPlayer.opus
+Original: cast iron clangs - Marker #10.wav by bart
+https://opengameart.org/content/33-metal-clang-sounds-cast-iron-pans
+Upstream blob: e5b310c38195f150750cf321b1e6335f06b13259
+
+Swing: Sounds/Weapons/Spade/Miss.opus
+https://raw.githubusercontent.com/DeathByDenim/openspades-free-pak/main/Sounds/Weapons/Spade/Miss.opus
+Original: swosh-03.flac by Iwan Gabovitch
+https://opengameart.org/content/swish-bamboo-stick-weapon-swhoshes
+Upstream blob: ccc9406dae9e92569c7740d91ccdd08d04c56d7a
+
+Both sounds: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Edits: mono MP3 for iOS, shortened tails and short fade-outs.
+The actual recordings are served locally with the game.

@@ -1,5 +1,5 @@
 import {MAFIA_CAPTURE} from './mafia-capture.js?v=132';
-import {MafiaOpponent} from './mafia-ai.js?v=143';
+import {MafiaOpponent} from './mafia-ai.js?v=144';
 export const MAFIA_COVER=[
  {x:-2.6,z:1.1,w:1.7,d:1.5,h:1.85},
  {x:2.55,z:-1.3,w:1.8,d:1.4,h:1.9},
@@ -25,7 +25,7 @@ export function clearShot(from,to,covers=MAFIA_COVER){
 }
 export class MafiaCombat{
  constructor(){this.reset()}
- reset(){this.phase='wake';this.elapsed=this.clock=0;this.health=100;this.enemyHealth=MAFIA_RULES.enemyHealth;this.ammo=MAFIA_RULES.magazine;this.reloadTime=this.cooldown=this.warning=this.hitFlash=0;this.enemyDelay=1.4;this.target=null;this.lastShot=null;this.player={x:0,y:1.62,z:5.5};this.enemy={x:0,y:0,z:-5.05,vx:0,vz:0,distance:0};this.events=[];this.opponent=new MafiaOpponent(MAFIA_COVER,clearShot);return this}
+ reset(){this.phase='wake';this.elapsed=this.clock=0;this.health=100;this.enemyHealth=MAFIA_RULES.enemyHealth;this.ammo=MAFIA_RULES.magazine;this.reloadTime=this.cooldown=this.warning=this.hitFlash=0;this.enemyDelay=.45;this.target=null;this.lastShot=null;this.player={x:0,y:1.62,z:5.5};this.enemy={x:0,y:0,z:-5.05,vx:0,vz:0,distance:0};this.events=[];this.opponent=new MafiaOpponent(MAFIA_COVER,clearShot);return this}
  get fighting(){return this.phase==='fight'}
  get controllable(){return this.fighting||this.phase==='victory'}
  canStand(x,z){const r=.27;return Math.abs(x)<=5.6&&Math.abs(z)<=7.2&&!MAFIA_COVER.some(c=>Math.abs(x-c.x)<c.w/2+r&&Math.abs(z-c.z)<c.d/2+r)}

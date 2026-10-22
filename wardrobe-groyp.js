@@ -51,7 +51,7 @@ export function createWardrobeGroyp(parent,m,actorScene=null){
   for(const y of [.55,2.0])box(.06,.12,.055,m.brass,hinge,0,y,.035);
   batchRideMeshes(hinge);hinge.traverse(o=>o.userData.wardrobeDynamic=true);
  }
- let groyp=null,grip=null;const arms=[],legs=[];let bladeGroup=null,shaftStart=null,contactInGrip=null;
+ let groyp=null,grip=null,head=null,headRest=null;const arms=[],legs=[];let bladeGroup=null,shaftStart=null,contactInGrip=null;
  const axisRotation=new THREE.Quaternion(),parentRotation=new THREE.Quaternion(),inverseRotation=new THREE.Quaternion(),jointPosition=new THREE.Vector3(),handPosition=new THREE.Vector3(),targetPosition=new THREE.Vector3(),from=new THREE.Vector3(),to=new THREE.Vector3(),elbowPosition=new THREE.Vector3(),pole=new THREE.Vector3(),bodyRotation=new THREE.Quaternion(),wristBack=new THREE.Vector3();
  function rotateJoint(joint,oldDirection,newDirection){axisRotation.setFromUnitVectors(oldDirection.normalize(),newDirection.normalize());joint.parent.getWorldQuaternion(parentRotation);inverseRotation.copy(parentRotation).invert();axisRotation.premultiply(inverseRotation).multiply(parentRotation);joint.quaternion.premultiply(axisRotation);joint.updateWorldMatrix(false,true)}
  function solveArms(){
@@ -71,7 +71,8 @@ export function createWardrobeGroyp(parent,m,actorScene=null){
   actorScene.removeFromParent();actorScene.updateWorldMatrix(true,true);const initial=new THREE.Box3().setFromObject(actorScene),size=initial.getSize(new THREE.Vector3()),center=initial.getCenter(new THREE.Vector3()),scale=1.75/size.y;
   groyp=new THREE.Group();groyp.name='GROYP_hidden_in_wardrobe';groyp.position.y=.26;group.add(groyp);
   const model=new THREE.Group();model.name='Wardrobe_original_GROYP_model';model.scale.setScalar(scale);model.position.set(-center.x*scale,-initial.min.y*scale,-center.z*scale);model.add(actorScene);groyp.add(model);
-  actorScene.traverse(o=>{if(!o.isSkinnedMesh)return;const original=o.geometry;o.geometry=softenWardrobeSurface(original);original.dispose()});
+  actorScene.traverse(o=>{if(!o.isSkinnedMesh)return;const original=o.geometry;o.geometry=softenWardrobeSurface(original);original.dispose();for(const material of Array.isArray(o.material)?o.material:[o.material]){material.metalness=0;material.roughness=.85;material.normalScale?.set(.5,.5);for(const texture of [material.map,material.normalMap])if(texture)texture.anisotropy=4}});
+  head=actorScene.getObjectByName('head');headRest=head?.quaternion.clone();
   // The source has open, unrigged fingers. Replace those faces with closed
   // palms around the tool, keeping the supplied forearms and their skinning.
   actorScene.traverse(o=>{if(!o.isSkinnedMesh)return;o.frustumCulled=false;const g=o.geometry,idx=g.index,handVertex=[];for(let i=0;i<g.attributes.position.count;i++){handVertex[i]=false;for(let k=0;k<4;k++)if(g.attributes.skinWeight.getComponent(i,k)>.5&&/^hand_[lr]$/.test(o.skeleton.bones[g.attributes.skinIndex.getComponent(i,k)].name))handVertex[i]=true}const kept=[];for(let i=0;i<(idx?.count||g.attributes.position.count);i+=3){const tri=[0,1,2].map(k=>idx?idx.getX(i+k):i+k);if(!tri.some(v=>handVertex[v]))kept.push(...tri)}g.setIndex(kept)});
@@ -92,21 +93,24 @@ export function createWardrobeGroyp(parent,m,actorScene=null){
   }
   bladeGroup=new THREE.Group();bladeGroup.name='GROYP_shovel_blade';bladeGroup.position.copy(b).sub(origin);bladeGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);grip.add(bladeGroup);
   const shape=new THREE.Shape();shape.moveTo(-.075,0);shape.lineTo(-.17,.12);shape.lineTo(-.17,.32);shape.quadraticCurveTo(0,.47,.17,.32);shape.lineTo(.17,.12);shape.lineTo(.075,0);shape.closePath();
-  const blade=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.035,bevelEnabled:true,bevelSize:.012,bevelThickness:.009,bevelSegments:1,curveSegments:5}),clothes.metal);blade.position.z=-.018;bladeGroup.add(blade);box(.025,.24,.028,clothes.metal,bladeGroup,0,.15,.024);
-  const handle=new THREE.Mesh(new THREE.TorusGeometry(.075,.018,6,16,Math.PI),clothes.wood);handle.position.set(0,0,0).addScaledVector(axis,.045);handle.rotation.z=-Math.atan2(axis.x,axis.y);grip.add(handle);
+  const blade=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.035,bevelEnabled:true,bevelSize:.012,bevelThickness:.009,bevelSegments:3,curveSegments:12}),clothes.metal);blade.position.z=-.018;bladeGroup.add(blade);box(.025,.24,.028,clothes.metal,bladeGroup,0,.15,.024);
+  for(const y of [.08,.20])ball(0,y,.042,.017,.017,.009,clothes.metal,bladeGroup);
+  const handle=new THREE.Mesh(new THREE.TorusGeometry(.075,.018,8,24,Math.PI),clothes.wood);handle.position.set(0,0,0).addScaledVector(axis,.045);handle.rotation.z=-Math.atan2(axis.x,axis.y);grip.add(handle);
   bladeGroup.updateMatrix();shaftStart=origin.clone();contactInGrip=new THREE.Vector3(0,.22,.017).applyMatrix4(bladeGroup.matrix);
   for(const [name,sign] of [['thigh_l',1],['thigh_r',-1],['calf_l',-1],['calf_r',1]]){const bone=actorScene.getObjectByName(name);if(bone)legs.push({bone,sign,rest:bone.quaternion.clone()})}
   batchRideMeshes(grip);batchRideMeshes(bladeGroup);groyp.traverse(o=>o.userData.wardrobeDynamic=true);
  }
  group.updateWorldMatrix(true,true);const bounds=new THREE.Box3().setFromObject(shell),ray=new THREE.Raycaster(),point=new THREE.Vector3();
  function nearby(camera){group.updateWorldMatrix(true,false);point.copy(camera.position);group.worldToLocal(point);return point.z>.6&&point.z<2.6&&Math.abs(point.x)<1.15&&point.y>.5&&point.y<2.7}
- const xAxis=new THREE.Vector3(1,0,0),walkAxis=new THREE.Vector3(),actorRotation=new THREE.Quaternion(),inverseParent=new THREE.Quaternion();
+ const xAxis=new THREE.Vector3(1,0,0),yAxis=new THREE.Vector3(0,1,0),walkAxis=new THREE.Vector3(),actorRotation=new THREE.Quaternion(),inverseParent=new THREE.Quaternion(),focus=new THREE.Vector3(),headOrigin=new THREE.Vector3(),headTurn=new THREE.Quaternion();
+ function turnHead(axis,angle){walkAxis.copy(axis).applyQuaternion(actorRotation);head.parent.getWorldQuaternion(inverseParent).invert();walkAxis.applyQuaternion(inverseParent);head.quaternion.premultiply(headTurn.setFromAxisAngle(walkAxis,angle));head.updateWorldMatrix(false,true)}
  const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)};
- function pose(open=0,swing=0,lunge=0,{x=0,walk=0,lift=0}={}){
+ function pose(open=0,swing=0,lunge=0,{x=0,walk=0,lift=0,target=null}={}){
   doors[0].rotation.y=-open*1.75;doors[1].rotation.y=open*1.75;if(!groyp)return;
   const stride=Math.sin(walk*Math.PI*4)*Math.sin(walk*Math.PI),stepDown=smooth((lunge-.25)/.5);
   groyp.position.set(x,.26*(1-stepDown)+Math.abs(stride)*.018,lunge);grip.position.copy(shaftStart);grip.position.y+=lift;grip.rotation.x=swing;
   groyp.updateWorldMatrix(true,true);groyp.getWorldQuaternion(actorRotation);
+  if(head){head.quaternion.copy(headRest);head.updateWorldMatrix(true,true);if(target){head.getWorldPosition(headOrigin);groyp.worldToLocal(headOrigin);focus.copy(target);groyp.worldToLocal(focus);focus.sub(headOrigin);const yaw=THREE.MathUtils.clamp(Math.atan2(focus.x,focus.z),-.75,.75),pitch=THREE.MathUtils.clamp(Math.atan2(focus.y,Math.hypot(focus.x,focus.z)),-.3,.3);turnHead(yAxis,yaw);turnHead(xAxis,-pitch)}}
   for(const leg of legs){const angle=leg.bone.name.startsWith('calf')?Math.max(0,stride*leg.sign)*.45:stride*leg.sign*.38;leg.bone.parent.getWorldQuaternion(inverseParent).invert();walkAxis.copy(xAxis).applyQuaternion(actorRotation).applyQuaternion(inverseParent);leg.bone.quaternion.setFromAxisAngle(walkAxis,angle).multiply(leg.rest)}
   solveArms();
  }

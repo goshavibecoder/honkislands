@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=143';
-import {createMafiaRoom} from './mafia-room.js?v=143';
-import {createMafiaAudio} from './mafia-audio.js?v=132';
-import {MAFIA_ENEMY_RULES} from './mafia-ai.js?v=143';
+import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=144';
+import {createMafiaRoom} from './mafia-room.js?v=144';
+import {createMafiaAudio} from './mafia-audio.js?v=144';
+import {MAFIA_ENEMY_RULES} from './mafia-ai.js?v=144';
 import {capturePoseAt,captureLanding,captureCollisionPosition,MAFIA_CAPTURE} from './mafia-capture.js?v=136';
 import {mountKnockoutRecovery} from './knockout-recovery.js?v=105';
 
@@ -15,6 +15,10 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
  const model=new MafiaCombat(),ray=new THREE.Raycaster(),screen=new THREE.Vector2(),direction=new THREE.Vector3(),impact=new THREE.Vector3(),muzzle=new THREE.Vector3(),from=new THREE.Vector3();
  let room=null,saved=null,loading=false,disposed=false,epoch=0,held=false,firePointer=null,crouched=false,recoil=0,hurt=0,traceTime=0,enemyFlashTime=0,enemyKick=0,phase='',returning=false,step=0,caught=null,kickPlayed=false;
  const audio=makeAudio(),recovery=mountKnockoutRecovery(viewer);
+ // The wardrobe transfer is a timer callback. Unlock the den's audio on the
+ // earlier real touch so iOS can also play Groyp's shots before the player fires.
+ const unlockAudio=()=>{if(!disposed&&viewer.active){audio.unlock();void audio.prepare()}};
+ host.addEventListener('pointerdown',unlockAudio,true);
  function sound(kind){
   if(kind==='shot'||kind==='reload')audio.play(kind,{duration:MAFIA_RULES.reload});
   else if(kind==='enemy-shot'||kind==='enemy-reload'){
@@ -106,7 +110,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
  reload.addEventListener('click',requestReload);crouch.addEventListener('click',toggleCrouch);retry.addEventListener('click',restart);
  const keydown=e=>{if(!saved||!viewer.active||e.target?.matches?.('input,textarea,select,[contenteditable="true"]')||e.ctrlKey||e.metaKey||e.altKey||viewer.desktopControls?.menuOpen)return;if(['Space','KeyR','KeyC'].includes(e.code)){e.preventDefault();e.stopImmediatePropagation();if(!model.controllable||e.repeat)return;if(e.code==='Space'){held=true;shoot()}if(e.code==='KeyR')requestReload();if(e.code==='KeyC')toggleCrouch()}},keyup=e=>{if(e.code==='Space')release()},blur=()=>release();
  window.addEventListener('keydown',keydown,true);window.addEventListener('keyup',keyup);window.addEventListener('blur',blur);
- return {model,get active(){return !!saved},get loading(){return loading},get fighting(){return !!saved&&model.controllable},get scene(){return returning?viewer.scene:room?.scene},begin,shoot,reload:requestReload,update,cancel,
-  dispose(){if(disposed)return;cancel();disposed=true;room?.dispose();room=null;ui.remove();window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',blur);audio.dispose();recovery.dispose()}
+ return {model,get active(){return !!saved},get loading(){return loading},get fighting(){return !!saved&&model.controllable},get scene(){return returning?viewer.scene:room?.scene},begin,shoot,reload:requestReload,update,cancel,unlockAudio,
+  dispose(){if(disposed)return;cancel();disposed=true;room?.dispose();room=null;ui.remove();host.removeEventListener('pointerdown',unlockAudio,true);window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',blur);audio.dispose();recovery.dispose()}
  };
 }

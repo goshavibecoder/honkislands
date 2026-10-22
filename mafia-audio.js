@@ -5,7 +5,7 @@ export const MAFIA_SOUNDS={
 
 // Decode each recording once. Buffer sources can overlap at the rifle's fire
 // rate without restarting a shared HTMLAudioElement on every shot.
-export function createMafiaAudio({Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetcher=globalThis.fetch,document:doc=globalThis.document}={}){
+export function createMafiaAudio({Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetcher=globalThis.fetch,document:doc=globalThis.document,sounds=MAFIA_SOUNDS}={}){
  let context=null,master=null,disposed=false;
  const buffers=new Map(),pending=new Map(),voices=new Set();
  function init(){
@@ -24,14 +24,14 @@ export function createMafiaAudio({Context=globalThis.AudioContext||globalThis.we
   if(buffers.has(kind))return Promise.resolve(buffers.get(kind));
   if(pending.has(kind))return pending.get(kind);
   const request=Promise.resolve().then(async()=>{
-   const response=await fetcher(MAFIA_SOUNDS[kind]);if(!response.ok)throw Error('Sound '+response.status);
+   const response=await fetcher(sounds[kind]);if(!response.ok)throw Error('Sound '+response.status);
    const bytes=await response.arrayBuffer();if(disposed)return null;
    const buffer=await context.decodeAudioData(bytes);if(!disposed)buffers.set(kind,buffer);return buffer;
   }).catch(()=>null).finally(()=>pending.delete(kind));
   pending.set(kind,request);return request;
  }
  function prepare(){
-  try{if(!init())return Promise.resolve(false);return Promise.all(Object.keys(MAFIA_SOUNDS).map(load)).then(result=>result.every(Boolean))}catch{return Promise.resolve(false)}
+  try{if(!init())return Promise.resolve(false);return Promise.all(Object.keys(sounds).map(load)).then(result=>result.every(Boolean))}catch{return Promise.resolve(false)}
  }
  function stop(kind){
   for(const voice of [...voices])if(!kind||voice.kind===kind){voices.delete(voice);voice.source.onended=null;try{voice.source.stop()}catch{}for(const node of voice.nodes)node.disconnect()}
@@ -40,13 +40,13 @@ export function createMafiaAudio({Context=globalThis.AudioContext||globalThis.we
   if(disposed||doc?.hidden)return false;
   unlock();if(!context)return false;
   const recording=kind==='enemy-shot'?'shot':kind==='enemy-reload'?'reload':kind;
-  if(!MAFIA_SOUNDS[recording])return false;
+  if(!sounds[recording])return false;
   const buffer=buffers.get(recording);if(!buffer)return false;
   if(kind==='reload')stop('reload');
   const source=context.createBufferSource(),gain=context.createGain(),nodes=[source,gain];source.buffer=buffer;
-  const enemy=kind.startsWith('enemy-'),level=enemy?.30/(1+Math.max(0,distance)*.055):kind==='reload'?.65:.52;
+  const enemy=kind.startsWith('enemy-'),level=enemy?.60/(1+Math.max(0,distance)*.025):kind==='reload'?.65:.52;
   gain.gain.value=level;source.connect(gain);let output=gain;
-  if(enemy){const filter=context.createBiquadFilter();filter.type='lowpass';filter.frequency.value=4800;gain.connect(filter);output=filter;nodes.push(filter)}
+  if(enemy){const filter=context.createBiquadFilter();filter.type='lowpass';filter.frequency.value=7200;gain.connect(filter);output=filter;nodes.push(filter)}
   if(context.createStereoPanner){const stereo=context.createStereoPanner();stereo.pan.value=Math.max(-1,Math.min(1,pan));output.connect(stereo);output=stereo;nodes.push(stereo)}
   output.connect(master);
   if(recording==='reload')source.playbackRate.value=buffer.duration/Math.max(.1,duration);

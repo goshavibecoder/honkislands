@@ -1,4 +1,4 @@
-import {mountMafiaEncounter} from './mafia-encounter.js?v=143';
+import {mountMafiaEncounter} from './mafia-encounter.js?v=144';
 import {mountDesktopControls} from './desktop-controls.js?v=138';
 import {mountCastleGreeting} from './castle-greeting.js?v=123';
 import {createAssetCache,fetchAssetBytes,fetchAssetJSON,fetchGzipJSON,loadCompressedScene} from './asset-loader.js?v=116';
@@ -31,8 +31,8 @@ import {attachTapGesture} from './tap-gesture.js?v=27';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
 import {loadHonkFamilyPictures} from './family-wall.js?v=72';
-import {prepareAntiqueRoom} from './antique-room.js?v=137';
-import {mountWardrobeAmbush} from './wardrobe-ambush.js?v=105';
+import {prepareAntiqueRoom} from './antique-room.js?v=144';
+import {mountWardrobeAmbush} from './wardrobe-ambush.js?v=144';
 import {mountKnockoutRecovery} from './knockout-recovery.js?v=105';
 import {prepareGalleryMemes} from './gallery-memes.js?v=93';
 import {prepareGalleryGraffiti} from './gallery-graffiti.js?v=100';

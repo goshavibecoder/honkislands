@@ -2,7 +2,7 @@ const radius=.52,margin=radius+.08,bounds={x:5.4,z:7.0};
 const length=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const navigationCache=new WeakMap();
-export const MAFIA_ENEMY_RULES={speed:1.35,aim:.82,burst:3,burstDelay:.17,damage:8,magazine:9,reload:2.4,cooldown:1.25,memory:4};
+export const MAFIA_ENEMY_RULES={speed:1.35,aim:.82,burst:12,burstDelay:.11,damage:4,magazine:30,reload:2.4,cooldown:.65,memory:4};
 
 // A small visibility graph is shared across encounters. Corner routes keep the
 // whole character clear of crates; no grid search or physics work per frame.
@@ -57,7 +57,8 @@ export class MafiaOpponent{
  hear(model){const changed=!this.memory||length(this.memory,model.player)>.9;this.memory={...model.player};this.memoryAt=model.clock;if(this.see(model)){if(!this.suppression)this.decision=0;this.suppression=.9}if(changed)this.decision=0}
  hit(model){
   this.hear(model);if(!this.underFire)this.decision=0;this.underFire=1.6;
-  if(model.clock-this.lastStagger>.85){this.stagger=.16;this.lastStagger=model.clock;this.shotsLeft=0;model.target=null;model.warning=0;model.enemyDelay=Math.max(.35,model.enemyDelay)}
+  // A hit can interrupt one attack, but holding FIRE cannot stun-lock Groyp.
+  if(model.clock-this.lastStagger>2.6){this.stagger=.12;this.lastStagger=model.clock;this.shotsLeft=0;model.target=null;model.warning=0;model.enemyDelay=Math.max(.25,model.enemyDelay)}
  }
  choose(model,retreat=false){
   const enemy=model.enemy,known=this.memory,nav=this.nav;if(!known)return;
@@ -105,7 +106,7 @@ export class MafiaOpponent{
  }
  shot(model){
   const e=model.enemy,target=model.target,source=this.muzzle(model);if(!target||!this.clearShot(source,model.player))return false;
-  const d=Math.max(1,length(source,target)),spread=[-.10,.10,0][this.shotNumber++%3],dx=target.x-source.x,dz=target.z-source.z;
+  const d=Math.max(1,length(source,target)),spread=[-.10,.10,0,-.18,.16,.04][this.shotNumber++%6],dx=target.x-source.x,dz=target.z-source.z;
   model.lastShot={x:target.x+dz/d*spread,y:target.y,z:target.z-dx/d*spread};model.lastShotOrigin=source;model.events.push('enemy-shot');e.ammo--;
   if(length(model.player,model.lastShot)<.46&&Math.abs(model.player.y-model.lastShot.y)<.40&&this.clearShot(source,model.lastShot)){
    model.health=Math.max(0,model.health-MAFIA_ENEMY_RULES.damage);model.events.push('player-hit');if(!model.health){model.phase='lost';model.elapsed=0}
@@ -124,7 +125,6 @@ export class MafiaOpponent{
   }else{this.previousPlayer=null;this.velocity.x=this.velocity.z=0;if(model.clock-this.memoryAt>MAFIA_ENEMY_RULES.memory){e.behavior='search';if(e.intent!=='search')this.decision=0}}
   e.look=this.memory?{...this.memory}:e.route[e.routeIndex]||{x:e.x,z:e.z+1};
   const observedReload=visible&&model.reloadTime>.2;if(observedReload!==this.observedReload){this.observedReload=observedReload;this.decision=0}
-  if(model.target&&this.suppression>0&&model.enemyHealth<=64){model.target=null;model.warning=0;this.shotsLeft=0;model.enemyDelay=Math.max(.35,model.enemyDelay);this.decision=0}
   model.enemyDelay=Math.max(0,model.enemyDelay-dt);
   if(e.reloadTime>0){
    e.reloadTime=Math.max(0,e.reloadTime-dt);e.behavior='reload';if(!e.reloadTime){e.ammo=MAFIA_ENEMY_RULES.magazine;model.enemyDelay=.45;this.decision=0}
@@ -140,7 +140,7 @@ export class MafiaOpponent{
    }
    if(model.target&&!model.warning){
     e.behavior='burst';this.burstWait-=dt;
-    if(this.burstWait<=0){if(this.shot(model)){this.shotsLeft--;this.burstWait=MAFIA_ENEMY_RULES.burstDelay}else this.shotsLeft=0;
+    if(this.burstWait<=0){if(this.shot(model)){this.shotsLeft--;this.burstWait+=MAFIA_ENEMY_RULES.burstDelay}else this.shotsLeft=0;
      if(!this.shotsLeft||!e.ammo||!model.fighting){model.target=null;model.enemyDelay=MAFIA_ENEMY_RULES.cooldown;this.decision=0}
     }
    }
@@ -148,7 +148,7 @@ export class MafiaOpponent{
    const retreat=this.underFire>0||(this.suppression>0&&model.enemyHealth<=64)||(this.memory&&length(e,this.memory)<2.8);
    if(this.decision<=0)this.choose(model,retreat);
    this.walk(model,dt);
-   if(visible&&model.enemyDelay<=0&&(!retreat||this.underFire<.45)){this.aim(model)}
+   if(visible&&model.enemyDelay<=0){this.aim(model)}
   }
   e.vx=dt>0?(e.x-oldX)/dt:0;e.vz=dt>0?(e.z-oldZ)/dt:0;e.distance+=Math.hypot(e.x-oldX,e.z-oldZ);
  }

@@ -27,6 +27,13 @@ test('the original rigged GROYP replaces grandma, fits inside the wardrobe and h
   world.pose(1,swing,.9,{lift:.22});root.updateMatrixWorld(true);
   for(const arm of world.arms){const hand=arm.hand.getWorldPosition(new THREE.Vector3()),target=world.grip.localToWorld(arm.target.clone());assert.ok(hand.distanceTo(target)<.085,`hand slips off shovel at ${swing}: ${hand.distanceTo(target)}`)}
  }
+ const head=actor.getObjectByName('head');world.pose(1,0,.9);const neutral=head.getWorldQuaternion(new THREE.Quaternion());
+ for(const x of [-.35,.35]){
+  const target=world.group.localToWorld(new THREE.Vector3(x,1.62,2.3));world.pose(1,.6,.9,{target});root.updateMatrixWorld(true);
+  const delta=head.getWorldQuaternion(new THREE.Quaternion()).multiply(neutral.clone().invert()),forward=new THREE.Vector3(0,0,1).transformDirection(world.groyp.matrixWorld).applyQuaternion(delta),direction=target.clone().sub(head.getWorldPosition(new THREE.Vector3())).normalize();
+  assert.ok(forward.dot(direction)>.98,'the real head must face the player rather than look past the camera');
+  const aimed=head.quaternion.clone();for(let i=0;i<120;i++)world.pose(1,.6,.9,{target});assert.ok(head.quaternion.toArray().every((value,i)=>Math.abs(value-aimed.toArray()[i])<1e-7),'tracking must not accumulate rotation');
+ }
  const closeCamera=new THREE.PerspectiveCamera(66,4/3,.035,100);closeCamera.position.set(4,1.628,2.83);const plan=world.attackPlan(closeCamera);world.pose(1,1.35,plan.z,{x:plan.x,walk:1,lift:plan.lift});root.updateMatrixWorld(true);const contact=world.contactPosition(),gap=contact.distanceTo(plan.stage);assert.ok(gap>.035&&gap<.08,`blade misses the lens: ${gap}`);assert.ok(world.groyp.position.z>.7,'GROYP must step out before striking');
  world.pose();root.updateMatrixWorld(true);const inverse=world.group.matrixWorld.clone().invert(),body=new THREE.Box3();actor.traverse(o=>{if(!o.isSkinnedMesh)return;o.skeleton.update();o.computeBoundingBox();const p=o.geometry.attributes.position;for(const i of new Set(o.geometry.index?o.geometry.index.array:Array.from({length:p.count},(_,i)=>i)))body.expandByPoint(o.getVertexPosition(i,new THREE.Vector3()).applyMatrix4(o.matrixWorld).applyMatrix4(inverse))});
  assert.ok(body.min.x>-.76&&body.max.x<.76,`body intersects the sides ${body.min.x},${body.max.x}`);assert.ok(body.min.z>-.435&&body.max.z<.48,`body intersects the back or closed door ${body.min.z},${body.max.z}`);assert.ok(body.min.y>.25&&body.max.y<2.285);
@@ -40,10 +47,10 @@ test('the original rigged GROYP replaces grandma, fits inside the wardrobe and h
 });
 
 class Element{constructor(){this.events={};this.children=[];this.style={};this.classes=new Set();this.classList={add:s=>this.classes.add(s),remove:s=>this.classes.delete(s)}}append(...children){this.children.push(...children)}setAttribute(){}addEventListener(k,f){(this.events[k]??=[]).push(f)}removeEventListener(k,f){this.events[k]=(this.events[k]||[]).filter(g=>g!==f)}remove(){this.removed=true}}
-function setup(){
+function setup(options){
  const host=new Element();globalThis.document={getElementById:()=>host,createElement:()=>new Element()};const camera=new THREE.PerspectiveCamera();camera.position.set(4,1.628,2.83);camera.rotation.order='YXZ';camera.lookAt(5.42,1.65,2.83);
  const viewer={camera,active:true,mode:'walk',foot:.028,yaw:camera.rotation.y,pitch:camera.rotation.x,motion:new WalkMotion(),controls:{enabled:false},clearWalkInput(){this.cleared=(this.cleared||0)+1},onWardrobeKnockout(){this.transfers=(this.transfers||0)+1;assert.equal(host.children[1].style.opacity,'1');assert.ok(this.camera.position.y<.27)}};
- const world={groyp:{},nearby:()=>true,facePosition:()=>new THREE.Vector3(5.42,1.65,2.83),attackPlan:()=>({stage:new THREE.Vector3(3.62,1.628,3.03),x:-.25,z:.85,lift:.22}),pose(...args){this.last=args}},controller=mountWardrobeAmbush(viewer,world);return {host,viewer,world,controller,black:host.children[1],button:host.children[0]};
+ const world={groyp:{},nearby:()=>true,facePosition:()=>new THREE.Vector3(5.42,1.65,2.83),attackPlan:()=>({stage:new THREE.Vector3(3.62,1.628,3.03),x:-.25,z:.85,lift:.22}),pose(...args){this.last=args}},controller=mountWardrobeAmbush(viewer,world,options);return {host,viewer,world,controller,black:host.children[1],button:host.children[0]};
 }
 function advance(c,seconds,hz=60){for(let left=seconds;left>1e-8;){const dt=Math.min(1/hz,left);c.update(dt);left-=dt}}
 test('GROYP walks closer before winding up, the visible blade arrives before blackout, then the player falls and transfers once',()=>{
@@ -51,4 +58,10 @@ test('GROYP walks closer before winding up, the visible blade arrives before bla
 });
 test('leaving mid-swing restores camera, doors, input and the blackout without firing a transfer',()=>{
  const e=setup(),position=e.viewer.camera.position.clone(),quaternion=e.viewer.camera.quaternion.clone();e.controller.begin();advance(e.controller,3.1);e.controller.cancel();assert.equal(e.controller.active,false);assert.ok(e.viewer.camera.position.equals(position));assert.ok(e.viewer.camera.quaternion.equals(quaternion));assert.equal(e.black.hidden,true);assert.deepEqual(e.world.last,[]);assert.equal(e.viewer.transfers,undefined);assert.equal(e.host.classes.has('wardrobe-ambushed'),false);assert.ok(e.controller.begin());e.controller.dispose();assert.ok(e.black.removed&&e.button.removed);assert.equal(e.button.events.click.length,0);
+});
+test('the recorded shovel swing and hit each play once on their animation beat and cancel stops their tails',()=>{
+ for(const hz of [30,60,120]){
+  const calls=[],audio={unlock(){calls.push('unlock')},prepare(){return Promise.resolve(true)},play(kind){calls.push(kind);return true},tone(){throw Error('Use the recording')},stop(){calls.push('stop')},dispose(){calls.push('dispose')}},e=setup({makeAudio:()=>audio});
+  e.controller.begin();assert.ok(calls.includes('unlock'));advance(e.controller,WARDROBE_BEATS.swing-.02,hz);assert.equal(calls.includes('shovel-swing'),false);advance(e.controller,.03,hz);assert.equal(calls.filter(x=>x==='shovel-swing').length,1);assert.ok(e.world.last[3].target.equals(e.viewer.camera.position));advance(e.controller,WARDROBE_BEATS.impact-WARDROBE_BEATS.swing+.04,hz);assert.equal(calls.filter(x=>x==='shovel-hit').length,1);advance(e.controller,.3,hz);assert.equal(calls.filter(x=>x==='shovel-hit').length,1);e.controller.cancel();assert.equal(calls.at(-1),'stop');e.controller.dispose();assert.equal(calls.at(-1),'dispose');
+ }
 });

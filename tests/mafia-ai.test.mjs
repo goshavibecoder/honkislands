@@ -61,3 +61,13 @@ test('sustained shots cannot force a navigation search on every frame',()=>{
  for(let i=0;i<600;i++){m.cooldown=0;m.ammo=30;m.fire(false);m.update(1/60)}
  assert.ok(m.opponent.planNumber<=26);assert.ok(createMafiaNavigation(MAFIA_COVER).valid(m.enemy));
 });
+test('holding fire at Groyp cannot stun-lock him and he answers with sustained automatic fire at every frame rate',()=>{
+ for(const hz of [30,60,120]){
+  const m=fight();let shots=0,run=0,longest=0,last=-100;
+  for(let i=0;i<hz*8;i++){
+   if(m.cooldown===0){m.fire(true);m.enemyHealth=160;m.ammo=30}
+   const events=m.update(1/hz);if(events.includes('enemy-shot')){assert.equal(clearShot(m.lastShotOrigin,m.player),true);shots++;run=m.clock-last<.16?run+1:1;longest=Math.max(longest,run);last=m.clock}
+  }
+  assert.ok(shots>=24,`${hz} Hz: ${shots} shots`);assert.ok(longest>=10,`${hz} Hz: longest automatic burst was ${longest}`);
+ }
+});

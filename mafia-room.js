@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=143';
+import {MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=144';
 import {createMafiaFinishes,createKalashnikov} from './mafia-weapon.js?v=127';
-import {prepareMafiaGroyp} from './mafia-groyp.js?v=143';
+import {prepareMafiaGroyp} from './mafia-groyp.js?v=144';
 import {createBloodSpray} from './mafia-blood.js?v=135';
 import {capturePoseAt,MAFIA_CAPTURE} from './mafia-capture.js?v=132';
 
