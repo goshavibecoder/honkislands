@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';
 
-const loadCast=createAssetCache(()=>fetchGzipJSON('./models/honk-news-museum-v162.bin'));
+const loadCast=createAssetCache(()=>fetchGzipJSON('./models/honk-news-museum-v163.bin'));
 const UP=new THREE.Vector3(0,1,0),CAST=['honk','fast','teledog','groyper','zoich'];
 function canvasMap(w,h,draw){const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;draw(canvas.getContext('2d'),w,h);const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;return map}
 function tools(){

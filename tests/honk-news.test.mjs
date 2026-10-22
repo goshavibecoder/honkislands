@@ -8,7 +8,7 @@ function mod(url){if(modules.has(url.href))return modules.get(url.href);const so
 const {prepareHonkNews,createHonkNewsProgram}=await import(mod(new URL('../honk-news.js',import.meta.url)));
 const {prepareAntiqueRoom}=await import(mod(new URL('../antique-room.js',import.meta.url)));
 const {GLTFLoader}=await import(mod(new URL('../vendor/GLTFLoader.js',import.meta.url)));
-const data=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-news-museum-v162.bin',import.meta.url))));
+const data=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-news-museum-v163.bin',import.meta.url))));
 class Surface{constructor(){this.events={}}addEventListener(k,f){(this.events[k]??=[]).push(f)}removeEventListener(k,f){this.events[k]=(this.events[k]||[]).filter(x=>x!==f)}emit(k){for(const f of this.events[k]||[])f()}}
 function dom(){globalThis.window=new Surface();globalThis.document={hidden:false,createElement(){const ops=[];return {width:1,height:1,ops,getContext(){return new Proxy({},{get:(_,key)=>(...args)=>ops.push([key,...args])})}}}}}
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:16,height:16,close(){this.closed=true}});

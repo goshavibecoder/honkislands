@@ -1,13 +1,17 @@
-"""Bring both TELEDOG paws out of the hoodie, using the supplied sleeve/paw references."""
+"""Build TELEDOG sleeves and rounded gloves from the supplied character parts sheet.
+
+Keep the museum head, hoodie front, trousers and shoes. Hands are purpose-built
+continuous surfaces; no stretched geometry from another character is used.
+Requires numpy and fast-simplification, as does build-honk-news-museum.py.
+"""
 import gzip,json
 from pathlib import Path
 import numpy as np
+import fast_simplification
 root=Path(__file__).resolve().parents[1]
 data=json.loads(gzip.decompress((root/'models/honk-news-museum-v161.bin').read_bytes()))
-original=json.loads(gzip.decompress((root/'models/honk-news-museum-v160.bin').read_bytes()))
 s=data['characters']['teledog'];p=np.array(s['positions']).reshape(-1,3);colors=np.array(s['colors']).reshape(-1,3);faces=np.array(s['indices']).reshape(-1,3);legs=np.array(s['legSide']);old_paw=np.zeros(len(p),bool);old_paw[s['gripVertices']]=True
-# The temporary pocket-level glove is replaced by the actual exposed right paw.
-paw_p=p[old_paw].copy();paw_f=faces[np.all(old_paw[faces],axis=1)];used,paw_f=np.unique(paw_f,return_inverse=True);paw_p=p[used].copy();paw_f=paw_f.reshape(-1,3)
+# Remove the former borrowed glove completely before building the new hands.
 faces=faces[~np.any(old_paw[faces],axis=1)]
 # Settle the original tucked sleeve bulges into the hoodie sides. Preserve the
 # front pocket, drawstrings, collar, head, trousers and trainers.
@@ -26,7 +30,7 @@ def frame(direction):
 def sleeve(points,side):
     vertices=[];triangles=[];weights=[];rows=30;columns=24
     for row in range(rows+1):
-        t=row/rows;center=curve(points,t);a=curve(points,max(0,t-.002));b=curve(points,min(1,t+.002));x,y,z=frame(b-a);radius=np.interp(t,[0,.2,.48,.65,1],[.074,.078,.074,.065,.045]);radius+=.0035*np.sin(t*9*np.pi)*np.sin(t*np.pi)**2
+        t=row/rows;center=curve(points,t);a=curve(points,max(0,t-.002));b=curve(points,min(1,t+.002));x,y,z=frame(b-a);radius=np.interp(t,[0,.2,.48,.65,1],[.060,.078,.068,.061,.039]);radius+=.0015*np.sin(t*9*np.pi)*np.sin(t*np.pi)**2
         for col in range(columns):
             angle=col/columns*np.pi*2;r=radius*(1+.035*np.sin(angle*3+t*5));vertices.append(center+(np.cos(angle)*x+np.sin(angle)*y)*r);u=np.clip(t/.22,0,1);weights.append(float(u*u*(3-2*u)))
     for row in range(rows):
@@ -34,7 +38,7 @@ def sleeve(points,side):
             a=row*columns+col;b=row*columns+(col+1)%columns;c=a+columns;d=b+columns;triangles.extend([[a,b,c],[b,d,c]])
     add(vertices,triangles,cloth,side,weights,'exposed_'+str(side)+'_sleeve')
     # A real hollow ribbed cuff fits around the white wrist.
-    center=np.array(points[-1]);x,y,z=frame(center-np.array(points[-2]));vertices=[];triangles=[];radii=[.046,.047,.046,.047,.045,.030,.030];offsets=[-.023,-.017,-.011,-.005,.002,.002,-.023]
+    center=np.array(points[-1]);x,y,z=frame(center-np.array(points[-2]));vertices=[];triangles=[];radii=[.040,.041,.040,.041,.039,.026,.026];offsets=[-.023,-.017,-.011,-.005,.002,.002,-.023]
     for k,(radius,offset) in enumerate(zip(radii,offsets)):
         for col in range(columns):
             angle=col/columns*np.pi*2;vertices.append(center+z*offset+(np.cos(angle)*x+np.sin(angle)*y)*radius)
@@ -42,14 +46,102 @@ def sleeve(points,side):
         for col in range(columns):
             a=row*columns+col;b=row*columns+(col+1)%columns;c=((row+1)%len(radii))*columns+col;d=((row+1)%len(radii))*columns+(col+1)%columns;triangles.extend([[a,b,c],[b,d,c]])
     add(vertices,triangles,knit,side,1.,'ribbed_'+str(side)+'_cuff')
-paths={1:[[.135,.754,-.035],[.20,.705,-.030],[.275,.625,.010],[.305,.665,.080],[.295,.748,.140]],-1:[[-.135,.754,-.035],[-.205,.680,-.025],[-.260,.590,.015],[-.270,.510,.065],[-.260,.455,.110]]}
-for side,path in paths.items():sleeve(path,side);wrists[str(side)]=path[-1];shoulders[str(side)]=path[0]
-right_wrist=np.array(paths[1][-1]);shift=right_wrist-np.array([.153,.568,.082]);grip_indices=add(paw_p+shift,paw_f,white,1,1.,'white_closed_holding_paw');s['grip']=(np.array(s['grip'])+shift).round(6).tolist()
-# The free paw uses the museum's original open white glove, mirrored naturally.
-f=original['characters']['fast'];q=np.array(f['positions']).reshape(-1,3);c=np.array(f['colors']).reshape(-1,3);mask=(q[:,0]>.24)&(q[:,1]>.35)&(q[:,1]<.46)&(c[:,0]>.9)&(c[:,1]>.9);ff=np.array(f['indices']).reshape(-1,3);ff=ff[np.all(mask[ff],axis=1)];used,ff=np.unique(ff,return_inverse=True);q=(q[used]-[.291,.451,0])*.92;q[:,0]*=-1;q+=paths[-1][-1];add(q,ff.reshape(-1,3)[:,[0,2,1]],white,-1,1.,'white_free_paw')
+paths={
+    1:[[.105,.710,-.035],[.185,.710,-.027],[.265,.615,.010],[.302,.659,.065],[.300,.746,.120]],
+    -1:[[-.105,.710,-.035],[-.188,.690,-.025],[-.245,.590,.010],[-.265,.510,.050],[-.260,.455,.080]]
+}
+for side,path in paths.items():
+    sleeve(path,side);wrists[str(side)]=path[-1];shoulders[str(side)]=path[0]
+
+def glove(side):
+    """Smooth union of a palm, wrist, three fingers and an opposing thumb.
+
+    Marching tetrahedra gives a connected surface at the finger roots instead
+    of overlapping borrowed triangles. Rounded finger ends remain distinct.
+    """
+    shapes=[]
+    def ellipsoid(center,radii):
+        shapes.append(('ellipsoid',np.array(center),np.array(radii)))
+    def chain(points,radii):
+        shapes.append(('chain',np.array(points),np.broadcast_to(radii,(len(points),))))
+    if side==1:
+        grip=np.array([.330,.799,.165])
+        ellipsoid([.298,.784,.128],[.034,.047,.026])
+        chain([[.300,.732,.110],[.300,.754,.123],[.299,.778,.128]],[.027,.028,.031])
+        # Three fat cartoon fingers curl across the front and around the pole.
+        for y,r in [(.777,.0115),(.802,.012),(.827,.011)]:
+            angles=np.linspace(np.pi,0,15)
+            points=np.column_stack([grip[0]+.028*np.cos(angles),np.full(15,y),grip[2]+.028*np.sin(angles)])
+            chain(np.vstack([[.291,y,.132],points]),np.r_[.014,np.linspace(.013,r,15)])
+        # The thumb opposes the fingers behind the handle, rather than growing
+        # from their tips. Its round tip meets the lower finger on the outside.
+        chain([[.293,.758,.134],[.321,.757,.144],[.347,.766,.154],[.352,.787,.164]],[.018,.017,.015,.014])
+    else:
+        grip=None
+        ellipsoid([-.266,.414,.091],[.035,.044,.024])
+        chain([[-.260,.465,.077],[-.263,.443,.085],[-.266,.421,.091]],[.026,.027,.031])
+        for x,length in [(-.287,.055),(-.266,.064),(-.245,.054)]:
+            chain([[x,.410,.090],[x,.385,.094],[x,.410-length,.108]],[.0125,.012,.0105])
+        chain([[-.239,.429,.093],[-.218,.410,.108],[-.222,.389,.120]],[.016,.014,.012])
+    # Evaluate a signed distance field on a small local grid. Polynomial smooth
+    # union only rounds intersections; it keeps the gaps between the digits.
+    centers=np.concatenate([shape[1] for shape in shapes if shape[0]=='chain'])
+    lo=centers.min(0)-.045;hi=centers.max(0)+.045;step=.0035
+    counts=np.ceil((hi-lo)/step).astype(int)+1
+    grid=np.stack(np.meshgrid(*[lo[i]+np.arange(counts[i])*step for i in range(3)],indexing='ij'),axis=-1)
+    field=np.full(tuple(counts),1.)
+    def merge(d):
+        nonlocal field
+        h=np.maximum(.003-np.abs(field-d),0)/.003
+        field=np.minimum(field,d)-h*h*.003*.25
+    for kind,a,b in shapes:
+        if kind=='ellipsoid':
+            q=grid-a;k0=np.linalg.norm(q/b,axis=-1);k1=np.linalg.norm(q/(b*b),axis=-1)
+            merge(k0*(k0-1)/np.maximum(k1,1e-12))
+        else:
+            d=np.full(tuple(counts),1.)
+            for i in range(len(a)-1):
+                ab=a[i+1]-a[i];t=np.clip(np.sum((grid-a[i])*ab,axis=-1)/np.dot(ab,ab),0,1)
+                d=np.minimum(d,np.linalg.norm(grid-a[i]-t[...,None]*ab,axis=-1)-(b[i]+t*(b[i+1]-b[i])))
+            merge(d)
+    corners=np.array([[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]])
+    tets=[[0,5,1,6],[0,1,2,6],[0,2,3,6],[0,3,7,6],[0,7,4,6],[0,4,5,6]]
+    cell=np.stack(np.meshgrid(*[np.arange(n-1) for n in counts],indexing='ij'),axis=-1).reshape(-1,3)
+    corner_index=cell[:,None,:]+corners;values=field[tuple(corner_index.transpose(2,0,1))]
+    active=(values.min(1)<0)&(values.max(1)>=0);cell=cell[active];values=values[active]
+    triangles=[]
+    for tet in tets:
+        v=values[:,tet];xyz=lo+(cell[:,None,:]+corners[tet])*step
+        for mask in range(1,15):
+            select=np.all((v<0)==[(mask>>i)&1 for i in range(4)],axis=1)
+            if not np.any(select):continue
+            inside=[i for i in range(4) if mask>>i&1];outside=[i for i in range(4) if not(mask>>i&1)]
+            q=xyz[select];vv=v[select]
+            def edge(a,b):
+                t=vv[:,a]/(vv[:,a]-vv[:,b]);return q[:,a]+t[:,None]*(q[:,b]-q[:,a])
+            if len(inside)==1 or len(outside)==1:
+                a=(inside if len(inside)==1 else outside)[0];others=outside if len(inside)==1 else inside
+                tri=np.stack([edge(a,b) for b in others],axis=1)
+                direction=q[:,outside].mean(1)-q[:,inside].mean(1)
+                reverse=np.sum(np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0])*direction,axis=1)<0
+                tri[reverse]=tri[reverse][:,[0,2,1]];triangles.extend(tri)
+            else:
+                a,b=inside;c,d=outside;e0,e1,e2,e3=edge(a,c),edge(a,d),edge(b,c),edge(b,d)
+                for tri in [np.stack([e0,e1,e2],1),np.stack([e1,e3,e2],1)]:
+                    direction=q[:,outside].mean(1)-q[:,inside].mean(1)
+                    reverse=np.sum(np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0])*direction,axis=1)<0
+                    tri[reverse]=tri[reverse][:,[0,2,1]];triangles.extend(tri)
+    vertices,inv=np.unique(np.round(np.array(triangles).reshape(-1,3),6),axis=0,return_inverse=True)
+    faces=inv.reshape(-1,3);faces=faces[np.linalg.norm(np.cross(vertices[faces[:,1]]-vertices[faces[:,0]],vertices[faces[:,2]]-vertices[faces[:,0]]),axis=1)>1e-12]
+    vertices,faces=fast_simplification.simplify(vertices,faces,target_count=1800,agg=5,preserve_border=True)
+    ids=add(vertices,faces,white,side,1.,'white_closed_holding_paw' if side==1 else 'white_free_paw')
+    return ids,grip
+
+grip_indices,grip=glove(1);glove(-1);s['grip']=grip.tolist();s['gripRadius']=.019
+s['handStyle']='reference_cartoon_gloves';s['gloveDigits']=4
 p=np.array(positions);f=np.array(indices).reshape(-1,3);used,remap=np.unique(f,return_inverse=True);mapping=np.full(len(p),-1);mapping[used]=np.arange(len(used));p=p[used];f=remap.reshape(-1,3);cs=np.array(cs)[used];leg=np.array(leg)[used];arm_side=np.array(arm_side)[used];arm_weight=np.array(arm_weight)[used]
 _,inverse=np.unique(np.round(p,5),axis=0,return_inverse=True);normal=np.cross(p[f[:,1]]-p[f[:,0]],p[f[:,2]]-p[f[:,0]]);smooth=np.zeros((inverse.max()+1,3))
 for j in range(3):np.add.at(smooth,inverse[f[:,j]],normal)
 smooth/=np.maximum(np.linalg.norm(smooth,axis=1,keepdims=True),1e-20)
 s.update(positions=np.round(p,6).reshape(-1).tolist(),indices=f.reshape(-1).tolist(),colors=np.round(cs,6).reshape(-1).tolist(),normals=np.round(smooth[inverse],6).reshape(-1).tolist(),legSide=leg.tolist(),armSide=arm_side.tolist(),armWeight=np.round(arm_weight,6).tolist(),armPivots=shoulders,wrists=wrists,gripVertices=mapping[grip_indices].tolist(),armsOutOfPockets=True,armParts=part_names,width=float(np.ptp(p[:,0])))
-path=root/'models/honk-news-museum-v162.bin';path.write_bytes(gzip.compress(json.dumps(data,separators=(',',':')).encode(),mtime=0));print('TELEDOG:',len(p),'vertices, exposed wrists',wrists,'grip',s['grip']);print(path.name,path.stat().st_size)
+path=root/'models/honk-news-museum-v163.bin';path.write_bytes(gzip.compress(json.dumps(data,separators=(',',':')).encode(),mtime=0));print('TELEDOG:',len(p),'vertices, exposed wrists',wrists,'grip',s['grip']);print(path.name,path.stat().st_size)
