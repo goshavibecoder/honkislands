@@ -103,8 +103,11 @@ export function createGalleryExhibits(){
    for(const sign of [-1,1]){const tiny=box(.022,.022,.003,suit,card,sign*.073,sign*.12,.013);tiny.rotation.z=Math.PI/4}
    tube([[(i-1)*.04,.3,-.04],[(i-1)*.13,.49,-.02],[(i-1)*.18,card.position.y-.14,card.position.z]],.006,m.gold,hat);
   }
-  const wand=cylinder(.021,.7,m.dark,g,0,.025,.37);wand.rotation.z=Math.PI/2;
-  for(const side of [-1,1]){const tip=cylinder(.021,.09,m.porcelain,g,side*.302,.025,.37);tip.rotation.z=Math.PI/2}
+  const wand=new THREE.Group();wand.name='Exhibit_magic_wand';wand.position.set(0,.025,.37);wand.rotation.z=Math.PI/2;g.add(wand);
+  cylinder(.021,.52,m.dark,wand,0,0,0);
+  // Separate segments meet end to end: the white tips cannot flicker against
+  // a black cylinder occupying the same surface.
+  for(const side of [-1,1])cylinder(.021,.09,m.porcelain,wand,0,side*.305,0);
   return g;
  }
  function kaleidoscope(parent,scale=1){

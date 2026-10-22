@@ -1,5 +1,5 @@
 import {MAFIA_CAPTURE} from './mafia-capture.js?v=132';
-import {MafiaOpponent} from './mafia-ai.js?v=131';
+import {MafiaOpponent} from './mafia-ai.js?v=143';
 export const MAFIA_COVER=[
  {x:-2.6,z:1.1,w:1.7,d:1.5,h:1.85},
  {x:2.55,z:-1.3,w:1.8,d:1.4,h:1.9},

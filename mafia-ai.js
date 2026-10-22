@@ -52,31 +52,38 @@ export function mafiaStepAhead(enemy,seconds){
 
 export class MafiaOpponent{
  constructor(covers,clearShot){this.covers=covers;this.clearShot=clearShot;this.nav=createMafiaNavigation(covers);this.reset()}
- reset(){this.memory=null;this.memoryAt=-Infinity;this.decision=0;this.underFire=0;this.stagger=0;this.lastStagger=-Infinity;this.previousPlayer=null;this.velocity={x:0,z:0};this.shotNumber=0;this.shotsLeft=0;this.burstWait=0;this.planNumber=0;this.lastGoal=null}
+ reset(){this.memory=null;this.memoryAt=-Infinity;this.decision=0;this.nextPlanAt=0;this.underFire=0;this.suppression=0;this.observedReload=false;this.stagger=0;this.lastStagger=-Infinity;this.previousPlayer=null;this.velocity={x:0,z:0};this.lastSeenVelocity={x:0,z:0};this.shotNumber=0;this.shotsLeft=0;this.burstWait=0;this.planNumber=0;this.lastGoal=null}
  see(model){return this.clearShot({x:model.enemy.x,y:1.42,z:model.enemy.z},model.player)}
- hear(model){const changed=!this.memory||length(this.memory,model.player)>.9;this.memory={...model.player};this.memoryAt=model.clock;if(changed)this.decision=0}
+ hear(model){const changed=!this.memory||length(this.memory,model.player)>.9;this.memory={...model.player};this.memoryAt=model.clock;if(this.see(model)){if(!this.suppression)this.decision=0;this.suppression=.9}if(changed)this.decision=0}
  hit(model){
   this.hear(model);if(!this.underFire)this.decision=0;this.underFire=1.6;
   if(model.clock-this.lastStagger>.85){this.stagger=.16;this.lastStagger=model.clock;this.shotsLeft=0;model.target=null;model.warning=0;model.enemyDelay=Math.max(.35,model.enemyDelay)}
  }
  choose(model,retreat=false){
   const enemy=model.enemy,known=this.memory,nav=this.nav;if(!known)return;
+  // Events can request a new plan, but repeated shots and blocked routes never
+  // trigger a path search for every rendered frame.
+  if(model.clock<this.nextPlanAt){this.decision=this.nextPlanAt-model.clock;return}
+  this.nextPlanAt=model.clock+.4;
+  const visible=this.see(model),searching=!visible&&model.clock-this.memoryAt>MAFIA_ENEMY_RULES.memory,pressure=visible&&this.observedReload&&!retreat;
+  const intent=retreat?'cover':pressure?'pressure':searching?'search':visible?'reposition':'flank';
+  const anchor=searching?{x:clamp(known.x+this.lastSeenVelocity.x*.65,-5.25,5.25),z:clamp(known.z+this.lastSeenVelocity.z*.65,-6.8,6.8)}:known;
   const candidates=nav.nodes.map(p=>({...p}));
   for(const c of this.covers)candidates.push({x:c.x-c.w/2-margin,z:c.z},{x:c.x+c.w/2+margin,z:c.z},{x:c.x,z:c.z-c.d/2-margin},{x:c.x,z:c.z+c.d/2+margin});
-  for(const r of [4.2,6.3])for(let i=0;i<8;i++){const angle=i*Math.PI/4;candidates.push({x:clamp(known.x+Math.cos(angle)*r,-5.25,5.25),z:clamp(known.z+Math.sin(angle)*r,-6.8,6.8)})}
+  for(const r of searching?[1.2,2.4]:pressure?[2.9,3.8]:[4.2,6.3])for(let i=0;i<8;i++){const angle=i*Math.PI/4;candidates.push({x:clamp(anchor.x+Math.cos(angle)*r,-5.25,5.25),z:clamp(anchor.z+Math.sin(angle)*r,-6.8,6.8)})}
   let best=null,score=-Infinity;
   for(const p of candidates){
-   if(!nav.valid(p)||length(p,known)<2.8||length(p,enemy)<.35)continue;
+   if(!nav.valid(p)||(!searching&&length(p,known)<2.8)||length(p,enemy)<.35)continue;
    const distance=length(p,known),travel=length(p,enemy),exposed=this.clearShot({x:p.x,y:1.42,z:p.z},known),side=(p.x-enemy.x)*(known.z-enemy.z)-(p.z-enemy.z)*(known.x-enemy.x);
-   let value=(retreat?(exposed?-7:5):(exposed?4:-1))-Math.abs(distance-6)*.35-travel*.26;
+   let value=searching?-length(p,anchor)*1.7-travel*.3:(retreat?(exposed?-12:8):(exposed?4:-1))-Math.abs(distance-(pressure?3.2:6))*(pressure?1.8:.35)-travel*.26;
    // Alternate useful flanks rather than oscillating between the same corners.
    value+=Math.sign(side)*(this.planNumber%2?1:-1)*.30;
    if(this.lastGoal&&length(p,this.lastGoal)<.5)value-=1.4;
-   const path=nav.route(enemy,p);if(!path)continue;let pathLength=0,from=enemy;for(const point of path){pathLength+=length(from,point);from=point}value-=Math.max(0,pathLength-travel)*.4;
+   const path=nav.route(enemy,p);if(!path)continue;let pathLength=0,exposure=0,from=enemy;for(const point of path){const segment=length(from,point);pathLength+=segment;if(retreat&&this.clearShot({x:(from.x+point.x)/2,y:1.42,z:(from.z+point.z)/2},known))exposure+=segment;from=point}value-=Math.max(0,pathLength-travel)*.4+exposure*.6;
    if(value>score){score=value;best={point:p,path}}
   }
-  if(best){enemy.route=best.path;enemy.routeIndex=0;enemy.behavior=retreat?'cover':this.see(model)?'reposition':'flank';this.lastGoal=best.point;this.planNumber++}
-  this.decision=retreat?1.1:2.6;
+  if(best){enemy.route=best.path;enemy.routeIndex=0;enemy.behavior=enemy.intent=intent;this.lastGoal=best.point;this.planNumber++}
+  this.decision=retreat?1.1:pressure?.75:searching?1.8:2.6;
  }
  walk(model,dt){
   const enemy=model.enemy;let travel=MAFIA_ENEMY_RULES.speed*dt;
@@ -108,17 +115,20 @@ export class MafiaOpponent{
  update(model,dt){
   const e=model.enemy,oldX=e.x,oldZ=e.z;
   e.route??=[];e.routeIndex??=0;e.ammo??=MAFIA_ENEMY_RULES.magazine;e.reloadTime??=0;
-  this.decision-=dt;this.underFire=Math.max(0,this.underFire-dt);this.stagger=Math.max(0,this.stagger-dt);
+  this.decision-=dt;this.underFire=Math.max(0,this.underFire-dt);this.suppression=Math.max(0,this.suppression-dt);this.stagger=Math.max(0,this.stagger-dt);
   const visible=this.see(model);
   if(visible){
+   if(!this.previousPlayer&&['search','flank'].includes(e.intent))this.decision=0;
    if(this.previousPlayer&&dt>0){const f=1-Math.exp(-8*dt);this.velocity.x+=((model.player.x-this.previousPlayer.x)/dt-this.velocity.x)*f;this.velocity.z+=((model.player.z-this.previousPlayer.z)/dt-this.velocity.z)*f;const speed=Math.hypot(this.velocity.x,this.velocity.z);if(speed>4.7){this.velocity.x*=4.7/speed;this.velocity.z*=4.7/speed}}
-   this.memory={...model.player};this.memoryAt=model.clock;this.previousPlayer={...model.player};
-  }else{this.previousPlayer=null;this.velocity.x=this.velocity.z=0;if(model.clock-this.memoryAt>MAFIA_ENEMY_RULES.memory)e.behavior='search'}
+   this.lastSeenVelocity={...this.velocity};this.memory={...model.player};this.memoryAt=model.clock;this.previousPlayer={...model.player};
+  }else{this.previousPlayer=null;this.velocity.x=this.velocity.z=0;if(model.clock-this.memoryAt>MAFIA_ENEMY_RULES.memory){e.behavior='search';if(e.intent!=='search')this.decision=0}}
   e.look=this.memory?{...this.memory}:e.route[e.routeIndex]||{x:e.x,z:e.z+1};
+  const observedReload=visible&&model.reloadTime>.2;if(observedReload!==this.observedReload){this.observedReload=observedReload;this.decision=0}
+  if(model.target&&this.suppression>0&&model.enemyHealth<=64){model.target=null;model.warning=0;this.shotsLeft=0;model.enemyDelay=Math.max(.35,model.enemyDelay);this.decision=0}
   model.enemyDelay=Math.max(0,model.enemyDelay-dt);
   if(e.reloadTime>0){
    e.reloadTime=Math.max(0,e.reloadTime-dt);e.behavior='reload';if(!e.reloadTime){e.ammo=MAFIA_ENEMY_RULES.magazine;model.enemyDelay=.45;this.decision=0}
-   if(this.decision<=0)this.choose(model,true);this.walk(model,dt);
+   if(this.decision<=0&&(visible||e.routeIndex<e.route.length))this.choose(model,true);this.walk(model,dt);
   }else if(this.stagger>0){e.behavior='stagger'}
   else if(e.ammo<=0){
    e.reloadTime=MAFIA_ENEMY_RULES.reload;e.behavior='reload';model.target=null;model.warning=0;this.shotsLeft=0;this.choose(model,true);model.events.push('enemy-reload');
@@ -135,7 +145,7 @@ export class MafiaOpponent{
     }
    }
   }else{
-   const retreat=this.underFire>0||length(e,model.player)<2.8;
+   const retreat=this.underFire>0||(this.suppression>0&&model.enemyHealth<=64)||(this.memory&&length(e,this.memory)<2.8);
    if(this.decision<=0)this.choose(model,retreat);
    this.walk(model,dt);
    if(visible&&model.enemyDelay<=0&&(!retreat||this.underFire<.45)){this.aim(model)}

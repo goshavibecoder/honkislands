@@ -1,4 +1,4 @@
-import {mountMafiaEncounter} from './mafia-encounter.js?v=136';
+import {mountMafiaEncounter} from './mafia-encounter.js?v=143';
 import {mountDesktopControls} from './desktop-controls.js?v=138';
 import {mountCastleGreeting} from './castle-greeting.js?v=123';
 import {createAssetCache,fetchAssetBytes,fetchAssetJSON,fetchGzipJSON,loadCompressedScene} from './asset-loader.js?v=116';
@@ -36,7 +36,7 @@ import {mountWardrobeAmbush} from './wardrobe-ambush.js?v=105';
 import {mountKnockoutRecovery} from './knockout-recovery.js?v=105';
 import {prepareGalleryMemes} from './gallery-memes.js?v=93';
 import {prepareGalleryGraffiti} from './gallery-graffiti.js?v=100';
-import {prepareGalleryInterior} from './gallery-interior.js?v=72';
+import {prepareGalleryInterior} from './gallery-interior.js?v=143';
 import {mountMountainStorm,findMountainStormAnchor} from './mountain-storm.js?v=49';
 import {mountGalleryLift} from './gallery-lift.js?v=72';
 import {prepareIslandTransport} from './island-transport-world.js?v=115';
@@ -147,7 +147,7 @@ export class IslandViewer {
   const recovering=this.knockoutRecovery?.active;this.knockoutRecovery?.update(dt);this.wardrobeAmbush?.update(dt);const ambushed=this.wardrobeAmbush?.active;this.castleGreeting?.update(dt);const greeting=this.castleGreeting?.active;
   if(this.mode==='walk'&&this.nav&&!greeting&&!recovering&&!ambushed&&!riding&&!flying&&!transporting&&!ballooning&&!skiing&&!this.balloonTravel?.mapOpen&&!this.desktopControls?.menuOpen){
    let sx=this.stick.x+(this.keys.has('KeyD')||this.keys.has('ArrowRight')?1:0)-(this.keys.has('KeyA')||this.keys.has('ArrowLeft')?1:0),sy=-this.stick.y+(this.keys.has('KeyW')||this.keys.has('ArrowUp')?1:0)-(this.keys.has('KeyS')||this.keys.has('ArrowDown')?1:0);const length=Math.hypot(sx,sy);if(length>1){sx/=length;sy/=length}
-   const motion=this.motion.update(dt,sx,sy,this.config.speed*((this.keys.has('ShiftLeft')||this.keys.has('ShiftRight'))?1.5:1));this.yaw=motion.yaw;this.pitch=motion.pitch;
+   const motion=this.motion.update(dt,sx,sy,this.config.speed*1.3*((this.keys.has('ShiftLeft')||this.keys.has('ShiftRight'))?1.5:1));this.yaw=motion.yaw;this.pitch=motion.pitch;
    const {dx,dz}=motion;
    if(dx||dz){
     const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.055));for(let i=0;i<steps;i++){const x=dx/steps,z=dz/steps;if(!this.stepTo(this.camera.position.x+x,this.camera.position.z+z)){const a=this.stepTo(this.camera.position.x+x,this.camera.position.z);const b=this.stepTo(this.camera.position.x,this.camera.position.z+z);if(!a&&!b)break}}

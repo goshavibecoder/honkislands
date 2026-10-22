@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {MAFIA_RULES} from './mafia-combat.js?v=132';
-import {mafiaStepAhead,MAFIA_ENEMY_RULES} from './mafia-ai.js?v=131';
+import {MAFIA_RULES} from './mafia-combat.js?v=143';
+import {mafiaStepAhead,MAFIA_ENEMY_RULES} from './mafia-ai.js?v=143';
 import {createKalashnikov} from './mafia-weapon.js?v=127';
 const clamp=t=>THREE.MathUtils.clamp(t,0,1),ease=t=>{t=clamp(t);return t*t*(3-2*t)};
 const Y=new THREE.Vector3(0,1,0),X=new THREE.Vector3(1,0,0);

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {createGalleryExhibits} from './gallery-exhibits.js?v=36';
+import {createGalleryExhibits} from './gallery-exhibits.js?v=143';
 
 const LIFT={x:-2.7,z:-1.8,front:-3.6,back:-1.8,half:.9},DOWN=new THREE.Vector3(0,-1,0);
 const colors=[0xf05a72,0xffa94b,0xf9d668,0x63c8ab,0x6caef3,0xa58adb];

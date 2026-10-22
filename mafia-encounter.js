@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=132';
-import {createMafiaRoom} from './mafia-room.js?v=136';
+import {MafiaCombat,MAFIA_COVER,MAFIA_RULES,rayBox,coverBox} from './mafia-combat.js?v=143';
+import {createMafiaRoom} from './mafia-room.js?v=143';
 import {createMafiaAudio} from './mafia-audio.js?v=132';
-import {MAFIA_ENEMY_RULES} from './mafia-ai.js?v=131';
+import {MAFIA_ENEMY_RULES} from './mafia-ai.js?v=143';
 import {capturePoseAt,captureLanding,captureCollisionPosition,MAFIA_CAPTURE} from './mafia-capture.js?v=136';
 import {mountKnockoutRecovery} from './knockout-recovery.js?v=105';
 
@@ -60,7 +60,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
   if(returning){recovery.update(dt);model.update(dt);if(model.phase==='done'){cancel();return}sync();return}
   if(model.controllable){
    const keys=viewer.keys;let x=viewer.stick.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),z=-viewer.stick.y+(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0),length=Math.hypot(x,z);if(length>1){x/=length;z/=length}
-   const motion=viewer.motion.update(dt,x,z,(crouched?1.6:3.1)*(keys.has('ShiftLeft')||keys.has('ShiftRight')?1.5:1));model.move(motion.dx,motion.dz);viewer.yaw=motion.yaw;viewer.pitch=motion.pitch;viewer.camera.rotation.set(motion.pitch,motion.yaw,0,'YXZ');
+   const motion=viewer.motion.update(dt,x,z,(crouched?1.6:3.1)*1.3*(keys.has('ShiftLeft')||keys.has('ShiftRight')?1.5:1));model.move(motion.dx,motion.dz);viewer.yaw=motion.yaw;viewer.pitch=motion.pitch;viewer.camera.rotation.set(motion.pitch,motion.yaw,0,'YXZ');
   }
   const events=model.update(dt,{crouch:crouched});recoil=Math.max(0,recoil-dt*9);hurt=Math.max(0,hurt-dt*2.8);traceTime=Math.max(0,traceTime-dt);enemyFlashTime=Math.max(0,enemyFlashTime-dt);enemyKick=Math.max(0,enemyKick-dt*10);
   if(['wake','fight','victory','capture','lost'].includes(model.phase)){viewer.camera.position.set(model.player.x,model.player.y,model.player.z);viewer.foot=0;if(model.phase==='wake')viewer.camera.rotation.set(-.16*(1-smooth(model.elapsed/MAFIA_RULES.wake)),0,.10*(1-smooth(model.elapsed/MAFIA_RULES.wake)),'YXZ')}

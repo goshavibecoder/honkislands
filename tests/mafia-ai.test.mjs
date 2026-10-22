@@ -42,3 +42,22 @@ test('movement remains inside the room and clear of crates at 30, 60 and 120 Hz 
   assert.ok(m.opponent.planNumber<40,'planning runs on a timer, not for every render frame');
  }
 });
+
+test('seeing a reload changes a long-range plan into a closer attack, but hidden reloads reveal nothing',()=>{
+ const m=fight();m.enemyDelay=5;m.update(1/60);const oldDistance=Math.hypot(m.enemy.route.at(-1).x-m.player.x,m.enemy.route.at(-1).z-m.player.z);
+ m.reloadTime=2;advance(m,.5);assert.equal(m.enemy.intent,'pressure');const goal=m.enemy.route.at(-1);assert.ok(Math.hypot(goal.x-m.player.x,goal.z-m.player.z)<oldDistance-1);
+ const hidden=fight({x:-2.6,y:.94,z:3.2});hidden.opponent.hear(hidden);hidden.reloadTime=2;hidden.update(1/60,{crouch:true});assert.equal(hidden.opponent.observedReload,false);assert.notEqual(hidden.enemy.intent,'pressure');
+});
+test('a wounded opponent reacts to visible missed shots by choosing cover without a fake hit or teleport',()=>{
+ const m=fight();m.enemyHealth=56;m.enemyDelay=5;const before={...m.enemy};m.fire(false);advance(m,.05);
+ assert.equal(m.enemyHealth,56);assert.equal(m.opponent.stagger,0);assert.equal(m.enemy.intent,'cover');const goal=m.enemy.route.at(-1);assert.equal(clearShot({x:goal.x,y:1.42,z:goal.z},m.player),false);assert.ok(Math.hypot(m.enemy.x-before.x,m.enemy.z-before.z)<=MAFIA_ENEMY_RULES.speed*.05+1e-7);
+});
+test('search uses the last known position and does not follow silent movement through walls',()=>{
+ const m=fight({x:-2.6,y:.94,z:3.2});m.opponent.hear(m);const known={...m.opponent.memory};m.opponent.clearShot=()=>false;Object.assign(m.player,{x:4.5,z:5.5});advance(m,5);
+ assert.deepEqual(m.opponent.memory,known);assert.equal(m.enemy.intent,'search');const goal=m.enemy.route.at(-1);assert.ok(Math.hypot(goal.x-known.x,goal.z-known.z)<2.5);assert.equal(m.target,null);
+});
+test('sustained shots cannot force a navigation search on every frame',()=>{
+ const m=fight();m.enemyHealth=56;m.enemyDelay=100;
+ for(let i=0;i<600;i++){m.cooldown=0;m.ammo=30;m.fire(false);m.update(1/60)}
+ assert.ok(m.opponent.planNumber<=26);assert.ok(createMafiaNavigation(MAFIA_COVER).valid(m.enemy));
+});
