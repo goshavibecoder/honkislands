@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';
 
-const loadCast=createAssetCache(()=>fetchGzipJSON('./models/honk-news-cast-v158.bin'));
+const loadCast=createAssetCache(()=>fetchGzipJSON('./models/honk-news-cast-v159.bin'));
 const UP=new THREE.Vector3(0,1,0),CAST=['honk','fast','teledog','groyper','zoich'];
 function canvasMap(w,h,draw){const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;draw(canvas.getContext('2d'),w,h);const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;return map}
 function tools(){
@@ -31,7 +31,7 @@ export function createHonkNewsProgram(data,{groyperMap=null}={}){
  const backdrop=mesh(new THREE.PlaneGeometry(2.7,.70),text('HONK NEWS',1024,256,'#153858','#fff5db',136),studio,0,2.14,-1.17);backdrop.name='HONK NEWS studio logo';
  box(studio,m.red,2.85,.48,.70,0,.70,.28);box(studio,m.cream,2.98,.085,.78,0,.98,.28);box(studio,m.navy,2.3,.22,.025,0,.73,.65);
  mesh(new THREE.PlaneGeometry(1.35,.18),text('HONK NEWS',512,96,'#173c65','#fff4d8',55),studio,0,.74,.667);
- const anchor=new THREE.Group();anchor.name='HONK_news_presenter_original_colosseum_model';studio.add(anchor);
+ const anchor=new THREE.Group();anchor.name='HONK_news_presenter_original_colosseum_model';anchor.scale.set(1.14,.88,1);anchor.position.y=.1236;studio.add(anchor);
  const presenter=mesh(sources.honk,castMaterials.honk,anchor,0,1.40,-.03);presenter.scale.setScalar(.70/data.characters.honk.height);
  ball(anchor,m.blue,0,1.16,-.05,.235,.29,.17);ball(anchor,m.green,0,1.40,-.03,.085,.07,.08);
  for(const sign of [-1,1])ball(anchor,m.cream,sign*.057,1.385,.128,.065,.037,.025);ball(anchor,m.cream,0,1.385,.15,.025);
@@ -57,12 +57,14 @@ export function createHonkNewsProgram(data,{groyperMap=null}={}){
  const people=Array.from({length:15},(_,i)=>({name:CAST[i%5],x:((i%5)-2)*1.28,z:-Math.floor(i/5)*2.0,phase:i*1.73,profile:profiles[i%5],scale:profiles[i%5].height/data.characters[CAST[i%5]].height})),bodies=new Map();
  for(const name of CAST){const o=new THREE.InstancedMesh(sources[name],castMaterials[name],3);o.name='French_protesters_original_'+name;o.instanceMatrix.setUsage(THREE.DynamicDrawUsage);o.frustumCulled=false;street.add(o);bodies.set(name,o)}
  const inst=(geometry,material,count,name)=>{const o=new THREE.InstancedMesh(geometry,material,count);o.name=name;o.instanceMatrix.setUsage(THREE.DynamicDrawUsage);o.frustumCulled=false;street.add(o);return o};
- const cloth=mat(0xffffff),limbs=inst(r.cylinder,cloth,60,'Marching_legs'),joints=inst(r.sphere,cloth,60,'Connected_hips_and_knees'),torsos=inst(r.sphere,cloth,15,'Walking_torsos'),pelvises=inst(r.sphere,cloth,15,'Connected_pelvises'),boots=inst(r.sphere,cloth,30,'Marching_boots'),hands=inst(r.sphere,m.green,30,'Protester_hands'),poles=inst(r.cylinder,m.wood,15,'Placard_poles'),raisedArms=inst(r.cylinder,cloth,60,'Animated_connected_arms');
+ const cloth=mat(0xffffff),torsos=inst(r.sphere,cloth,15,'Walking_torsos'),pelvises=inst(r.sphere,cloth,15,'Connected_pelvises'),hands=inst(r.sphere,m.green,30,'Protester_hands'),poles=inst(r.cylinder,m.wood,15,'Placard_poles'),raisedArms=inst(r.cylinder,cloth,60,'Animated_connected_arms'),legs=new Map();
+ // Original Teledog collection fabric, soles, laces and toes, without replacements.
+ for(const name of CAST){const pair={};for(const side of ['left','right']){const source=data.legs[name][side],geometry=sourceGeometry(source,r),mesh=inst(geometry,castMaterials[name],3,'Original_collection_'+name+'_'+side+'_leg');pair[side]={mesh,source,scale:.44/source.height}}legs.set(name,pair)}
  const placards=['HONK HONK!','ON VEUT HONK','LIBERTÉ / HONK'];const boards=placards.map((s,i)=>inst(new THREE.PlaneGeometry(.93,.44),text(s,768,320,['#fff1c9','#e6f0ff','#ffe2dc'][i],'#a21f3c',82),5,'Moving_protest_placard_'+i));boards.forEach(o=>r.geometries.add(o.geometry));
  const object=new THREE.Object3D(),from=new THREE.Vector3(),to=new THREE.Vector3(),delta=new THREE.Vector3(),rotation=new THREE.Quaternion(),p=new THREE.Vector3(),s=new THREE.Vector3();
  function pose(instance,index,x,y,z,sx,sy,sz,angle=0){object.position.set(x,y,z);object.rotation.set(0,angle,0);object.scale.set(sx,sy,sz);object.updateMatrix();instance.setMatrixAt(index,object.matrix)}
  function segment(instance,index,a,b,radius,color){from.set(...a);to.set(...b);delta.subVectors(to,from);p.copy(from).add(to).multiplyScalar(.5);rotation.setFromUnitVectors(UP,delta.clone().normalize());s.set(radius,delta.length(),radius);object.matrix.compose(p,rotation,s);instance.setMatrixAt(index,object.matrix);if(color)instance.setColorAt(index,color)}
- const legColors=profiles.map(a=>new THREE.Color(a.color)),shoeColors=profiles.map(a=>new THREE.Color(a.shoe));
+ const legColors=profiles.map(a=>new THREE.Color(a.color));
  const posed=[];function setStudioArm(o,a,b){from.set(...a);to.set(...b);delta.subVectors(to,from);o.position.copy(from).add(to).multiplyScalar(.5);o.scale.y=delta.length();o.quaternion.setFromUnitVectors(UP,delta.normalize())}
  const hud=new THREE.Scene(),hudCamera=new THREE.OrthographicCamera(-2,2,1.5,-1.5,.1,10);hudCamera.position.z=2;
  const top=mesh(new THREE.PlaneGeometry(4,.21),text('HONK NEWS                         PARODY',1024,64,'#a81f3a','#fff7e4',40),hud,0,1.395,0);
@@ -75,18 +77,19 @@ export function createHonkNewsProgram(data,{groyperMap=null}={}){
   posed.length=0;const counts=Object.fromEntries(CAST.map(n=>[n,0]));for(let i=0;i<people.length;i++){const a=people[i],phase=time*3+a.phase,bob=Math.abs(Math.sin(phase))*.012,x=a.x+Math.sin(time*.55+a.phase)*.045,z=a.z+Math.sin(time*.34)*.25,yaw=Math.sin(time*.6+a.phase)*.045,color=legColors[i%5];
    // One actor-local transform is shared by the head, pelvis, joints and hands.
    const local=(u,v,w)=>[x+Math.cos(yaw)*u+Math.sin(yaw)*w,v,z-Math.sin(yaw)*u+Math.cos(yaw)*w];
-   const bodyY=.99+bob;pose(bodies.get(a.name),counts[a.name]++,...local(0,bodyY,0),a.scale,a.scale,a.scale,yaw);
-   pose(torsos,i,...local(0,.79+bob,-.015),a.profile.width,.27,.145,yaw);torsos.setColorAt(i,color);pose(pelvises,i,...local(0,.545+bob,-.015),a.profile.width*.91,.115,.14,yaw);pelvises.setColorAt(i,color);
-   const record={hips:[],knees:[],ankles:[],feet:[],headBase:bodyY};for(const sign of [-1,1]){const slot=sign>0?1:0,index=i*4+slot,stride=Math.sin(phase)*sign*.115,lift=Math.max(0,Math.cos(phase)*sign)*.055,hip=local(sign*.105,.555+bob,0),knee=local(sign*.11,.305+lift*.45,stride*.48+.026),ankle=local(sign*.115,.095+lift,stride),foot=local(sign*.115,.055+lift,stride+.045);segment(limbs,index,hip,knee,.080,color);segment(limbs,index+2,knee,ankle,.065,color);pose(joints,index,...hip,.082,.082,.082,yaw);pose(joints,index+2,...knee,.074,.074,.074,yaw);joints.setColorAt(index,color);joints.setColorAt(index+2,color);pose(boots,i*2+slot,...foot,.095,.055,.15,yaw);boots.setColorAt(i*2+slot,shoeColors[i%5]);record.hips.push(hip);record.knees.push(knee);record.ankles.push(ankle);record.feet.push(foot)}
-   const grip=local(.40,1.20+Math.sin(time*2+a.phase)*.055,.16),elbow=local(.34,.94+bob,.08),shoulder=local(a.profile.width*.78,.93+bob,0),freeGrip=local(-.28,.62+bob,.10+Math.sin(phase)*.06),freeElbow=local(-.30,.79+bob,.04);segment(poles,i,[grip[0],grip[1]-.16,grip[2]],[grip[0],grip[1]+.94,grip[2]],.018);pose(hands,i*2,...grip,.064,.055,.05,yaw);pose(hands,i*2+1,...freeGrip,.060,.055,.05,yaw);segment(raisedArms,i*4,shoulder,elbow,.064,color);segment(raisedArms,i*4+1,elbow,grip,.054,color);segment(raisedArms,i*4+2,local(-a.profile.width*.78,.93+bob,0),freeElbow,.064,color);segment(raisedArms,i*4+3,freeElbow,freeGrip,.054,color);
+   const bodyY=.92+bob;pose(bodies.get(a.name),counts[a.name]++,...local(0,bodyY,0),a.scale,a.scale,a.scale,yaw);
+   pose(torsos,i,...local(0,.72+bob,-.015),a.profile.width,.27,.145,yaw);torsos.setColorAt(i,color);pose(pelvises,i,...local(0,.475+bob,-.015),a.profile.width*.91,.115,.14,yaw);pelvises.setColorAt(i,color);
+   const record={hips:[],soles:[],headBase:bodyY};for(const [side,sign] of [['left',-1],['right',1]]){const leg=legs.get(a.name)[side],lean=Math.sin(phase)*sign*.12,lift=Math.max(0,Math.cos(phase)*sign)*.035,c=Math.cos(lean),sn=Math.sin(lean);let bottom=Infinity;for(let k=0;k<leg.source.support.length;k+=3)bottom=Math.min(bottom,(leg.source.support[k+1]*c-leg.source.support[k+2]*sn)*leg.scale);const hip=local(sign*.12,-bottom+lift,0);object.position.set(...hip);object.rotation.set(lean,yaw,0,'YXZ');object.scale.setScalar(leg.scale);object.updateMatrix();leg.mesh.setMatrixAt(Math.floor(i/5),object.matrix);record.hips.push(hip);record.soles.push(lift)}
+
+   const grip=local(.40,1.20+Math.sin(time*2+a.phase)*.055,.16),elbow=local(.34,.87+bob,.08),shoulder=local(a.profile.width*.78,.86+bob,0),freeGrip=local(-.28,.55+bob,.10+Math.sin(phase)*.06),freeElbow=local(-.30,.72+bob,.04);segment(poles,i,[grip[0],grip[1]-.16,grip[2]],[grip[0],grip[1]+.94,grip[2]],.018);pose(hands,i*2,...grip,.064,.055,.05,yaw);pose(hands,i*2+1,...freeGrip,.060,.055,.05,yaw);segment(raisedArms,i*4,shoulder,elbow,.064,color);segment(raisedArms,i*4+1,elbow,grip,.054,color);segment(raisedArms,i*4+2,local(-a.profile.width*.78,.93+bob,0),freeElbow,.064,color);segment(raisedArms,i*4+3,freeElbow,freeGrip,.054,color);
    const board=boards[i%3];object.position.set(grip[0],grip[1]+.82,grip[2]);object.rotation.set(0,yaw,Math.sin(time*2+a.phase)*.055);object.scale.set(1,1,1);object.updateMatrix();board.setMatrixAt(Math.floor(i/3),object.matrix);posed.push(record);
   }
-  for(const o of [...bodies.values(),limbs,joints,torsos,pelvises,raisedArms,boots,hands,poles,...boards]){o.instanceMatrix.needsUpdate=true;if(o.instanceColor)o.instanceColor.needsUpdate=true}lower.material=mode==='street'?streetLower:studioLower;ticker.material.map.offset.x=time*.022;
+  for(const o of [...bodies.values(),...[...legs.values()].flatMap(p=>[p.left.mesh,p.right.mesh]),torsos,pelvises,raisedArms,hands,poles,...boards]){o.instanceMatrix.needsUpdate=true;if(o.instanceColor)o.instanceColor.needsUpdate=true}lower.material=mode==='street'?streetLower:studioLower;ticker.material.map.offset.x=time*.022;
  }
  update(0);
- return {studio,street,studioCamera,streetCamera,hud,hudCamera,anchor,presenter,studioArms,people,bodies,boards,limbs,joints,torsos,pelvises,boots,posed,get mode(){return mode},get scene(){return mode==='street'?street:studio},get camera(){return mode==='street'?streetCamera:studioCamera},update,
+ return {studio,street,studioCamera,streetCamera,hud,hudCamera,anchor,presenter,studioArms,people,bodies,boards,legs,torsos,pelvises,posed,get mode(){return mode},get scene(){return mode==='street'?street:studio},get camera(){return mode==='street'?streetCamera:studioCamera},update,
   async prepare(renderer){await renderer.compileAsync?.(studio,studioCamera);await renderer.compileAsync?.(street,streetCamera);await renderer.compileAsync?.(hud,hudCamera)},
-  dispose(){for(const o of [...bodies.values(),limbs,joints,torsos,pelvises,raisedArms,boots,hands,poles,...boards])o.dispose();for(const scene of [studio,street])scene.traverse(o=>{if(o.geometry&&!r.geometries.has(o.geometry))o.geometry.dispose()});r.dispose()}
+  dispose(){for(const o of [...bodies.values(),...[...legs.values()].flatMap(p=>[p.left.mesh,p.right.mesh]),torsos,pelvises,raisedArms,hands,poles,...boards])o.dispose();for(const scene of [studio,street])scene.traverse(o=>{if(o.geometry&&!r.geometries.has(o.geometry))o.geometry.dispose()});r.dispose()}
  };
 }
 
