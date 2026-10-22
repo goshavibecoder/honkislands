@@ -27,10 +27,6 @@ for(const slug of ['goat-mountain','arcade-district','citadel','carnival','arena
  const v=Object.create(IslandViewer.prototype);Object.assign(v,{host:new Element(),active:false,mode:'walk',keys:new Set(),stick:{x:0,y:0},yaw:0,pitch:0,foot:0,previous:0,frame:0,drag:null,navRay:new THREE.Raycaster(),camera:new THREE.PerspectiveCamera(),scene:new THREE.Scene(),environment:new THREE.Texture(),renderQuality:{configure(){}},renderer:{renderLists:{dispose(){}},capabilities:{getMaxAnisotropy:()=>4},domElement:new Element(),compileAsync:async()=>{},render(){}},controls:{target:new THREE.Vector3()},motion:{stop(){},reset(){}}});
  v.camera.rotation.order='YXZ';v.scene.add(new THREE.HemisphereLight(),new THREE.DirectionalLight());v.setActive=value=>{v.active=value};v.resize=()=>{};
  try{await v.open(slug,(p,label)=>{if(p>=.78)console.log('ISLAND_STAGE',slug,p,label)});
- if(slug==='citadel'){
-  assert.ok(v.floorIndex,'citadel movement must use the floor index');const index=v.floorIndex;
-  for(let x=-11;x<=11;x+=.55)for(let z=-8;z<=9;z+=.55){v.floorIndex=null;const original=v.floorAt(x,z,20,40);v.floorIndex=index;const fast=v.floorAt(x,z,20,40);assert.ok(original===null?fast===null:fast!==null&&Math.abs(original-fast)<1e-5,`indexed floor differs at ${x},${z}: ${original} / ${fast}`)}
- }
  if(slug==='honkhub'){
   assert.ok(await v.castleGreeting.ready);assert.ok(v.castleGreeting.actor);v.active=true;v.camera.position.set(1.65,1.715,15);v.foot=.065;v.castleGreeting.arm();
   for(let z=14.975;z>5.76;z-=.025){assert.ok(v.stepTo(1.65,z),'castle arrival path blocked at '+z);v.camera.position.y=v.foot+v.config.eye;v.castleGreeting.update(.0125);if(v.castleGreeting.active)break}
