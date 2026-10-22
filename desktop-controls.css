@@ -1,8 +1,9 @@
-.desktop-hud,.desktop-action,.desktop-help-panel{display:none}
+.desktop-hud,.desktop-action,.desktop-help-panel,.desktop-resume{display:none}
 @media(hover:hover) and (pointer:fine){
  #world.desktop-controls{--desktop-edge:24px}
  #world.desktop-controls #walk-controls,#world.desktop-controls .kart-game-controls,#world.desktop-controls #hint{display:none!important}
  #world.desktop-controls .desktop-hud{display:grid;gap:12px;position:absolute;z-index:19;left:var(--desktop-edge);bottom:var(--desktop-edge);width:310px;padding:15px;border-radius:18px;font-size:12px}
+ #world .desktop-resume{display:block;position:absolute;z-index:20;left:50%;top:50%;translate:-50% -50%;max-width:calc(100vw - 48px);padding:16px 24px;border:2px solid #c28a28;border-radius:18px;background:#fff6dfed;color:#9c263d;font-size:14px;font-weight:750;box-shadow:0 6px 30px #24182c33;cursor:pointer}
  .desktop-heading,.desktop-help-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
  .desktop-heading strong{font-size:10px;letter-spacing:.1em;color:#9c263d}
  #world .desktop-help{border:0;background:none;padding:3px;color:#77583b;font-size:11px;white-space:nowrap}

@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {WalkMotion} from '../walk-motion.js';
 import {createAssetCache} from '../asset-loader.js';
+import {attachTapGesture} from '../tap-gesture.js';
 
 class Surface {
  constructor(){this.events={};this.style={};this.captures=new Set()}
@@ -20,12 +21,13 @@ class Vector3 {
  copy(v){return this.set(v.x,v.y,v.z)}
  fromArray(v){return this.set(...v)}
 }
-function setup(){
+function setup({realTaps=false}={}){
  const canvas=new Surface(),window=new Surface(),host=new Surface(),knob={style:{}},buttons=Array.from({length:4},()=>new Surface());
  const document={getElementById:id=>id==='knob'?knob:new Surface(),querySelectorAll:()=>buttons};
+ document.defaultView=window;canvas.ownerDocument=document;
  const context=vm.createContext({WalkMotion,createAssetCache,fetchAssetJSON:async()=>({}),window,document,performance,fetch:async()=>({ok:true,json:async()=>({})}),requestAnimationFrame:()=>1,cancelAnimationFrame(){},
   THREE:{Vector3,MathUtils:{clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),damp:(a,b,k,dt)=>b+(a-b)*Math.exp(-k*dt)}},
-  mountDesktopControls:()=>null,attachTapGesture:()=>({reset(){}}),createTouchStick:(element,knob,onChange)=>({reset(){onChange(0,0)}})});
+  mountDesktopControls:()=>null,attachTapGesture:realTaps?attachTapGesture:()=>({reset(){}}),createTouchStick:(element,knob,onChange)=>({reset(){onChange(0,0)}})});
  const source=readFileSync(new URL('../viewer.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace('export class IslandViewer','globalThis.IslandViewer=class IslandViewer');
  vm.runInContext(source,context);
  const v=Object.create(context.IslandViewer.prototype),rotation={x:0,y:0,set(x,y){this.x=x;this.y=y},clone(){return {x:this.x,y:this.y}},copy(r){Object.assign(this,r)}};
@@ -53,6 +55,12 @@ test('finger ownership, look easing and blur cleanup work together',()=>{
  v.stick.y=-1;v.tick(1032);assert.ok(v.motion.vz<0);
  window.emit('blur');assert.equal(v.drag,null);assert.equal(v.stick.y,0);assert.equal(v.motion.vz,0);assert.equal(canvas.hasPointerCapture(1),false);
  const yaw=v.yaw,z=v.camera.position.z;v.tick(1048);assert.equal(v.yaw,yaw);assert.equal(v.camera.position.z,z);
+});
+test('desktop scene clicks cannot also start a drag or trigger a touch tap, while touch still works with a mouse attached',()=>{
+ const {v,canvas}=setup({realTaps:true}),launches=[];v.arcadeTargets={};v.launchGame=(x,y)=>launches.push([x,y]);v.desktopControls={handlesMouse:true,locked:false,menuOpen:false};
+ canvas.emit('pointerdown',{pointerType:'mouse',button:0,pointerId:1,clientX:40,clientY:50});assert.equal(v.drag,null);canvas.emit('pointermove',{pointerType:'mouse',pointerId:1,clientX:60,clientY:80});canvas.emit('pointerup',{pointerType:'mouse',pointerId:1,clientX:40,clientY:50});assert.equal(v.motion.targetYaw,0);assert.equal(launches.length,0);
+ canvas.emit('pointerdown',{pointerType:'touch',pointerId:2,clientX:70,clientY:90});canvas.emit('pointerup',{pointerType:'touch',pointerId:2,clientX:70,clientY:90});assert.deepEqual(launches,[[70,90]]);
+ v.desktopControls.handlesMouse=false;canvas.emit('pointerdown',{pointerType:'mouse',button:0,pointerId:3,clientX:0,clientY:0});canvas.emit('pointermove',{pointerType:'mouse',pointerId:3,clientX:50,clientY:0});assert.ok(v.motion.targetYaw<0,'a browser that refuses capture retains a working fallback');
 });
 test('overview round trip and repeated mode buttons preserve the walk pose without drift',()=>{
  const {v}=setup();v.motion.turn(70,10);v.keys.add('KeyW');v.tick(1016);

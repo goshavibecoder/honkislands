@@ -33,7 +33,7 @@ function setup({fine=true,lockFails=false}={}){
 test('touch devices keep the existing joystick and receive no desktop UI or handlers',()=>{
  const s=setup({fine:false});assert.equal(s.control,null);assert.equal(s.created.length,0);assert.equal(s.window.events.size,0);assert.equal(s.world.classes.size,0);
 });
-test('mouse capture is opt-in, uses relative motion once, and Escape frees it before leaving the island',async()=>{
+test('mouse capture uses relative motion once, and Escape frees it before leaving the island',async()=>{
  const s=setup();s.document.emit('mousemove',{movementX:50,movementY:20});assert.equal(s.turns.length,0);
  s.key('KeyL');await Promise.resolve();assert.equal(s.control.locked,true);assert.equal(s.world.classes.has('desktop-mouse-locked'),true);
  s.document.emit('mousemove',{movementX:50,movementY:20});assert.deepEqual(s.turns,[[40,16]]);
@@ -70,9 +70,9 @@ test('help frees the cursor, clears input, blocks walking and stores sensitivity
  assert.equal(s.key('KeyE',{target:{matches:()=>true}}).stopped,undefined);assert.equal(s.key('KeyL',{ctrlKey:true}).stopped,undefined);
  assert.equal(s.control.handleEscape(),true);assert.equal(s.control.menuOpen,false);s.key('KeyL');s.document.emit('mousemove',{movementX:10,movementY:5});assert.deepEqual(s.turns,[[12,6]]);
 });
-test('menus, cutscenes, overview and tab blur release captured mouse and suppress interactions',()=>{
+test('menus, overview and tab blur release captured mouse and suppress interactions',()=>{
  const s=setup();s.viewer.gameAt=()=>({title:'Link'});
- for(const state of ['map','cutscene','overview']){
+ for(const state of ['map','overview']){
   s.viewer.mode='walk';s.viewer.balloonTravel=null;s.viewer.wardrobeAmbush=null;s.key('KeyL');assert.equal(s.control.locked,true);
   if(state==='map')s.viewer.balloonTravel={mapOpen:true};if(state==='cutscene')s.viewer.wardrobeAmbush={active:true};if(state==='overview')s.viewer.mode='orbit';
   s.control.update(.2);assert.equal(s.control.locked,false);assert.equal(s.created[1].hidden,true);s.key('KeyE');assert.equal(s.launches.length,0);
@@ -84,5 +84,34 @@ test('menus, cutscenes, overview and tab blur release captured mouse and suppres
 
 test('captured mouse clicks shoot in the den while interaction prompts and vehicle shortcuts stay separate',()=>{
  const s=setup();let shots=0;s.viewer.mafiaFight={active:true,fighting:true,shoot(){shots++}};s.viewer.gameAt=()=>({title:'A castle link that must not open'});s.key('KeyL');assert.equal(s.control.locked,true);s.canvas.emit('mousedown',{button:0});assert.equal(shots,1);assert.equal(s.launches.length,0);s.key('KeyE');assert.equal(s.launches.length,0);s.control.update(.2);assert.equal(s.created[1].hidden,true);
- s.viewer.mafiaFight.fighting=false;s.control.update(.2);assert.equal(s.control.locked,false);assert.equal(s.created[0].hidden,true);
+ s.viewer.mafiaFight.fighting=false;s.control.update(.2);assert.equal(s.control.locked,true);assert.equal(s.created[0].hidden,true);
+});
+
+test('one scene click captures the mouse without firing or interacting, then looking needs no button held',async()=>{
+ const s=setup();let shots=0;s.viewer.mafiaFight={active:true,fighting:true,shoot(){shots++}};
+ const click=s.canvas.emit('mousedown',{button:0});await Promise.resolve();assert.equal(click.defaultPrevented,true);assert.equal(s.control.locked,true);assert.equal(shots,0);assert.equal(s.control.handlesMouse,true);
+ s.document.emit('mousemove',{movementX:25,movementY:-10,buttons:0});assert.deepEqual(s.turns,[[20,-8]]);s.canvas.emit('mousedown',{button:0});assert.equal(shots,1);
+ s.control.handleEscape();s.advance(500);assert.equal(s.created[3].hidden,false);s.created[3].click();await Promise.resolve();assert.equal(s.control.locked,true);assert.equal(shots,1);
+});
+test('wardrobe, wake-up, capture and recovery keep capture, block input during animation and resume mouse look directly',()=>{
+ const s=setup();s.canvas.emit('mousedown',{button:0});
+ for(const phase of ['castle','wardrobe','wake','capture','recovery','balloon']){
+  s.viewer.castleGreeting={active:phase==='castle'};s.viewer.wardrobeAmbush={active:phase==='wardrobe'};s.viewer.knockoutRecovery={active:phase==='recovery'};s.viewer.balloonTravel={active:phase==='balloon'};s.viewer.mafiaFight={active:phase==='wake'||phase==='capture',fighting:false};
+  s.control.update(.2);const turns=s.turns.length;assert.equal(s.control.locked,true,phase);assert.equal(s.created[3].hidden,true);s.document.emit('mousemove',{movementX:500,movementY:500});s.canvas.emit('mousedown',{button:0});s.key('KeyE');assert.equal(s.turns.length,turns);assert.equal(s.launches.length,0);
+  s.viewer.castleGreeting.active=s.viewer.wardrobeAmbush.active=s.viewer.knockoutRecovery.active=s.viewer.balloonTravel.active=s.viewer.mafiaFight.active=false;s.control.update(.2);s.document.emit('mousemove',{movementX:10,movementY:0});assert.equal(s.turns.length,turns+1,phase);assert.deepEqual(s.turns.at(-1),[8,0]);
+ }
+});
+test('opening the wardrobe and boarding or exiting vehicles preserve capture while flight menus free the cursor',()=>{
+ const s=setup();s.canvas.emit('mousedown',{button:0});s.viewer.gameAt=()=>({action:'wardrobe-open',title:'Open wardrobe'});s.key('KeyE');assert.equal(s.control.locked,true);assert.equal(s.launches.length,1);
+ s.control.reset({preserveMouse:true});assert.equal(s.control.locked,true);s.viewer.gameAt=()=>null;const board=s.button('.ski-start','Snowboard');s.key('KeyE');assert.equal(board.clicks,1);assert.equal(s.control.locked,true);board.hidden=true;s.viewer.mountainSki={active:true};const exit=s.button('.ski-exit','Step off');s.key('KeyE');assert.equal(exit.clicks,1);assert.equal(s.control.locked,true);
+ s.viewer.mountainSki.active=false;s.viewer.gameAt=()=>({action:'balloon-map',title:'Flight map'});s.key('KeyE');assert.equal(s.control.locked,false);
+});
+test('left mouse holds automatic fire and mouseup, loss of capture, help and blur all release it',()=>{
+ const s=setup(),holds=[];s.viewer.mafiaFight={active:true,fighting:true,setFireHeld:pressed=>holds.push(pressed)};s.canvas.emit('mousedown',{button:0});s.canvas.emit('mousedown',{button:0});assert.equal(holds.at(-1),true);s.document.emit('mouseup',{button:0});assert.equal(holds.at(-1),false);
+ for(const stop of [()=>s.control.handleEscape(),()=>s.key('KeyH'),()=>s.window.emit('blur')]){if(s.control.menuOpen)s.control.handleEscape();if(!s.control.locked)s.key('KeyL');s.canvas.emit('mousedown',{button:0});assert.equal(holds.at(-1),true);stop();assert.equal(holds.at(-1),false)}
+});
+test('losing the encounter releases the cursor for retry, while a delayed capture cannot trap a menu or disposed viewer',async()=>{
+ const s=setup();s.key('KeyL');s.viewer.mafiaFight={active:true,fighting:false,model:{phase:'lost'}};s.control.update(.2);assert.equal(s.control.locked,false);
+ s.viewer.mafiaFight=null;let finish;s.canvas.requestPointerLock=()=>new Promise(resolve=>finish=()=>{s.document.pointerLockElement=s.canvas;s.document.emit('pointerlockchange');resolve()});s.canvas.emit('mousedown',{button:0});s.key('KeyH');finish();await Promise.resolve();await Promise.resolve();assert.equal(s.control.locked,false);
+ s.control.handleEscape();s.canvas.emit('mousedown',{button:0});s.control.dispose();finish();await Promise.resolve();await Promise.resolve();assert.equal(s.control.locked,false);assert.equal(s.document.events.get('mouseup').length,0);
 });

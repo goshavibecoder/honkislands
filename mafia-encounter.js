@@ -14,7 +14,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
  const $=selector=>ui.querySelector(selector),fire=$('.mafia-fire'),reload=$('.mafia-reload'),crouch=$('.mafia-crouch'),retry=$('.mafia-retry'),bag=$('.mafia-bag'),caption=$('.mafia-caption'),objective=$('.mafia-objective'),result=$('.mafia-result'),playerBar=$('.mafia-player-bar i'),enemyBar=$('.mafia-enemy-bar i'),ammo=$('.mafia-ammo strong'),damage=$('.mafia-damage');
  const model=new MafiaCombat(),ray=new THREE.Raycaster(),screen=new THREE.Vector2(),direction=new THREE.Vector3(),impact=new THREE.Vector3(),muzzle=new THREE.Vector3(),from=new THREE.Vector3();
  let room=null,saved=null,loading=false,disposed=false,epoch=0,held=false,firePointer=null,crouched=false,recoil=0,hurt=0,traceTime=0,enemyFlashTime=0,enemyKick=0,phase='',returning=false,step=0,caught=null,kickPlayed=false;
- const audio=makeAudio(),recovery=mountKnockoutRecovery(viewer);
+ const audio=makeAudio(),recovery=mountKnockoutRecovery(viewer),fireInputs=new Set();
  // The wardrobe transfer is a timer callback. Unlock the den's audio on the
  // earlier real touch so iOS can also play Groyp's shots before the player fires.
  const unlockAudio=()=>{if(!disposed&&viewer.active){audio.unlock();void audio.prepare()}};
@@ -29,16 +29,16 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
  function restorePose(){
   if(!saved||returning)return;returning=true;const old=saved;viewer.camera.removeFromParent();if(old.parent)old.parent.add(viewer.camera);viewer.camera.position.copy(old.position);viewer.camera.quaternion.copy(old.quaternion);viewer.camera.near=old.near;viewer.camera.far=old.far;viewer.camera.updateProjectionMatrix();viewer.foot=old.foot;viewer.yaw=old.yaw;viewer.pitch=old.pitch;viewer.motion.reset(old.yaw,old.pitch);viewer.physics?.reset();viewer.controls.enabled=old.controls;viewer.renderer.toneMappingExposure=old.exposure;room.gun.visible=false;viewer.clearWalkInput();
  }
- function cancel(){caught=null;kickPlayed=false;if(room){room.guard.visible=false;room.blood.clear()}recovery.cancel();audio.stop();epoch++;loading=false;held=false;firePointer=null;restorePose();saved=null;returning=false;ui.hidden=true;bag.style.opacity='0';host.classList.remove('mafia-encounter','mafia-cinematic');viewer.clearWalkInput()}
+ function cancel(){caught=null;kickPlayed=false;if(room){room.guard.visible=false;room.blood.clear()}recovery.cancel();audio.stop();epoch++;loading=false;release();restorePose();saved=null;returning=false;ui.hidden=true;bag.style.opacity='0';host.classList.remove('mafia-encounter','mafia-cinematic');viewer.clearWalkInput()}
  function restart(){
-  if(!saved||!room)return;recovery.cancel();audio.stop();model.reset();room.blood.clear();phase='';caught=null;kickPlayed=false;held=crouched=false;recoil=hurt=traceTime=enemyFlashTime=enemyKick=0;returning=false;room.scene.add(viewer.camera);room.gun.visible=true;room.guard.visible=false;room.tracer.visible=false;room.playerFlash.visible=room.enemyFlash.visible=false;viewer.camera.near=.045;viewer.camera.far=70;viewer.camera.updateProjectionMatrix();viewer.renderer.toneMappingExposure=1.15;viewer.motion.reset(0,0);viewer.clearWalkInput();result.hidden=true;crouch.setAttribute('aria-pressed','false');update(0);
+  if(!saved||!room)return;recovery.cancel();audio.stop();model.reset();room.blood.clear();phase='';caught=null;kickPlayed=false;release();crouched=false;recoil=hurt=traceTime=enemyFlashTime=enemyKick=0;returning=false;room.scene.add(viewer.camera);room.gun.visible=true;room.guard.visible=false;room.tracer.visible=false;room.playerFlash.visible=room.enemyFlash.visible=false;viewer.camera.near=.045;viewer.camera.far=70;viewer.camera.updateProjectionMatrix();viewer.renderer.toneMappingExposure=1.15;viewer.motion.reset(0,0);viewer.clearWalkInput();result.hidden=true;crouch.setAttribute('aria-pressed','false');update(0);
  }
  async function begin(){
   if(disposed||loading||saved||!viewer.active)return false;loading=true;audio.unlock();void audio.prepare();const ticket=++epoch;
   let source=null;
   if(!room){try{source=await loadActor()}catch(error){console.warn('Using the den’s fallback Groyp',error)}if(ticket!==epoch||disposed){if(source)makeRoom(new THREE.PerspectiveCamera(),source).dispose();loading=false;return false}room=makeRoom(viewer.camera,source)}
   if(ticket!==epoch||disposed){loading=false;return false}
-  viewer.wardrobeAmbush?.cancel();viewer.castleGreeting?.cancel();viewer.desktopControls?.reset();
+  viewer.wardrobeAmbush?.cancel();viewer.castleGreeting?.cancel();viewer.desktopControls?.reset({preserveMouse:true});
   saved={position:viewer.camera.position.clone(),quaternion:viewer.camera.quaternion.clone(),parent:viewer.camera.parent,near:viewer.camera.near,far:viewer.camera.far,foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch,controls:viewer.controls.enabled,exposure:viewer.renderer.toneMappingExposure};loading=false;viewer.controls.enabled=false;ui.hidden=false;host.classList.add('mafia-encounter');restart();return true;
  }
  function shoot(){
@@ -54,12 +54,12 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
  function sync(){
   if(!saved)return;
   const fight=model.controllable;playerBar.style.width=model.health+'%';enemyBar.style.width=(model.enemyHealth/MAFIA_RULES.enemyHealth*100)+'%';ammo.textContent=String(model.ammo);reload.textContent=model.reloadTime>0?'RELOADING…':'RELOAD · R';reload.disabled=!fight||model.reloadTime>0||model.ammo===MAFIA_RULES.magazine;fire.disabled=!fight;fire.classList.toggle('pressed',held);crouch.disabled=!fight;
-  objective.textContent=model.phase==='victory'?'Find a way out.':model.warning>0?'He’s aiming — move or get behind cover!':crouched?'Stay behind a tall crate. Step out to shoot.':viewer.desktopControls?'Defeat Groyp. Click / Space to shoot.':'Hold FIRE and drag to aim. Left stick to move.';objective.classList.toggle('warning',model.warning>0);result.hidden=model.phase!=='lost';damage.style.opacity=String(hurt);host.classList.toggle('mafia-cinematic',!fight&&model.phase!=='lost');
+  objective.textContent=model.phase==='victory'?'Find a way out.':model.warning>0?'He’s aiming — move or get behind cover!':crouched?'Stay behind a tall crate. Step out to shoot.':viewer.desktopControls?'Mouse to aim · Hold left click / Space to fire.':'Hold FIRE and drag to aim. Left stick to move.';objective.classList.toggle('warning',model.warning>0);result.hidden=model.phase!=='lost';damage.style.opacity=String(hurt);host.classList.toggle('mafia-cinematic',!fight&&model.phase!=='lost');
   caption.textContent=model.phase==='wake'?'Where am I…?':model.phase==='victory'&&model.elapsed<1.6?'GROYP DEFEATED':model.phase==='return'?'My head… I’m back in the castle.':'';
  }
  function update(dt){
   if(!saved||disposed)return;
-  if(viewer.desktopControls?.menuOpen){held=false;audio.stop();return}
+  if(viewer.desktopControls?.menuOpen){release();audio.stop();return}
   dt=Math.max(0,Math.min(.08,dt));
   if(returning){recovery.update(dt);model.update(dt);if(model.phase==='done'){cancel();return}sync();return}
   if(model.controllable){
@@ -73,7 +73,7 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
   if(model.phase!==phase){
    phase=model.phase;
    // A defeated boss does not take away the player's weapon or controls.
-   if(phase!=='victory'){viewer.clearWalkInput();held=false}
+   if(phase!=='victory'){viewer.clearWalkInput();release()}
    if(phase==='victory'){audio.stop('enemy-reload');step=0;room.guard.visible=true}
    if(phase==='capture'){audio.stop('reload');model.reloadTime=0;recoil=0;hurt=0;
     caught={position:viewer.camera.position.clone(),yaw:viewer.camera.rotation.y,pitch:viewer.camera.rotation.x};caught.distance=captureLanding(caught.position,caught.yaw,(x,z)=>model.canStand(x,z));kickPlayed=false;
@@ -103,14 +103,15 @@ export function mountMafiaEncounter(viewer,{loadActor=()=>viewer.loadGroypActor(
   bag.classList.toggle('cloth',model.phase==='capture');bag.style.opacity=String(covered);bag.style.setProperty('--bag-drop',String(model.phase==='capture'?1-covered:0));
   sync();
  }
- function down(e){if(!saved||!model.controllable||firePointer)return;if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();firePointer={id:e.pointerId,x:e.clientX,y:e.clientY};held=true;fire.setPointerCapture?.(e.pointerId);shoot()}
- function release(){held=false;firePointer=null;fire.classList.remove('pressed')}
+ function setFireHeld(pressed,source='mouse'){if(pressed){if(!saved||!viewer.active||!model.controllable||viewer.desktopControls?.menuOpen)return false;const first=!fireInputs.has(source);fireInputs.add(source);held=true;if(first)shoot()}else{fireInputs.delete(source);held=fireInputs.size>0;if(!held)fire.classList.remove('pressed')}return held}
+ function down(e){if(!saved||!model.controllable||firePointer)return;if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();firePointer={id:e.pointerId,x:e.clientX,y:e.clientY};fire.setPointerCapture?.(e.pointerId);setFireHeld(true,'touch')}
+ function release(){fireInputs.clear();held=false;firePointer=null;fire.classList.remove('pressed')}
  const aim=e=>{if(!firePointer||firePointer.id!==e.pointerId||!model.controllable)return;viewer.motion.turn((e.clientX-firePointer.x)*.8,(e.clientY-firePointer.y)*.8);firePointer.x=e.clientX;firePointer.y=e.clientY;e.preventDefault()};
- fire.addEventListener('pointerdown',down);fire.addEventListener('pointermove',aim);for(const event of ['pointerup','pointercancel','lostpointercapture'])fire.addEventListener(event,e=>{if(firePointer?.id===e.pointerId)release()});
+ fire.addEventListener('pointerdown',down);fire.addEventListener('pointermove',aim);for(const event of ['pointerup','pointercancel','lostpointercapture'])fire.addEventListener(event,e=>{if(firePointer?.id===e.pointerId){firePointer=null;setFireHeld(false,'touch')}});
  reload.addEventListener('click',requestReload);crouch.addEventListener('click',toggleCrouch);retry.addEventListener('click',restart);
- const keydown=e=>{if(!saved||!viewer.active||e.target?.matches?.('input,textarea,select,[contenteditable="true"]')||e.ctrlKey||e.metaKey||e.altKey||viewer.desktopControls?.menuOpen)return;if(['Space','KeyR','KeyC'].includes(e.code)){e.preventDefault();e.stopImmediatePropagation();if(!model.controllable||e.repeat)return;if(e.code==='Space'){held=true;shoot()}if(e.code==='KeyR')requestReload();if(e.code==='KeyC')toggleCrouch()}},keyup=e=>{if(e.code==='Space')release()},blur=()=>release();
+ const keydown=e=>{if(!saved||!viewer.active||e.target?.matches?.('input,textarea,select,[contenteditable="true"]')||e.ctrlKey||e.metaKey||e.altKey||viewer.desktopControls?.menuOpen)return;if(['Space','KeyR','KeyC'].includes(e.code)){e.preventDefault();e.stopImmediatePropagation();if(!model.controllable||e.repeat)return;if(e.code==='Space')setFireHeld(true,'keyboard');if(e.code==='KeyR')requestReload();if(e.code==='KeyC')toggleCrouch()}},keyup=e=>{if(e.code==='Space')setFireHeld(false,'keyboard')},blur=()=>release();
  window.addEventListener('keydown',keydown,true);window.addEventListener('keyup',keyup);window.addEventListener('blur',blur);
- return {model,get active(){return !!saved},get loading(){return loading},get fighting(){return !!saved&&model.controllable},get scene(){return returning?viewer.scene:room?.scene},begin,shoot,reload:requestReload,update,cancel,unlockAudio,
+ return {model,get active(){return !!saved},get loading(){return loading},get fighting(){return !!saved&&model.controllable},get scene(){return returning?viewer.scene:room?.scene},begin,shoot,reload:requestReload,update,cancel,unlockAudio,setFireHeld,stopFiring:release,
   dispose(){if(disposed)return;cancel();disposed=true;room?.dispose();room=null;ui.remove();host.removeEventListener('pointerdown',unlockAudio,true);window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',blur);audio.dispose();recovery.dispose()}
  };
 }

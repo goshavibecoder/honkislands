@@ -1,5 +1,5 @@
-import {mountMafiaEncounter} from './mafia-encounter.js?v=144';
-import {mountDesktopControls} from './desktop-controls.js?v=138';
+import {mountMafiaEncounter} from './mafia-encounter.js?v=145';
+import {mountDesktopControls} from './desktop-controls.js?v=145';
 import {mountCastleGreeting} from './castle-greeting.js?v=123';
 import {createAssetCache,fetchAssetBytes,fetchAssetJSON,fetchGzipJSON,loadCompressedScene} from './asset-loader.js?v=116';
 import * as THREE from 'three';
@@ -27,7 +27,7 @@ import {createHelicopterCollision,createHelicopterExplosion} from './helicopter-
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=96';
 import {createWorldTargets} from './world-links.js?v=99';
 import {prepareArenaCircus} from './arena-circus.js?v=72';
-import {attachTapGesture} from './tap-gesture.js?v=27';
+import {attachTapGesture} from './tap-gesture.js?v=145';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
 import {loadHonkFamilyPictures} from './family-wall.js?v=72';
@@ -178,9 +178,9 @@ export class IslandViewer {
  }
  bindInput(){
   const canvas=this.renderer.domElement;canvas.style.touchAction='none';
-  let lastHover=0;this.gameTaps=attachTapGesture(canvas,(x,y)=>this.launchGame(x,y),{enabled:()=>this.active&&!!this.arcadeTargets&&!this.desktopControls?.locked&&!this.desktopControls?.menuOpen,tapPolicy:e=>this.slug==='arena'&&this.gameAt(e.clientX,e.clientY)?.action==='honk'?{distance:14,duration:800}:null,onHover:(x,y)=>{const now=performance.now();if(now-lastHover<100)return;lastHover=now;const game=this.gameAt(x,y);canvas.style.cursor=game?'pointer':'';canvas.title=game?(game.action==='honk'?game.title:'Open '+game.title):''}});
+  let lastHover=0;this.gameTaps=attachTapGesture(canvas,(x,y)=>this.launchGame(x,y),{enabled:e=>!(e?.pointerType==='mouse'&&this.desktopControls?.handlesMouse)&&this.active&&!!this.arcadeTargets&&!this.desktopControls?.locked&&!this.desktopControls?.menuOpen,tapPolicy:e=>this.slug==='arena'&&this.gameAt(e.clientX,e.clientY)?.action==='honk'?{distance:14,duration:800}:null,onHover:(x,y)=>{const now=performance.now();if(now-lastHover<100)return;lastHover=now;const game=this.gameAt(x,y);canvas.style.cursor=game?'pointer':'';canvas.title=game?(game.action==='honk'?game.title:'Open '+game.title):''}});
   this.host.addEventListener('keydown',e=>{if(e.key==='Enter'&&this.active&&this.arcadeTargets){const r=canvas.getBoundingClientRect();e.preventDefault();this.launchGame(r.left+r.width/2,r.top+r.height/2)}});
-  canvas.addEventListener('pointerdown',e=>{if(!this.active||this.castleGreeting?.active||this.knockoutRecovery?.active||this.wardrobeAmbush?.active||this.mafiaFight?.active&&!this.mafiaFight.fighting||this.mode!=='walk'||this.desktopControls?.locked||this.desktopControls?.menuOpen||this.drag||(e.pointerType==='mouse'&&e.button!==0))return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
+  canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&this.desktopControls?.handlesMouse)return;if(!this.active||this.castleGreeting?.active||this.knockoutRecovery?.active||this.wardrobeAmbush?.active||this.mafiaFight?.active&&!this.mafiaFight.fighting||this.mode!=='walk'||this.desktopControls?.locked||this.desktopControls?.menuOpen||this.drag||(e.pointerType==='mouse'&&e.button!==0))return;this.drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});
   canvas.addEventListener('pointermove',e=>{if(!this.active||this.mafiaFight?.active&&!this.mafiaFight.fighting||this.desktopControls?.locked||this.desktopControls?.menuOpen||!this.drag||e.pointerId!==this.drag.id||this.mode!=='walk')return;const scale=e.pointerType==='mouse'?(this.desktopControls?.lookScale??1):1,dx=(e.clientX-this.drag.x)*scale,dy=(e.clientY-this.drag.y)*scale;if(this.mountainSki?.active)this.mountainSki.look(dx,dy);else this.motion.turn(dx,dy);this.drag.x=e.clientX;this.drag.y=e.clientY});
   const end=e=>{if(this.drag?.id===e.pointerId)this.drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);canvas.addEventListener('lostpointercapture',end);
   window.addEventListener('keydown',e=>{if(e.defaultPrevented||e.target?.matches?.('input, textarea, select, [contenteditable="true"]')||this.desktopControls?.menuOpen||this.mafiaFight?.active&&!this.mafiaFight.fighting||!this.active||this.castleGreeting?.active||this.knockoutRecovery?.active||this.wardrobeAmbush?.active||this.mode!=='walk')return;if(/^(Key[WASD]|Arrow(Up|Down|Left|Right)|Shift(Left|Right))$/.test(e.code)||(this.helicopterFlight?.active&&/^(Space|KeyC)$/.test(e.code))||((this.islandTransport?.active||this.mountainSki?.active)&&e.code==='Space')){e.preventDefault();this.keys.add(e.code)}});window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>this.clearWalkInput());

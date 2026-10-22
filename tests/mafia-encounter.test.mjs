@@ -100,6 +100,13 @@ test('holding FIRE shoots the AK automatically and a full reload restores 30 rou
  const e=setup();await e.c.begin();advance(e.c,1.9);const fire=e.ui.querySelector('.mafia-fire'),emit=(type,data)=>fire.events[type].forEach(f=>f({preventDefault(){},...data}));
  emit('pointerdown',{pointerId:1,pointerType:'touch',clientX:0,clientY:0});advance(e.c,.8);emit('pointerup',{pointerId:1});assert.ok(e.c.model.ammo<=23);assert.ok(e.c.model.ammo>=21);e.c.reload();advance(e.c,MAFIA_RULES.reload+.05);assert.equal(e.c.model.ammo,30);e.c.dispose();
 });
+test('desktop mouse hold fires continuously, releasing one input cannot cancel the other and focus loss stops every source',async()=>{
+ const e=setup();await e.c.begin();advance(e.c,1.9);e.c.model.health=10000;e.viewer.desktopControls={menuOpen:false};e.c.setFireHeld(true);advance(e.c,.8);assert.ok(e.c.model.ammo<=23);e.c.setFireHeld(false);const stopped=e.c.model.ammo;advance(e.c,.3);assert.equal(e.c.model.ammo,stopped);
+ const key=(name,code)=>e.window.events[name].forEach(fn=>fn({code,preventDefault(){},stopImmediatePropagation(){}}));
+ key('keydown','Space');e.c.setFireHeld(true);e.c.setFireHeld(false);const keyboard=e.c.model.ammo;advance(e.c,.35);assert.ok(e.c.model.ammo<keyboard);key('keyup','Space');
+ e.c.setFireHeld(true);key('keyup','Space');const mouse=e.c.model.ammo;advance(e.c,.35);assert.ok(e.c.model.ammo<mouse);e.c.stopFiring();const released=e.c.model.ammo;advance(e.c,.35);assert.equal(e.c.model.ammo,released);
+ e.c.setFireHeld(true);e.viewer.desktopControls.menuOpen=true;e.c.update(1/60);e.viewer.desktopControls.menuOpen=false;const menu=e.c.model.ammo;advance(e.c,.35);assert.equal(e.c.model.ammo,menu);e.c.dispose();
+});
 test('live combat uses the recorded shot and reload, distant enemy audio and cleanup on exit',async()=>{
  const calls=[],audio={prepare(){calls.push('prepare');return Promise.resolve(true)},unlock(){},play(kind){calls.push(kind)},tone(){},stop(){calls.push('stop')},dispose(){calls.push('dispose')}},e=setup({makeAudio:()=>audio});
  await e.c.begin();advance(e.c,1.9);assert.ok(calls.includes('prepare'));
