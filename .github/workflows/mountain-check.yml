@@ -32,7 +32,7 @@ jobs:
       - name: Ticket handoff and balloon departure
         run: node --experimental-default-type=module --test tests/groyp-air.test.mjs tests/balloon-travel.test.mjs
       - name: Mountain geometry and gameplay checks
-        run: node --experimental-default-type=module --test tests/mountain-snow.test.mjs tests/snowboard-motion.test.mjs tests/mountain-ski.test.mjs tests/island-transport.test.mjs
+        run: node --experimental-default-type=module --test tests/mountain-storm.test.mjs tests/mountain-snow.test.mjs tests/snowboard-motion.test.mjs tests/mountain-ski.test.mjs tests/island-transport.test.mjs
       - name: Open all islands using published assets
         env:
           HONK_LIVE_BASE: https://honkler.org/

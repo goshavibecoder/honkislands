@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {sampleStatueCurrent,createStatueCurrent} from './statue-current.js?v=49';
+import {sampleStatueCurrent,createStatueCurrent} from './statue-current.js?v=151';
 
 const clamp=t=>Math.max(0,Math.min(1,t)),smooth=t=>{t=clamp(t);return t*t*(3-2*t)};
 export function findMountainStormAnchor(root){
@@ -19,15 +19,20 @@ export function mountMountainStorm(viewer,anchor=findMountainStormAnchor(viewer.
  const {scene,host}=viewer,input=host?.parentElement||host,group=new THREE.Group();group.name='Mountain_secret_thunderstorm';group.visible=false;scene.add(group);
  const baseline={sky:scene.background,fog:scene.fog,background:scene.backgroundIntensity,environment:scene.environmentIntensity,lights:scene.children.filter(o=>o.isHemisphereLight||o.isDirectionalLight).map(light=>({light,intensity:light.intensity,color:light.color.clone(),ground:light.groundColor?.clone()}))};
  const stormColor=new THREE.Color(0x566680),fog=new THREE.FogExp2(0x272e42,0),cloudMaterial=new THREE.MeshBasicMaterial({color:0x252b40,transparent:true,opacity:0,depthWrite:false}),cloudGeometry=new THREE.SphereGeometry(1,16,10),clouds=new THREE.Group();group.add(clouds);clouds.position.set(anchor.center.x,anchor.strike.y+8,anchor.center.z);
- for(let i=0;i<18;i++){const a=i*2.39996,r=3+Math.sqrt(i)*2.6,cloud=new THREE.Mesh(cloudGeometry,cloudMaterial);cloud.position.set(Math.cos(a)*r,Math.sin(i*1.7)*1.2,Math.sin(a)*r);cloud.scale.set(5+i%3,1.5+(i%4)*.3,3.8+i%3);clouds.add(cloud)}
- // A full overcast sky replaces the sunny panorama before rain begins.
+ const puff=new THREE.Object3D(),cloudInstances=new THREE.InstancedMesh(cloudGeometry,cloudMaterial,18);clouds.add(cloudInstances);
+ for(let i=0;i<18;i++){const a=i*2.39996,r=3+Math.sqrt(i)*2.6;puff.position.set(Math.cos(a)*r,Math.sin(i*1.7)*1.2,Math.sin(a)*r);puff.scale.set(5+i%3,1.5+(i%4)*.3,3.8+i%3);puff.updateMatrix();cloudInstances.setMatrixAt(i,puff.matrix)}cloudInstances.computeBoundingSphere();
+ // Bake smooth repeating noise once. The full-screen sky now needs only
+ // three texture samples instead of dozens of trigonometric hashes per pixel.
+ const noiseSize=128,gridSize=16,grid=new Float32Array(gridSize*gridSize),pixels=new Uint8Array(noiseSize*noiseSize*4);let seed=713;
+ for(let i=0;i<grid.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;grid[i]=seed/4294967296}
+ const value=(x,y)=>grid[(y%gridSize)*gridSize+x%gridSize];
+ for(let y=0;y<noiseSize;y++)for(let x=0;x<noiseSize;x++){const gx=x*gridSize/noiseSize,gy=y*gridSize/noiseSize,ix=Math.floor(gx),iy=Math.floor(gy),u=smooth(gx-ix),v=smooth(gy-iy),a=value(ix,iy)*(1-u)+value(ix+1,iy)*u,b=value(ix,iy+1)*(1-u)+value(ix+1,iy+1)*u,k=(y*noiseSize+x)*4;pixels[k]=pixels[k+1]=pixels[k+2]=Math.round((a*(1-v)+b*v)*255);pixels[k+3]=255}
+ const noiseTexture=new THREE.DataTexture(pixels,noiseSize,noiseSize,THREE.RGBAFormat);noiseTexture.wrapS=noiseTexture.wrapT=THREE.RepeatWrapping;noiseTexture.minFilter=noiseTexture.magFilter=THREE.LinearFilter;noiseTexture.generateMipmaps=false;noiseTexture.needsUpdate=true;
  const overcast=new THREE.Color(0x343d4a),skyMaterial=new THREE.ShaderMaterial({
-  uniforms:{blend:{value:0},time:{value:0}},side:THREE.BackSide,transparent:true,depthWrite:false,fog:false,toneMapped:false,
+  uniforms:{blend:{value:0},time:{value:0},noiseMap:{value:noiseTexture}},side:THREE.BackSide,transparent:true,depthWrite:false,fog:false,toneMapped:false,
   vertexShader:`varying vec3 direction;void main(){direction=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-  fragmentShader:`uniform float blend;uniform float time;varying vec3 direction;
-   float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
-   float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
-   void main(){vec3 d=normalize(direction),p=d*5.0+vec3(time*.025,0.0,time*.012);float cloud=noise(p)*.65+noise(p*2.1)*.25+noise(p*4.3)*.10;
+  fragmentShader:`uniform float blend;uniform float time;uniform sampler2D noiseMap;varying vec3 direction;
+   void main(){vec3 d=normalize(direction);vec2 p=d.xz*.32+vec2(time*.0016,time*.0008);float cloud=texture2D(noiseMap,p).r*.65+texture2D(noiseMap,p*2.1).r*.25+texture2D(noiseMap,p*4.3).r*.10;
     vec3 color=mix(vec3(.065,.083,.115),vec3(.18,.20,.235),smoothstep(.25,.8,cloud));color=mix(color,vec3(.22,.245,.28),pow(1.0-abs(d.y),4.0)*.7);
     gl_FragColor=vec4(color,blend);
     #include <colorspace_fragment>
@@ -44,14 +49,18 @@ export function mountMountainStorm(viewer,anchor=findMountainStormAnchor(viewer.
  for(const [index,sign] of [[3,-1],[6,1]]){const start=points[index];wire([start,start.clone().add(new THREE.Vector3(sign*1.9,-1.2,.4)),start.clone().add(new THREE.Vector3(sign*2.7,-2.8,1.0))],.025,boltWhite)}
  const flash=new THREE.PointLight(0xb6d9ff,0,25,2);flash.position.copy(end).add(new THREE.Vector3(0,.4,0));group.add(flash);bolt.visible=false;
  const current=createStatueCurrent(anchor);group.add(current.group);
- let context=null;const sounds=new Set();let disposed=false;
- function unlock(){if(disposed)return;const Context=globalThis.AudioContext||globalThis.webkitAudioContext;if(!Context)return;try{context??=new Context();context.resume()?.catch(()=>{})}catch{}}
+ let context=null,thunderBuffer=null,preparingThunder=false,thunderTimer=null,warmed=false;const sounds=new Set();let disposed=false;
+ function prepareThunder(){
+  if(!context||thunderBuffer||preparingThunder||disposed)return;preparingThunder=true;
+  const buffer=context.createBuffer(1,Math.ceil(context.sampleRate*3.5),context.sampleRate),data=buffer.getChannelData(0);let offset=0,low=0;
+  const fill=()=>{thunderTimer=null;if(disposed)return;const end=Math.min(data.length,offset+4096);for(;offset<end;offset++){low=.94*low+.06*(Math.random()*2-1);data[offset]=low*4}if(offset<data.length)thunderTimer=setTimeout(fill,0);else{thunderBuffer=buffer;preparingThunder=false}};fill();
+ }
+ function unlock(){if(disposed)return;const Context=globalThis.AudioContext||globalThis.webkitAudioContext;if(!Context)return;try{context??=new Context();context.resume()?.catch(()=>{});prepareThunder()}catch{}}
  input?.addEventListener('pointerdown',unlock,{passive:true});input?.addEventListener('keydown',unlock);
  function silence(){for(const sound of sounds){try{sound.stop()}catch{}}sounds.clear()}
  function thunder(){
-  if(!context||context.state!=='running')return;
-  const buffer=context.createBuffer(1,context.sampleRate*3.5,context.sampleRate),data=buffer.getChannelData(0);let low=0;for(let i=0;i<data.length;i++){low=.94*low+.06*(Math.random()*2-1);data[i]=low*4}
-  const source=context.createBufferSource(),filter=context.createBiquadFilter(),gain=context.createGain(),now=context.currentTime+.22;source.buffer=buffer;filter.type='lowpass';filter.frequency.setValueAtTime(420,now);filter.frequency.exponentialRampToValueAtTime(65,now+3.2);gain.gain.setValueAtTime(.001,now);gain.gain.exponentialRampToValueAtTime(.40,now+.10);gain.gain.exponentialRampToValueAtTime(.001,now+3.4);source.connect(filter);filter.connect(gain);gain.connect(context.destination);sounds.add(source);source.onended=()=>{sounds.delete(source);source.disconnect();filter.disconnect();gain.disconnect()};source.start(now);
+  if(!context||context.state!=='running'||!thunderBuffer)return;
+  const source=context.createBufferSource(),filter=context.createBiquadFilter(),gain=context.createGain(),now=context.currentTime+.22;source.buffer=thunderBuffer;filter.type='lowpass';filter.frequency.setValueAtTime(420,now);filter.frequency.exponentialRampToValueAtTime(65,now+3.2);gain.gain.setValueAtTime(.001,now);gain.gain.exponentialRampToValueAtTime(.40,now+.10);gain.gain.exponentialRampToValueAtTime(.001,now+3.4);source.connect(filter);filter.connect(gain);gain.connect(context.destination);sounds.add(source);source.onended=()=>{sounds.delete(source);source.disconnect();filter.disconnect();gain.disconnect()};source.start(now);
  }
  const state={phase:'waiting',linger:0,time:0,strikes:0,weather:0};
  function restore(){scene.background=baseline.sky;scene.fog=baseline.fog;scene.backgroundIntensity=baseline.background;scene.environmentIntensity=baseline.environment;for(const item of baseline.lights){item.light.intensity=item.intensity;item.light.color.copy(item.color);if(item.ground)item.light.groundColor.copy(item.ground)}group.visible=false;flash.intensity=0;bolt.visible=false;current.reset()}
@@ -65,6 +74,18 @@ export function mountMountainStorm(viewer,anchor=findMountainStormAnchor(viewer.
   const hit=clamp((t-7)/.55),pulse=t>=7&&t<7.55?Math.sin(hit*Math.PI):0;bolt.visible=pulse>.04;flash.intensity=55*pulse;boltWhite.color.setRGB(.65+.35*pulse,.8+.2*pulse,1);current.update(t-7);
  }
  return {group,anchor,state,current,
+  async prepare(renderer,camera){
+   if(warmed||disposed||!renderer?.compileAsync)return;
+   const saved={fog:scene.fog,visible:group.visible,bolt:bolt.visible,current:current.group.visible};
+   try{
+    renderer.initTexture?.(noiseTexture);group.visible=true;bolt.visible=true;
+    // Visibility changes alter the number of point lights in every lit shader.
+    // Compile all storm variants under the loading screen, including the
+    // first/last gathering frames where fog is still off.
+    for(const [withFog,withCurrent] of [[true,false],[true,true],[false,false]]){scene.fog=withFog?fog:baseline.fog;current.group.visible=withCurrent;await renderer.compileAsync(scene,camera)}
+    warmed=true;
+   }finally{scene.fog=saved.fog;group.visible=saved.visible;bolt.visible=saved.bolt;current.group.visible=saved.current}
+  },
   update(dt,player){
    if(disposed)return;if(!player){if(state.phase==='waiting')state.linger=0;restore();silence();return}dt=Math.max(0,Math.min(dt,.25));
    if(state.phase==='waiting'){
@@ -78,6 +99,6 @@ export function mountMountainStorm(viewer,anchor=findMountainStormAnchor(viewer.
   },
   stop(){silence();restore()},
   reset(){silence();restore();Object.assign(state,{phase:'waiting',linger:0,time:0,strikes:0,weather:0})},
-  dispose(){if(disposed)return;disposed=true;silence();restore();input?.removeEventListener('pointerdown',unlock);input?.removeEventListener('keydown',unlock);context?.close()?.catch(()=>{});group.removeFromParent();const geometries=new Set(),materials=new Set();group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material)});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());flash.dispose();current.light.dispose()}
+  dispose(){if(disposed)return;disposed=true;if(thunderTimer!==null)clearTimeout(thunderTimer);thunderBuffer=null;silence();restore();input?.removeEventListener('pointerdown',unlock);input?.removeEventListener('keydown',unlock);context?.close()?.catch(()=>{});group.removeFromParent();const geometries=new Set(),materials=new Set();group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material)});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());noiseTexture.dispose();cloudInstances.dispose();flash.dispose();current.light.dispose()}
  };
 }

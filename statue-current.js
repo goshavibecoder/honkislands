@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 
 // Sample the original statue before its named meshes become static batches.
 // Each filament follows the visible skin instead of a loose bounding box.
@@ -35,11 +36,12 @@ export function createStatueCurrent(anchor){
   vertexShader:`uniform float top;uniform float span;varying float travel;void main(){travel=clamp((top-position.y)/span,0.0,1.0);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
   fragmentShader:`uniform float age;uniform float strength;varying float travel;void main(){float reveal=1.0-smoothstep(age/0.85-0.06,age/0.85+0.02,travel);float wave=exp(-pow((travel-fract(age*.78))/.12,2.0));float current=(.28+.72*wave)*strength*reveal;gl_FragColor=vec4(${halo?'vec3(.12,.38,1.0)':'vec3(.58,.88,1.0)'},current*${halo?'.30':'.90'});}`
  });
- const core=material(false),halo=material(true);let triangles=0;
+ const core=material(false),halo=material(true),batches=new Map([[core,[]],[halo,[]]]);let triangles=0;
  for(const points of anchor.currentPaths||[]){
   const curve=new THREE.CurvePath();for(let i=1;i<points.length;i++)curve.add(new THREE.LineCurve3(points[i-1],points[i]));
-  for(const [radius,m] of [[.018,core],[.055,halo]]){const geometry=new THREE.TubeGeometry(curve,points.length*2,radius,4,false),mesh=new THREE.Mesh(geometry,m);mesh.name='Statue_crawling_arc';group.add(mesh);triangles+=geometry.index.count/3}
+  for(const [radius,m] of [[.018,core],[.055,halo]]){const geometry=new THREE.TubeGeometry(curve,points.length*2,radius,4,false);batches.get(m).push(geometry);triangles+=geometry.index.count/3}
  }
+ for(const [m,parts] of batches){if(!parts.length)continue;const geometry=mergeGeometries(parts,false);for(const part of parts)part.dispose();geometry.computeBoundingSphere();const mesh=new THREE.Mesh(geometry,m);mesh.name='Statue_crawling_arc';group.add(mesh)}
  const light=new THREE.PointLight(0x5e9fff,0,10,2);light.position.copy(anchor.strike);light.position.y-=2.3;group.add(light);
  return {group,light,triangles,
   update(age){const strength=age>=0&&age<4.2?Math.min(1,age/.12)*(1-THREE.MathUtils.smoothstep(age,2.5,4.2)):0;group.visible=strength>0;uniforms.age.value=Math.max(0,age);uniforms.strength.value=strength;light.intensity=strength*7},

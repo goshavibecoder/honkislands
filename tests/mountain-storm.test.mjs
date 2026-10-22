@@ -79,6 +79,47 @@ test('surface current starts with the strike, flows after the sky bolt and then 
  const {effect,near}=setup();advance(effect,14.8,near);assert.equal(effect.current.group.visible,false);
  advance(effect,.45,near);assert.equal(effect.state.strikes,1);assert.equal(effect.current.group.visible,true);assert.ok(effect.current.light.intensity>0);assert.ok(effect.current.triangles<24000);
  advance(effect,.6,near);assert.equal(effect.group.getObjectByName('Lightning_hits_statue').visible,false);assert.equal(effect.current.group.visible,true);
- const arcs=effect.current.group.children.filter(o=>o.isMesh);assert.ok(arcs.length>=16);for(const arc of arcs){assert.equal(arc.material.depthTest,true);assert.equal(arc.material.depthWrite,false);assert.ok(arc.geometry.attributes.position.array.every(Number.isFinite))}
+ const arcs=effect.current.group.children.filter(o=>o.isMesh);assert.equal(arcs.length,2);for(const arc of arcs){assert.equal(arc.material.depthTest,true);assert.equal(arc.material.depthWrite,false);assert.ok(arc.geometry.attributes.position.array.every(Number.isFinite))}
  advance(effect,4,near);assert.equal(effect.current.group.visible,false);assert.equal(effect.current.light.intensity,0);effect.reset();assert.equal(effect.current.group.visible,false);effect.dispose();
+});
+
+test('storm shader variants are prepared before play and every runtime fog/light combination is covered',async()=>{
+ const {effect,scene,near}=setup(),signature=()=>{let lights=0;scene.traverseVisible(o=>{if(o.isPointLight)lights++});return `${!!scene.fog}:${lights}`},covered=new Set([signature()]),initial=scene.fog,calls=[];
+ const renderer={initTexture(t){assert.ok(t.isDataTexture)},async compileAsync(){const key=signature();covered.add(key);calls.push(key)}};
+ await effect.prepare(renderer,new THREE.PerspectiveCamera());assert.deepEqual(calls,['true:1','true:2','false:1']);assert.equal(scene.fog,initial);assert.equal(effect.group.visible,false);assert.equal(effect.current.group.visible,false);assert.equal(effect.state.phase,'waiting');
+ await effect.prepare(renderer,new THREE.PerspectiveCamera());assert.equal(calls.length,3);
+ for(let i=0;i<30*30;i++){effect.update(1/30,near);assert.ok(covered.has(signature()),`unprepared shader variant ${signature()}`)}effect.dispose();
+});
+
+test('failed shader preparation restores scene state and can be retried',async()=>{
+ const {effect,scene}=setup(),fog=scene.fog;
+ await assert.rejects(effect.prepare({async compileAsync(){throw Error('compile interrupted')}},new THREE.PerspectiveCamera()),/interrupted/);
+ assert.equal(scene.fog,fog);assert.equal(effect.group.visible,false);assert.equal(effect.current.group.visible,false);
+ let calls=0;await effect.prepare({async compileAsync(){calls++}},new THREE.PerspectiveCamera());assert.equal(calls,3);effect.dispose();
+});
+
+test('storm uses a baked noise texture and instanced clouds with no new geometry during the animation',()=>{
+ const {effect,near}=setup(),sky=effect.group.getObjectByName('Mountain_overcast_sky'),texture=sky.material.uniforms.noiseMap.value,geometries=[];
+ effect.group.traverse(o=>{if(o.geometry)geometries.push(o.geometry)});assert.equal(texture.image.width,128);assert.equal(texture.image.height,128);assert.equal(texture.wrapS,THREE.RepeatWrapping);
+ let cloudBatches=0;effect.group.traverse(o=>{if(o.isInstancedMesh){cloudBatches++;assert.equal(o.count,18)}});assert.equal(cloudBatches,1);
+ advance(effect,29,near);const after=[];effect.group.traverse(o=>{if(o.geometry)after.push(o.geometry)});assert.deepEqual(after,geometries);
+ let disposed=0;texture.addEventListener('dispose',()=>disposed++);effect.dispose();assert.equal(disposed,1);
+});
+
+test('thunder is generated in small chunks ahead of the strike and reused after reset',async()=>{
+ const previous=globalThis.AudioContext,contexts=[];
+ const param=()=>({setValueAtTime(){},exponentialRampToValueAtTime(){}}),node=()=>({connect(){},disconnect(){},frequency:param(),gain:param()});
+ class Context{
+  constructor(){this.sampleRate=8000;this.state='running';this.currentTime=0;this.destination={};this.buffers=0;this.sources=[];contexts.push(this)}
+  resume(){return Promise.resolve()}close(){return Promise.resolve()}
+  createBuffer(c,n){this.buffers++;assert.equal(n,28000);return {getChannelData:()=>new Float32Array(n)}}
+  createBufferSource(){const n={...node(),start(){this.started=true},stop(){this.stopped=true}};this.sources.push(n);return n}
+  createBiquadFilter(){return node()}createGain(){return node()}
+ }
+ globalThis.AudioContext=Context;let effect;
+ try{
+  const e=setup();effect=e.effect;assert.equal(contexts.length,0);e.events.get('pointerdown')();const context=contexts[0];assert.equal(context.buffers,1);await new Promise(resolve=>setTimeout(resolve,50));
+  advance(effect,15.2,e.near);assert.equal(context.buffers,1);assert.equal(context.sources.length,1);assert.equal(context.sources[0].started,true);assert.ok(context.sources[0].buffer);
+  effect.reset();advance(effect,15.2,e.near);assert.equal(context.buffers,1);assert.equal(context.sources.length,2);assert.equal(context.sources[0].buffer,context.sources[1].buffer);
+ }finally{effect?.dispose();globalThis.AudioContext=previous}
 });
