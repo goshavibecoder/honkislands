@@ -8,7 +8,7 @@ function mod(url){if(modules.has(url.href))return modules.get(url.href);const so
 const {prepareHonkNews,createHonkNewsProgram}=await import(mod(new URL('../honk-news.js',import.meta.url)));
 const {prepareAntiqueRoom}=await import(mod(new URL('../antique-room.js',import.meta.url)));
 const {GLTFLoader}=await import(mod(new URL('../vendor/GLTFLoader.js',import.meta.url)));
-const data=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-news-museum-v163.bin',import.meta.url))));
+const data=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-news-museum-v164.bin',import.meta.url))));
 class Surface{constructor(){this.events={}}addEventListener(k,f){(this.events[k]??=[]).push(f)}removeEventListener(k,f){this.events[k]=(this.events[k]||[]).filter(x=>x!==f)}emit(k){for(const f of this.events[k]||[])f()}}
 function dom(){globalThis.window=new Surface();globalThis.document={hidden:false,createElement(){const ops=[];return {width:1,height:1,ops,getContext(){return new Proxy({},{get:(_,key)=>(...args)=>ops.push([key,...args])})}}}}}
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:16,height:16,close(){this.closed=true}});
@@ -53,8 +53,8 @@ test('each handle passes through a closed native hand throughout sign waving',()
 });
 
 test('TELEDOG has two exposed blue sleeves, dark cuffs and white paws outside the pocket',()=>{
- dom();const p=createHonkNewsProgram(data),source=data.characters.teledog,previous=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-news-museum-v161.bin',import.meta.url)))).characters.teledog;assert.equal(source.armsOutOfPockets,true);assert.ok(source.wrists['1'][0]>.27&&source.wrists['1'][1]>.70);assert.ok(source.wrists['-1'][0]<-.24);assert.ok(source.armParts.includes('white_closed_holding_paw')&&source.armParts.includes('white_free_paw'));
- const key=(a,i)=>a.slice(i,i+3).map(v=>v.toFixed(6)).join(','),points=new Set();for(let i=0;i<source.positions.length;i+=3)points.add(key(source.positions,i));for(let i=0;i<previous.positions.length;i+=3)if(previous.positions[i+1]>.85||previous.legSide[i/3])assert.ok(points.has(key(previous.positions,i)),'native head, trousers or shoes changed');
+ dom();const p=createHonkNewsProgram(data),source=data.characters.teledog,previous=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-news-museum-v161.bin',import.meta.url)))).characters.teledog;assert.equal(source.armsOutOfPockets,true);assert.ok(source.wrists['1'][0]>.25&&source.wrists['1'][1]>.70);assert.ok(source.wrists['-1'][0]<-.21);assert.ok(source.armParts.includes('white_closed_holding_paw')&&source.armParts.includes('white_free_paw'));
+ const key=(a,i)=>a.slice(i,i+3).map(v=>v.toFixed(6)).join(','),points=new Set();for(let i=0;i<source.positions.length;i+=3)points.add(key(source.positions,i));for(let i=0;i<previous.positions.length;i+=3)if(previous.positions[i+1]>.85||previous.legSide[i/3]){const expected=previous.positions.slice(i,i+3);if(expected[1]>.85)expected[0]*=.92;assert.ok(points.has(key(expected,0)),'head details, trousers or shoes changed beyond the requested width')};
  const mesh=p.bodies.get('teledog'),colors=mesh.geometry.attributes.color,paw={},cuff={};for(const side of [-1,1]){paw[side]=[];cuff[side]=[];for(let i=0;i<source.armSide.length;i++)if(source.armSide[i]===side){if(colors.getX(i)>.9)paw[side].push(i);if(Math.abs(colors.getY(i)-.026)<1e-6)cuff[side].push(i)}assert.ok(paw[side].length>200&&cuff[side].length>100)}
  const v=new THREE.Vector3(),w=new THREE.Vector3();for(let t=0;t<5;t+=.35){p.update(t);const position=mesh.geometry.attributes.position;for(const side of [-1,1]){let distance=Infinity;for(const a of cuff[side])for(const b of paw[side])distance=Math.min(distance,v.fromBufferAttribute(position,a).distanceTo(w.fromBufferAttribute(position,b)));assert.ok(distance<.025,'paw separates from its cuff')}}p.dispose();
 });
