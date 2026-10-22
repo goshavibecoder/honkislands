@@ -64,7 +64,9 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
   // straight cable line stands four metres farther out, clear of the flags.
   const lower=CABLE_STATIONS[0],lowerEdge=lower.x-2.1,lowerStart=-.5,lowerLength=lowerEdge-lowerStart;
   box(lowerLength,.20,1.4,m.stone,group,(lowerStart+lowerEdge)/2,lower.y-.10,lower.z,'Cable_lower_access_bridge');floorRect((lowerStart+lowerEdge)/2,lower.y,lower.z,lowerLength,1.4);
-  for(const sign of [-1,1]){const z=lower.z+sign*.67;rail([0,z],[lowerEdge,z],lower.y);for(let i=0;i<=4;i++)post(lowerEdge*i/4,lower.y,z)}
+  // Leave the mountain-facing side open across the full entry landing.
+  // A continuous rail here used to run directly across the staircase mouth.
+  for(const sign of [-1,1]){const z=lower.z+sign*.67,start=sign<0?1.5:0;rail([start,z],[lowerEdge,z],lower.y);for(let i=0;i<=4;i++)post(start+(lowerEdge-start)*i/4,lower.y,z)}
   for(const x of [lower.x-.58,lower.x+.58]){const points=[];for(let i=0;i<=40;i++){const p=cablePosition(i/40);points.push(new THREE.Vector3(x,p.y+3.55,p.z))}mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),64,.022,6,false),m.dark,group,0,0,0,'Cable_guide_wire')}
   vehicle=new THREE.Group();vehicle.name='Honk_scenic_cable_cabin';group.add(vehicle);
   rounded(1.46,.12,1.5,.055,m.red,vehicle,0,.04,0);box(1.33,.04,1.4,m.dark,vehicle,0,.08,0);

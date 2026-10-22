@@ -172,6 +172,7 @@ test('the complete cabin clears the actual mountain and both station exits conne
  for(let i=0;i<=100;i++){const p=cablePosition(i/100);for(const x of [p.x-.76,p.x,p.x+.76])for(const z of [p.z-.76,p.z,p.z+.76]){ray.set(new THREE.Vector3(x,30,z),new THREE.Vector3(0,-1,0));ray.far=40;const rock=ray.intersectObjects(rocks)[0];assert.ok(!rock||rock.point.y<p.y+.04,'cabin enters the mountain')}}
  const boxes=world.extraBoxes,physics=new MountainWalkPhysics({eye:1.65,floorAt,canStand:(x,z,f)=>world.canStand(x,z,f)&&!boxes.some(b=>x>b.min.x-.17&&x<b.max.x+.17&&z>b.min.z-.17&&z<b.max.z+.17&&f+1.5>b.min.y&&f+.22<b.max.y),collision:createMountainCollision(root)});
  for(const [from,to,y] of [[[CABLE_STATIONS[0].x-1.65,13.25],[0,13.25],CABLE_STATIONS[0].y],[[CABLE_STATIONS[1].x-1.55,4.8],[0,1.5],CABLE_STATIONS[1].y]]){assert.ok(Math.abs(floorAt(...from,y+.3,.6)-y)<1e-5);for(let i=0;i<=100;i++){const x=from[0]+(to[0]-from[0])*i/100,z=from[1]+(to[1]-from[1])*i/100;assert.ok(physics.clearAt(x,z,y),`blocked station path at ${x},${z}`)}}
+ for(const x of [-.3,0,.3]){let foot=CABLE_STATIONS[0].y;for(let i=0;i<=100;i++){const z=13.25-1.5*i/100,next=physics.step(x,z,foot);assert.notEqual(next,null,`stair entrance blocked at ${x},${z}`);foot=next}assert.ok(foot>CABLE_STATIONS[0].y+.1,'route never reached the stairs')}
  for(const station of CABLE_STATIONS){
   world.setPose(station);world.setDoors(1);let foot=station.y+.10;
   for(let i=0;i<=80;i++){const x=station.x-1.55*i/80,z=station.z-.10,next=physics.step(x,z,foot);assert.notEqual(next,null,`open cabin exit blocked at ${x},${z}`);foot=next}
@@ -252,4 +253,15 @@ test('controller plays a collision only for its occupied car and does not replay
  const hits=[],audio={unlock(){},prepare(){return Promise.resolve(true)},update(s){this.state=s},impact(s){hits.push(s)},stop(){},dispose(){}},e=setup('kart',{makeAudio:()=>audio});
  e.controller.model.recordImpact(2);e.controller.update(0);assert.equal(hits.length,0);e.panel.querySelector('.ride-board').click();e.controller.update(0);assert.equal(hits.length,0);
  e.controller.models[1].position.x=-100;e.controller.model.canDrive=x=>x<1;e.viewer.keys.add('KeyW');advance(e.controller,2);assert.equal(hits.length,1,JSON.stringify(hits));assert.ok(hits[0]>.35);advance(e.controller,2);assert.equal(hits.length,1,JSON.stringify(hits));e.controller.dispose();
+});
+test('lower cable bridge leaves the staircase mouth open while retaining its outer guardrails',()=>{
+ const root=new THREE.Group(),world=prepareIslandTransport(root,'goat-mountain'),ray=new THREE.Raycaster();root.updateMatrixWorld(true);
+ for(const x of [-.45,0,.45,1.15])for(const height of [.42,.70,.95,1]){
+  ray.set(new THREE.Vector3(x,CABLE_STATIONS[0].y+height,13.4),new THREE.Vector3(0,0,-1));ray.far=1.4;
+  assert.equal(ray.intersectObject(world.group,true).length,0,`fence blocks stair entrance at ${x},${height}`);
+ }
+ for(const [x,z,dir] of [[2,13.25,-1],[.5,13.25,1],[2,13.25,1]]){
+  ray.set(new THREE.Vector3(x,CABLE_STATIONS[0].y+.95,z),new THREE.Vector3(0,0,dir));ray.far=1;
+  assert.ok(ray.intersectObject(world.group,true).length>0,'remaining bridge edge lost its handrail');
+ }
 });
