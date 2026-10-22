@@ -19,7 +19,7 @@ import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physic
 import {prepareMountainSnow} from './mountain-snow.js?v=138';
 import {createSkiHonk} from './ski-honk.js?v=142';
 import {mountMountainSki} from './mountain-ski.js?v=140';
-import {rebuildMountainStairs} from './mountain-stairs.js?v=96';
+import {rebuildMountainStairs} from './mountain-stairs.js?v=152';
 import {repairLandingPad} from './landing-pad.js?v=19';
 import {addClownHelicopter} from './clown-helicopter.js?v=59';
 import {mountHelicopterFlight} from './helicopter-flight.js?v=149';

@@ -112,3 +112,34 @@ test('snowboard boots stay on their bindings during carving and jumps',()=>{
   }
  }
 });
+
+test('all front stair flights and turn landings stay connected in both directions',()=>{
+ const points=[],flights=stairs.userData.flights,paths=stairs.userData.landingPaths;
+ const segment=(a,b)=>{const count=Math.ceil(a.distanceTo(b)/.025);for(let i=0;i<=count;i++)points.push(a.clone().lerp(b,i/count))};
+ for(let i=0;i<flights.length;i++){
+  const f=flights[i];segment(new THREE.Vector3(...f.start),new THREE.Vector3(...f.end));
+  if(paths[i])for(let j=0;j<paths[i].length-1;j++)segment(new THREE.Vector3(...paths[i][j]),new THREE.Vector3(...paths[i][j+1]));
+ }
+ for(const route of [points,[...points].reverse()]){let foot=floorAt(route[0].x,route[0].z,route[0].y+.3,.8);assert.notEqual(foot,null);for(const p of route){const next=physics.step(p.x,p.z,foot);assert.notEqual(next,null,`stair route blocked at ${p.toArray()}, foot ${foot}`);foot=next}}
+});
+
+test('column balconies have a continuous supported floor and a walkable route across the former gaps',()=>{
+ const columns=[];root.traverse(o=>{if(o.isMesh&&/^Ruined_temple_column_base(?:_\d+)?$/.test(o.name))columns.push(new THREE.Box3().setFromObject(o))});assert.equal(columns.length,12);
+ for(const b of columns){const p=b.getCenter(new THREE.Vector3()),floor=floorAt(p.x,p.z,b.min.y+.08,.4);assert.notEqual(floor,null,'column base floats over a hole');assert.ok(Math.abs(floor-b.min.y)<.025)}
+ for(let i=1;i<=3;i++){
+  const level=stairs.userData.repairedLandings[i].top,bases=columns.filter(b=>Math.abs(b.min.y-level)<.03),center=new THREE.Vector3();for(const b of bases)center.add(b.getCenter(new THREE.Vector3()));center.multiplyScalar(1/bases.length);const outside=Math.max(...bases.map(b=>b.max.z))+.36;
+  const route=[new THREE.Vector3(...stairs.userData.landingPaths[i][1]),new THREE.Vector3(center.x,level,outside),new THREE.Vector3(center.x,level,center.z)];let foot=level;
+  for(let j=0;j<route.length-1;j++){const count=Math.ceil(route[j].distanceTo(route[j+1])/.025);for(let n=0;n<=count;n++){const p=route[j].clone().lerp(route[j+1],n/count),next=physics.step(p.x,p.z,foot);assert.notEqual(next,null,`balcony ${i} blocked at ${p.toArray()}`);foot=next}}
+ }
+});
+
+test('repaired landing decks are closed solids and their light trim stays attached to the deck perimeter',()=>{
+ let decks=0,rims=0;root.traverse(o=>{
+  if(o.userData.repairedLanding===undefined)return;
+  const id=o.userData.repairedLanding,level=stairs.userData.repairedLandings[id].top,b=new THREE.Box3().setFromObject(o);
+  if(/^Mountain_stair_turn_landing_/.test(o.name)){
+   decks++;assert.ok(Math.abs(b.max.y-level)<1e-5);assert.ok(Math.abs(b.min.y-(level-.3))<1e-5);const p=o.geometry.attributes.position,edges=new Map();
+   const key=v=>v.map(n=>n.toFixed(5)).join(',');for(let i=0;i<p.count;i+=3){const tri=[0,1,2].map(j=>key(new THREE.Vector3().fromBufferAttribute(p,i+j).toArray()));for(let j=0;j<3;j++){const pair=[tri[j],tri[(j+1)%3]].sort().join('|');edges.set(pair,(edges.get(pair)||0)+1)}}assert.ok([...edges.values()].every(n=>n===2),'landing has an open shell edge');
+  }else{rims++;assert.ok(b.min.y<=level+.001&&b.max.y<level+.04,'rim floats above the landing')}
+ });assert.equal(decks,4);assert.ok(rims>30);assert.equal(root.getObjectByName('Shrine_balcony_light'),undefined);
+});

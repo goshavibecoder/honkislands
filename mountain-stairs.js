@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {repairMountainLandings} from './mountain-landings.js?v=152';
 
 const UP=new THREE.Vector3(0,1,0);
 const normalizedName=object=>object.name.replace(/\s+/g,'_');
@@ -86,7 +87,7 @@ export function rebuildMountainStairs(root,shell){
  }
  // Flat turn landings join the complete widths of adjacent stair mouths.
  // They also replace the old rock floor through the middle of these turns.
- const landingCuts=[],landingPaths=[];
+ const landingCuts=[],landingPaths=[],turnNavStart=navPositions.length;
  for(let i=0;i<specs.length-1;i++){
   const previous=specs[i],next=specs[i+1],a=new THREE.Vector3(...previous.end),b=new THREE.Vector3(...next.start);
   const top=Math.max(a.y,b.y)-.006+.012;
@@ -127,9 +128,9 @@ export function rebuildMountainStairs(root,shell){
  // The offline union already contains the opaque treads and decks. Keeping
  // these construction meshes too would render the same faces twice.
  if(shell.mergedStairs)for(const mesh of [...group.children])if(/^(Mountain_entry_landing|Mountain_solid_stair_flight_|Mountain_stair_mouth_|Mountain_stair_turn_landing_)/.test(mesh.name)){mesh.removeFromParent();mesh.geometry.dispose()}
- root.add(group);applyCircusPalette(root);root.updateMatrixWorld(true);
+ root.add(group);const repaired=repairMountainLandings(root,specs);navPositions.length=turnNavStart;navPositions.push(...repaired.navPositions);applyCircusPalette(root);root.updateMatrixWorld(true);
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(navPositions,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();
- const nav=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Mountain_stair_navigation';nav.userData.flights=specs;nav.userData.corridors=corridors;nav.userData.landingPaths=landingPaths;nav.userData.trimmedSurfaces=trimmed;nav.updateMatrixWorld(true);return nav;
+ const nav=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));nav.name='Mountain_stair_navigation';nav.userData.flights=specs;nav.userData.corridors=corridors;nav.userData.landingPaths=landingPaths;nav.userData.trimmedSurfaces=trimmed;nav.userData.repairedLandings=repaired.landings;nav.updateMatrixWorld(true);return nav;
 }
 
 function pathOutline(path,half){
