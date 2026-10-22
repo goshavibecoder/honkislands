@@ -35,21 +35,34 @@ for(const side of [-1,1])for(let i=0;i<96;i++){
  if(side>0&&Math.cos((t+n)/2)>0&&Math.abs(Math.sin((t+n)/2)*rx)<1.1)continue;
  KART_RAILS.push({ax:Math.sin(t)*rx,az:Math.cos(t)*rz,bx:Math.sin(n)*rx,bz:Math.cos(n)*rz,index:i});
 }
-export function kartCanDrive(x,z,yaw,obstacles=[]){
+function kartBlocked(x,z,yaw,obstacles,normals){
  const s=Math.sin(yaw),c=Math.cos(yaw),radius=.57,railRadius=.075;
+ const blocked=(dx,dz,r)=>{const d2=dx*dx+dz*dz;if(d2>=r*r)return false;if(normals){const d=Math.sqrt(d2);if(d>1e-9)normals.push({x:dx/d,z:dz/d});return false}return true};
  for(const offset of [-.55,0,.55]){
   const px=x+s*offset,pz=z+c*offset;
   for(const r of KART_RAILS){
    if(px<Math.min(r.ax,r.bx)-.65||px>Math.max(r.ax,r.bx)+.65||pz<Math.min(r.az,r.bz)-.65||pz>Math.max(r.az,r.bz)+.65)continue;
    const dx=r.bx-r.ax,dz=r.bz-r.az,t=clamp(((px-r.ax)*dx+(pz-r.az)*dz)/(dx*dx+dz*dz),0,1);
-   if((px-r.ax-t*dx)**2+(pz-r.az-t*dz)**2<(radius+railRadius)**2)return false;
+   if(blocked(px-r.ax-t*dx,pz-r.az-t*dz,radius+railRadius))return true;
   }
   for(const b of obstacles){
    if(b.max.y<.22||b.min.y>1.7)continue;
-   if((px-clamp(px,b.min.x,b.max.x))**2+(pz-clamp(pz,b.min.z,b.max.z))**2<radius*radius)return false;
+   if(blocked(px-clamp(px,b.min.x,b.max.x),pz-clamp(pz,b.min.z,b.max.z),radius))return true;
   }
  }
- return true;
+ return false;
+}
+export function kartCanDrive(x,z,yaw,obstacles=[]){return !kartBlocked(x,z,yaw,obstacles)}
+function kartSlide(model,x,z,yaw,dx,dz,sliding){
+ // Project travel along the contacted rail instead of pinning both axes.
+ // Every accepted position still passes the full solid-body collision check.
+ for(let i=0;i<4;i++){
+  if(model.canDrive(x+dx,z+dz,yaw,model.obstacles))return {x:x+dx,z:z+dz};
+  if(!sliding||model.canDrive!==kartCanDrive)return null;
+  const normals=[];kartBlocked(x+dx,z+dz,yaw,model.obstacles,normals);
+  for(const n of normals){const inward=dx*n.x+dz*n.z;if(inward<0){dx-=n.x*inward;dz-=n.z*inward}}
+ }
+ return null;
 }
 // The kart faces local +Z, so the driver's right is local -X.
 export const kartSteeringAngle=(steer,speed=0,gain=1)=>clamp(-clamp(steer,-1,1)*.48*gain/(1+Math.abs(speed)*.06),-.78,.78);
@@ -71,8 +84,20 @@ export class KartDrive{
    this.speed=target+(this.speed-target)*decay;if(Math.abs(this.speed)<.004)this.speed=0;
    this.yaw+=this.speed/1.12*Math.tan(kartSteeringAngle(this.steer,this.speed,this.profile.steerGain))*step;
    const distance=this.speed*step;this.position.x+=Math.sin(this.yaw)*distance;this.position.z+=Math.cos(this.yaw)*distance;
-   // Collisions stop translation. Only the driver's steering changes heading.
-   if(!this.canDrive(this.position.x,this.position.z,this.yaw,this.obstacles)){this.position.x=oldX;this.position.z=oldZ;this.yaw=oldYaw;this.recordImpact(Math.abs(this.speed));this.speed=0;this.warning=1.2}else{this.wheelSpin+=distance/.235;this.impactTravel+=Math.abs(distance)}
+   // At a rail the nose/tail can block steering while reverse translation is
+   // clear. Keep that translation, and apply only the safe part of the turn.
+   if(!this.canDrive(this.position.x,this.position.z,this.yaw,this.obstacles)){
+    const turn=this.yaw-oldYaw,p=kartSlide(this,oldX,oldZ,oldYaw,Math.sin(oldYaw)*distance,Math.cos(oldYaw)*distance,Math.abs(this.steer)>.01);
+    this.yaw=oldYaw;
+    if(p&&Math.hypot(p.x-oldX,p.z-oldZ)>1e-8){
+     this.recordImpact(Math.abs(this.speed));this.warning=1.2;
+     this.position.x=p.x;this.position.z=p.z;let low=0,high=1;
+     for(let i=0;i<10;i++){const t=(low+high)/2;if(this.canDrive(p.x,p.z,oldYaw+turn*t,this.obstacles))low=t;else high=t}
+     this.yaw=oldYaw+turn*low;
+     this.speed*=Math.min(1,Math.hypot(p.x-oldX,p.z-oldZ)/Math.abs(distance));
+    }else{this.position.x=oldX;this.position.z=oldZ;this.recordImpact(Math.abs(this.speed));this.speed=0;this.warning=1.2}
+   }
+   const travelled=Math.hypot(this.position.x-oldX,this.position.z-oldZ);this.wheelSpin+=Math.sign(distance)*travelled/.235;this.impactTravel+=travelled;
    const current=Math.atan2(this.position.x/KART_TRACK.rx,this.position.z/KART_TRACK.rz),delta=Math.atan2(Math.sin(current-previous),Math.cos(current-previous));this.lapProgress+=delta;
    if(this.lapProgress>=Math.PI*2){this.laps++;this.lapProgress-=Math.PI*2}
   }

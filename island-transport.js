@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {mountTransportPanel} from './transport-panel.js?v=72';
-import {CableTransit,KartDrive,KartTraffic,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=147';
+import {CableTransit,KartDrive,KartTraffic,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=153';
 import {mountKartControls} from './kart-controls.js?v=72';
 import {createVehicleAudio} from './vehicle-audio.js?v=149';
 

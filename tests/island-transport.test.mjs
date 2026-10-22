@@ -229,6 +229,27 @@ test('bumping a parked car transfers momentum, turns glancing contacts and respe
  const a=new KartDrive({spawn:{x:-3,y:.06,z:9.4}}),b=new KartDrive(),traffic=new KartTraffic([a,b]);advance(traffic,2);assert.equal(a.position.x,-3);assert.equal(b.position.x,0);
  traffic.bodies[0].x=2;traffic.reset(0);assert.equal(traffic.bodies[0].x,0);
 });
+test('reverse steering escapes a parked car pinned against a curved rail at every refresh rate',()=>{
+ for(const profile of Object.values(KART_PROFILES))for(const angle of [.1,1,3,5,6]){
+  const results=[30,60,120].map(hz=>{
+   const a=new KartDrive({profile,spawn:{x:Math.sin(angle)*8,y:.06,z:Math.cos(angle)*10.2}}),b=new KartDrive({spawn:{x:Math.sin(angle+.24)*8,y:.06,z:Math.cos(angle+.24)*10.2}});
+   a.yaw=Math.atan2(Math.cos(angle)*8,-Math.sin(angle)*10.2);b.yaw=a.yaw-.45;
+   const traffic=new KartTraffic([a,b]),check=()=>{for(const m of [a,b])assert.ok(kartCanDrive(m.position.x,m.position.z,m.yaw),'escape crossed a solid rail')};check();
+   for(let i=0;i<2*hz;i++){traffic.update(1/hz,0,{throttle:1});check()}
+   assert.ok(traffic.contacts>0,'test must include contact with the parked kart');
+   const start={...a.position};
+   for(let i=0;i<3*hz;i++){traffic.update(1/hz,0,{throttle:-1,steer:angle===6?1:-1});check()}
+   assert.ok(Math.hypot(a.position.x-start.x,a.position.z-start.z)>.65,`${profile.id} stayed pinned at curve ${angle}`);
+   return {...a.position,yaw:a.yaw};
+  });
+  for(const p of results)for(const key of ['x','z','yaw'])assert.ok(Math.abs(p[key]-results[0][key])<.002,'escape depends on refresh rate');
+ }
+});
+test('a rail may limit steering without disabling safe reverse translation',()=>{
+ const k=new KartDrive({profile:KART_PROFILES.speed,spawn:{x:0,y:.06,z:10.2}});advance(k,1.5,60,{throttle:1});const start={...k.position};assert.equal(k.speed,0);
+ for(let i=0;i<360;i++){k.update(1/120,{throttle:-1,steer:-1});assert.ok(kartCanDrive(k.position.x,k.position.z,k.yaw))}
+ assert.ok(Math.hypot(k.position.x-start.x,k.position.z-start.z)>.65,'steering locked reverse against the rail');
+});
 test('parked-car rebound stays visible after the driver exits and camera ownership stays with the selected car',()=>{
  const {viewer,world,controller,panel}=setup('kart'),classic=controller.models[0],fast=controller.models[1];
  classic.position={x:0,y:.06,z:9.4};fast.position={x:-3,y:.06,z:9.4};viewer.camera.position.set(-2,1.69,9.4);advance(controller,.2);
