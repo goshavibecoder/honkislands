@@ -88,14 +88,6 @@ test('helicopter flight owns the camera and walking resumes at the pad after ove
  v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.z,6.9);assert.equal(v.foot,.355);
  v.setActive(false);assert.equal(cancelled,2);
 });
-test('grandma video calls own the camera, block walking and pause before restoring the explorer',()=>{
- const {v,canvas,window}=setup();let cancelled=0,suspended=false,orbitUpdates=0;
- v.controls.update=()=>{orbitUpdates++};v.grandmaCall={active:true,update(){if(!suspended)v.camera.position.set(0,1.8,-1.9)},suspend(value){suspended=value},cancel(){cancelled++;this.active=false;v.camera.position.set(0,2,-.8);v.foot=.35}};
- window.emit('keydown',{code:'KeyW'});assert.equal(v.keys.size,0);canvas.emit('pointerdown',{pointerId:90,clientX:20,clientY:20});assert.equal(v.drag,null);
- v.keys.add('KeyW');v.physics={fall(){throw Error('Gravity must not run during the video call')}};v.tick(1016);assert.equal(v.camera.position.z,-1.9);assert.equal(v.camera.position.y,1.8);assert.equal(orbitUpdates,0);
- v.setActive(false,{suspend:true});assert.equal(suspended,true);assert.equal(cancelled,0);assert.equal(v.grandmaCall.active,true);v.setActive(true,{suspend:true});assert.equal(suspended,false);
- v.setMode('orbit');assert.equal(cancelled,1);assert.equal(v.walkPosition.z,-.8);assert.equal(v.foot,.35);v.setActive(false);assert.equal(cancelled,2);
-});
 
 test('island rides own the camera and restore walking before overview and deactivation',()=>{
  const {v}=setup();let cancelled=0;

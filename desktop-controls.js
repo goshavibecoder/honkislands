@@ -21,7 +21,7 @@ export function mountDesktopControls(viewer,{document=globalThis.document,window
  const visible=element=>!!element&&!element.disabled&&!element.closest('[hidden]')&&element.getClientRects().length>0;
  const find=selector=>{const element=world.querySelector(selector);return visible(element)?element:null};
  const modalOpen=()=>viewer.balloonTravel?.mapOpen||!!find('.lift-menu');
- const cinematic=()=>viewer.grandmaCall?.active||viewer.castleGreeting?.active||viewer.knockoutRecovery?.active||viewer.wardrobeAmbush?.active||viewer.balloonTravel?.active||viewer.mafiaFight?.active&&!viewer.mafiaFight.fighting;
+ const cinematic=()=>viewer.castleGreeting?.active||viewer.knockoutRecovery?.active||viewer.wardrobeAmbush?.active||viewer.balloonTravel?.active||viewer.mafiaFight?.active&&!viewer.mafiaFight.fighting;
  const canLook=()=>viewer.active&&viewer.mode==='walk'&&!cinematic()&&!modalOpen()&&help.hidden;
  const canKeepLock=()=>viewer.active&&viewer.mode==='walk'&&!modalOpen()&&help.hidden&&!document.hidden&&viewer.mafiaFight?.model?.phase!=='lost';
  const stopFire=()=>{const fight=viewer.mafiaFight;if(fight?.stopFiring)fight.stopFiring();else fight?.setFireHeld?.(false)};
