@@ -242,3 +242,14 @@ test('the sports racer keeps the original footprint and all moving meshes remain
  assert.ok(sport.vehicle.getObjectByName('Speed_low_windscreen'));assert.ok(sport.vehicle.getObjectByName('Speed_kart_rear_wing'));
  for(const car of before.cars){let count=0;car.vehicle.traverse(o=>{if(o.isMesh){count++;assert.equal(o.userData.islandRide,true);assert.ok(o.geometry.attributes.position.array.every(Number.isFinite))}});assert.ok(count<45)}
 });
+test('real wall and car contacts produce impact events without repeated wall-pushing sounds',()=>{
+ for(const hz of [30,60,120]){
+  const k=new KartDrive({canDrive:x=>x<1});advance(k,2,hz,{throttle:1});assert.ok(k.impactSerial>0);assert.ok(k.impactStrength>.35);const hits=k.impactSerial;advance(k,2,hz,{throttle:1});assert.equal(k.impactSerial,hits);
+  const a=new KartDrive({spawn:{x:-3,y:.06,z:9.4}}),b=new KartDrive(),t=new KartTraffic([a,b]);for(let i=0;i<hz;i++)t.update(1/hz,0,{throttle:1});assert.ok(a.impactSerial>0&&b.impactSerial>0);
+ }
+});
+test('controller plays a collision only for its occupied car and does not replay it on boarding',()=>{
+ const hits=[],audio={unlock(){},prepare(){return Promise.resolve(true)},update(s){this.state=s},impact(s){hits.push(s)},stop(){},dispose(){}},e=setup('kart',{makeAudio:()=>audio});
+ e.controller.model.recordImpact(2);e.controller.update(0);assert.equal(hits.length,0);e.panel.querySelector('.ride-board').click();e.controller.update(0);assert.equal(hits.length,0);
+ e.controller.models[1].position.x=-100;e.controller.model.canDrive=x=>x<1;e.viewer.keys.add('KeyW');advance(e.controller,2);assert.equal(hits.length,1,JSON.stringify(hits));assert.ok(hits[0]>.35);advance(e.controller,2);assert.equal(hits.length,1,JSON.stringify(hits));e.controller.dispose();
+});

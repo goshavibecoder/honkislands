@@ -1,5 +1,5 @@
 import {mountTransportPanel} from './transport-panel.js?v=72';
-import {createVehicleAudio} from './vehicle-audio.js?v=146';
+import {createVehicleAudio} from './vehicle-audio.js?v=147';
 const mix=(a,b,t)=>a+(b-a)*t,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),ease=t=>t*t*t*(10+t*(-15+6*t)),angle=v=>Math.atan2(Math.sin(v),Math.cos(v));
 
 // Free flight reaches the castle. Only the outer play area is clamped; solid

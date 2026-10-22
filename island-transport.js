@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {mountTransportPanel} from './transport-panel.js?v=72';
-import {CableTransit,KartDrive,KartTraffic,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=115';
+import {CableTransit,KartDrive,KartTraffic,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=147';
 import {mountKartControls} from './kart-controls.js?v=72';
-import {createVehicleAudio} from './vehicle-audio.js?v=146';
+import {createVehicleAudio} from './vehicle-audio.js?v=147';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
 export function mountIslandTransport(viewer,world,{makeAudio=createVehicleAudio}={}){
@@ -11,7 +11,7 @@ export function mountIslandTransport(viewer,world,{makeAudio=createVehicleAudio}
  const board=panel.querySelector('.ride-board'),fastBoard=panel.querySelector('.ride-board-fast'),dashboard=panel.querySelector('.ride-dashboard'),title=panel.querySelector('strong'),output=panel.querySelector('output'),status=panel.querySelector('.ride-status'),trip=panel.querySelector('.ride-trip'),brake=panel.querySelector('.ride-brake'),camera=panel.querySelector('.ride-camera'),exit=panel.querySelector('.ride-exit'),speed=panel.querySelector('.ride-speed'),host=document.getElementById('world');host.append(panel);const compactPanel=mountTransportPanel(panel,cable?'CABLE CAR':'HONK • KART CIRCUIT');
  title.textContent=cable?'HONK • CABLE CAR':'HONK • KART CIRCUIT';trip.hidden=!cable;brake.hidden=cable;speed.hidden=!cable;
  const gameControls=cable?null:mountKartControls(host),traffic=cable?null:new KartTraffic(models),audio=makeAudio({kind:cable?'cable':'kart'});
- let saved=null,inside=cable,braking=false,boarding=0,exiting=null,near=-1,uiTime=0,disposed=false,boardStation=0,cameraCheck=0,cameraClearance=Infinity;
+ let saved=null,inside=cable,braking=false,boarding=0,exiting=null,near=-1,uiTime=0,disposed=false,boardStation=0,cameraCheck=0,cameraClearance=Infinity,lastImpact=0;
  const ray=new THREE.Raycaster(),from=new THREE.Vector3(),desired=new THREE.Vector3(),target=new THREE.Vector3(),hit=new THREE.Vector3(),targetRotation=new THREE.Quaternion();
  function poseAll(){if(cable)return;for(let i=0;i<models.length;i++){const m=models[i];world.setCarPose?.(i,m.position,m.yaw,m.wheelSpin,m.steer,m.speed)}}
  function pose(){if(cable){world.setPose(model.position);world.setDoors?.(model.door)}else world.setPose(model.position,model.yaw,model.wheelSpin,model.steer,model.speed)}
@@ -31,7 +31,7 @@ export function mountIslandTransport(viewer,world,{makeAudio=createVehicleAudio}
   model=models[index];world.selectCar?.(index);pose();begin();sync();
  }
  function begin(){
-  audio.unlock();void audio.prepare();
+  lastImpact=model.impactSerial||0;audio.unlock();void audio.prepare();
   const fast=!cable&&model.profile.id==='speed';
   title.textContent=cable?'HONK • CABLE CAR':fast?'HONK • SPEED KART ×3':'HONK • CLASSIC KART';
   if(!cable){compactPanel.button.textContent=fast?'SPEED KART ×3 ⋯':'CLASSIC KART ⋯';compactPanel.button.setAttribute('aria-label',fast?'Speed kart: open or collapse menu':'Classic kart: open or collapse menu');gameControls.element.querySelector('.kart-stick-label').textContent=fast?'QUICK STEER':'STEER'}
@@ -104,6 +104,7 @@ export function mountIslandTransport(viewer,world,{makeAudio=createVehicleAudio}
     }
    }
    audio.update({active:!!saved&&!exiting&&viewer.active,speed:cable?model.speedMultiplier:model.speed,throttle,fast:model.profile?.id==='speed',cabin:inside,paused:viewer.desktopControls?.menuOpen});
+   if(!cable&&model.impactSerial!==lastImpact){lastImpact=model.impactSerial;if(saved&&!exiting&&viewer.active)audio.impact?.(model.impactStrength)}
    uiTime-=dt;if(uiTime<=0){uiTime=.10;sync()}
   },
   cancel(){audio.stop();if(saved){if(cable)model.reset(boardStation);else{model.reset();traffic.reset(models.indexOf(model))}pose();restore()}else if(cable&&model.moving){model.reset(model.station);pose()}sync()},

@@ -1,11 +1,11 @@
-export const VEHICLE_SOUNDS={engine:'./assets/vehicle-engine-v146.wav',rotor:'./assets/vehicle-rotor-v146.wav',explosion:'./assets/vehicle-explosion-v146.mp3'};
+export const VEHICLE_SOUNDS={engine:'./assets/vehicle-engine-v146.wav',rotor:'./assets/vehicle-rotor-v147.wav',impact:'./assets/vehicle-impact-v147.wav',explosion:'./assets/vehicle-explosion-v146.mp3'};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 // A loop is one decoded recording and one live source, regardless of frame rate.
 // The latest ride state also guards asynchronous loads from starting after exit.
 export function createVehicleAudio({kind='kart',Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetcher=globalThis.fetch,document:doc=globalThis.document,window:win=globalThis.window}={}){
  const recording=kind==='helicopter'?'rotor':'engine',buffers=new Map(),pending=new Map(),voices=new Set();
- let context=null,master=null,loop=null,disposed=false,focused=true,wanted={active:false,paused:false};
+ let context=null,master=null,loop=null,disposed=false,focused=true,lastImpact=-Infinity,wanted={active:false,paused:false};
  function init(){
   if(disposed||!Context)return null;
   if(!context){context=new Context();master=context.createGain();master.gain.value=.65;const limiter=context.createDynamicsCompressor();limiter.threshold.value=-10;limiter.knee.value=12;limiter.ratio.value=6;limiter.attack.value=.005;limiter.release.value=.15;master.connect(limiter);limiter.connect(context.destination)}
@@ -34,12 +34,13 @@ export function createVehicleAudio({kind='kart',Context=globalThis.AudioContext|
   if(buffers.has(name))return Promise.resolve(true);if(pending.has(name))return pending.get(name);
   const task=Promise.resolve().then(async()=>{const response=await fetcher(VEHICLE_SOUNDS[name]);if(!response.ok)throw Error('Vehicle audio '+response.status);const bytes=await response.arrayBuffer();if(disposed)return false;const buffer=await context.decodeAudioData(bytes);if(disposed)return false;buffers.set(name,buffer);sync();return true}).catch(()=>false).finally(()=>pending.delete(name));pending.set(name,task);return task;
  }
- function prepare(){try{if(!init())return Promise.resolve(false);return Promise.all((kind==='helicopter'?[recording,'explosion']:[recording]).map(load)).then(result=>result.every(Boolean))}catch{return Promise.resolve(false)}}
+ function prepare(){try{if(!init())return Promise.resolve(false);return Promise.all((kind==='helicopter'?[recording,'explosion']:kind==='kart'?[recording,'impact']:[recording]).map(load)).then(result=>result.every(Boolean))}catch{return Promise.resolve(false)}}
  function unlock(){try{if(!init())return;focused=true;if(context.state==='suspended')Promise.resolve(context.resume()).then(sync).catch(()=>{});else sync()}catch{}}
  const gesture=()=>{if(wanted.active){unlock();void prepare()}},visibility=()=>{if(doc?.hidden)stopVoices()},blur=()=>{focused=false;stopVoices()},focus=()=>{focused=true};
  doc?.addEventListener?.('visibilitychange',visibility);win?.addEventListener?.('blur',blur);win?.addEventListener?.('focus',focus);win?.addEventListener?.('pointerdown',gesture,true);win?.addEventListener?.('keydown',gesture,true);
  return {prepare,unlock,
   update(state){if(disposed)return;wanted={...state};if(wanted.paused)stopVoices();sync()},
+  impact(strength){if(!wanted.active||!audible()||!buffers.has('impact')||!Number.isFinite(strength)||strength<.35||context.currentTime-lastImpact<.25)return false;lastImpact=context.currentTime;const item=voice('impact');item.gain.gain.value=.18+clamp(strength/8,0,1)*.62;item.source.playbackRate.value=1.05-clamp(strength/10,0,1)*.18;return true},
   explode(){if(!audible()||!buffers.has('explosion'))return false;stopLoop();const item=voice('explosion');item.gain.gain.value=.72;return true},
   stop(){wanted={active:false,paused:false};stopVoices()},
   dispose(){if(disposed)return;this.stop();disposed=true;doc?.removeEventListener?.('visibilitychange',visibility);win?.removeEventListener?.('blur',blur);win?.removeEventListener?.('focus',focus);win?.removeEventListener?.('pointerdown',gesture,true);win?.removeEventListener?.('keydown',gesture,true);buffers.clear();master?.disconnect();context?.close()?.catch(()=>{})}

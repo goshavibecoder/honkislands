@@ -27,7 +27,7 @@ function setup(kind='kart',fetcher){
  return {audio,document,window,requests,get context(){return Context.instances.at(-1)}};
 }
 test('engine uses a single decoded loop while pitch and loudness follow acceleration and reverse',async()=>{
- const e=setup();await Promise.all([e.audio.prepare(),e.audio.prepare()]);assert.equal(e.requests.length,1);e.audio.unlock();e.audio.update({active:true,speed:0});await Promise.resolve();const source=e.context.sources[0],idle=source.playbackRate.value,quiet=source.target.target.gain.value;assert.equal(source.loop,true);
+ const e=setup();await Promise.all([e.audio.prepare(),e.audio.prepare()]);assert.equal(e.requests.length,2);e.audio.unlock();e.audio.update({active:true,speed:0});await Promise.resolve();const source=e.context.sources[0],idle=source.playbackRate.value,quiet=source.target.target.gain.value;assert.equal(source.loop,true);
  for(let i=0;i<600;i++)e.audio.update({active:true,speed:3.2,throttle:1});assert.equal(e.context.sources.length,1);assert.ok(source.playbackRate.value>idle);assert.ok(source.target.target.gain.value>quiet);const forward=source.playbackRate.value;e.audio.update({active:true,speed:-3.2,throttle:-1});assert.equal(source.playbackRate.value,forward);e.audio.stop();assert.ok(source.stopped&&source.disconnected);e.audio.dispose();assert.ok(e.context.closed);
 });
 test('rotor spins up, cockpit muffles it, and a recorded explosion replaces the loop without being cut off by crashed updates',async()=>{
@@ -44,4 +44,10 @@ test('a late download after stepping out cannot start an engine or play a delaye
 test('failed downloads retry and disposing while loading cannot decode on a closed context',async()=>{
  let available=false;const e=setup('kart',async()=>{if(!available)throw Error('offline');return {ok:true,arrayBuffer:async()=>new ArrayBuffer(2)}});assert.equal(await e.audio.prepare(),false);available=true;assert.equal(await e.audio.prepare(),true);e.audio.dispose();
  let finish;const waiting=new Promise(resolve=>finish=resolve),late=setup('kart',async()=>{await waiting;return {ok:true,arrayBuffer:async()=>new ArrayBuffer(2)}}),loading=late.audio.prepare();late.audio.dispose();finish();assert.equal(await loading,false);assert.equal(late.context.decodes,0);assert.equal(late.context.sources.length,0);
+});
+test('collision impacts follow strength, keep engine running and suppress repeated or inactive hits',async()=>{
+ const e=setup();await e.audio.prepare();e.audio.unlock();e.audio.update({active:true,speed:2});await Promise.resolve();const engine=e.context.sources[0];
+ assert.equal(e.audio.impact(.1),false);assert.equal(e.audio.impact(1),true);const soft=e.context.sources[1];assert.equal(soft.loop,false);assert.equal(engine.stopped,undefined);assert.equal(e.audio.impact(8),false);
+ e.context.currentTime=.3;assert.equal(e.audio.impact(8),true);assert.ok(e.context.sources[2].target.target.gain.value>soft.target.target.gain.value);
+ e.audio.update({active:true,paused:true});assert.ok(soft.stopped);e.context.currentTime=1;assert.equal(e.audio.impact(8),false);e.audio.stop();assert.equal(e.audio.impact(8),false);e.audio.dispose();
 });

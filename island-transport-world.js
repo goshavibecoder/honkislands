@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,KART_PROFILES,kartSteeringAngle} from './island-transport-motion.js?v=115';
+import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,KART_PROFILES,kartSteeringAngle} from './island-transport-motion.js?v=147';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createHonkKartDriver} from './kart-driver.js?v=59';
 

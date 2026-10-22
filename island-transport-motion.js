@@ -60,7 +60,8 @@ export function kartJoystickInput(x,y,{steerDeadzone=.10,steerCurve=1}={}){
 }
 export class KartDrive{
  constructor({obstacles=[],profile=KART_PROFILES.classic,spawn=null,canDrive=kartCanDrive}={}){this.obstacles=obstacles;this.profile=profile;this.spawn=spawn;this.canDrive=canDrive;this.reset()}
- reset(){this.position={...(this.spawn||{x:0,y:KART_TRACK.y,z:KART_TRACK.rz})};this.yaw=Math.PI/2;this.speed=0;this.steer=0;this.wheelSpin=0;this.laps=0;this.lapProgress=0;this.warning=0;return this}
+ reset(){this.position={...(this.spawn||{x:0,y:KART_TRACK.y,z:KART_TRACK.rz})};this.yaw=Math.PI/2;this.speed=0;this.steer=0;this.wheelSpin=0;this.laps=0;this.lapProgress=0;this.warning=0;this.impactSerial=0;this.impactStrength=0;this.impactTravel=Infinity;return this}
+ recordImpact(strength){if(strength>=.35&&this.impactTravel>=.12){this.impactSerial++;this.impactStrength=strength;this.impactTravel=0}}
  update(dt,{throttle=0,steer=0,brake=false}={}){
   let remaining=clamp(dt,0,.25);this.warning=Math.max(0,this.warning-remaining);
   while(remaining>1e-9){const step=Math.min(remaining,1/120);remaining-=step;
@@ -71,7 +72,7 @@ export class KartDrive{
    this.yaw+=this.speed/1.12*Math.tan(kartSteeringAngle(this.steer,this.speed,this.profile.steerGain))*step;
    const distance=this.speed*step;this.position.x+=Math.sin(this.yaw)*distance;this.position.z+=Math.cos(this.yaw)*distance;
    // Collisions stop translation. Only the driver's steering changes heading.
-   if(!this.canDrive(this.position.x,this.position.z,this.yaw,this.obstacles)){this.position.x=oldX;this.position.z=oldZ;this.yaw=oldYaw;this.speed=0;this.warning=1.2}else this.wheelSpin+=distance/.235;
+   if(!this.canDrive(this.position.x,this.position.z,this.yaw,this.obstacles)){this.position.x=oldX;this.position.z=oldZ;this.yaw=oldYaw;this.recordImpact(Math.abs(this.speed));this.speed=0;this.warning=1.2}else{this.wheelSpin+=distance/.235;this.impactTravel+=Math.abs(distance)}
    const current=Math.atan2(this.position.x/KART_TRACK.rx,this.position.z/KART_TRACK.rz),delta=Math.atan2(Math.sin(current-previous),Math.cos(current-previous));this.lapProgress+=delta;
    if(this.lapProgress>=Math.PI*2){this.laps++;this.lapProgress-=Math.PI*2}
   }
@@ -100,8 +101,8 @@ export class KartTraffic{
     if(i!==active&&Math.abs(m.steer)<.0001)m.steer=0;
     if(!b.x&&!b.z&&!b.spin)continue;
     const dx=b.x*step,dz=b.z*step,yaw=m.yaw+b.spin*step;
-    if(m.canDrive(m.position.x+dx,m.position.z+dz,yaw,m.obstacles)){m.position.x+=dx;m.position.z+=dz;m.yaw=yaw;m.wheelSpin+=(dx*Math.sin(yaw)+dz*Math.cos(yaw))/.235}
-    else{b.x=b.z=b.spin=0;m.warning=1.2}
+    if(m.canDrive(m.position.x+dx,m.position.z+dz,yaw,m.obstacles)){m.position.x+=dx;m.position.z+=dz;m.yaw=yaw;m.impactTravel+=Math.hypot(dx,dz);m.wheelSpin+=(dx*Math.sin(yaw)+dz*Math.cos(yaw))/.235}
+    else{m.recordImpact(Math.hypot(b.x,b.z));b.x=b.z=b.spin=0;m.warning=1.2}
     const drag=Math.exp(-5.2*step);b.x*=drag;b.z*=drag;b.spin*=Math.exp(-8*step);
     if(Math.hypot(b.x,b.z)<.008)b.x=b.z=0;if(Math.abs(b.spin)<.004)b.spin=0;
    }
@@ -116,6 +117,7 @@ export class KartTraffic{
   const overlap=1.14-c.distance+.0001,ma=move(a,-overlap/2),mb=move(b,overlap/2);
   if(!ma&&mb)move(b,overlap/2);if(ma&&!mb)move(a,-overlap/2);
   if(closing<=0)return;
+  a.recordImpact(closing);b.recordImpact(closing);
   const impulse=Math.min(6,closing*.60);
   const assign=(m,body,vx,vz,driven)=>{m.speed=driven?vx*Math.sin(m.yaw)+vz*Math.cos(m.yaw):0;body.x=vx-Math.sin(m.yaw)*m.speed;body.z=vz-Math.cos(m.yaw)*m.speed;const length=Math.hypot(body.x,body.z);if(length>6){body.x*=6/length;body.z*=6/length}};
   assign(a,A,avx-c.nx*impulse,avz-c.nz*impulse,i===active);assign(b,B,bvx+c.nx*impulse,bvz+c.nz*impulse,j===active);
