@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {mountTransportPanel} from './transport-panel.js?v=72';
 import {CableTransit,KartDrive,KartTraffic,CABLE_STATIONS,kartJoystickInput} from './island-transport-motion.js?v=147';
 import {mountKartControls} from './kart-controls.js?v=72';
-import {createVehicleAudio} from './vehicle-audio.js?v=147';
+import {createVehicleAudio} from './vehicle-audio.js?v=149';
 
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*t*(10+t*(-15+6*t))};
 export function mountIslandTransport(viewer,world,{makeAudio=createVehicleAudio}={}){

@@ -1,13 +1,14 @@
-HONK vehicle recordings (v147)
+HONK vehicle recordings (v149)
 
 Engine loop: domasx2, racing car engine sound loops, loop_0.wav
 https://opengameart.org/content/racing-car-engine-sound-loops
 https://opengameart.org/sites/default/files/loop_0.wav
 
-Rotor loop: aquinn, Helicopter Sounds
-https://opengameart.org/content/helicopter-sounds
-https://opengameart.org/sites/default/files/helicopter_0.mp3
-Edit: steady 0.7–3.5 second section, 180 ms crossfade for seamless looping.
+Rotor loop (v149): user-supplied gd_salman-helicopter-ambience-353004.mp3
+Original upload: gd_salman-helicopter-ambience-353004.mp3
+Edit: continuous 3–15 second section; 300 ms loop crossfade;
+peak normalized to 0.90 and encoded as mono 22.05 kHz / 96 kbps MP3.
+License of the uploaded recording is not asserted here.
 
 Collision: BMacZero / Brian MacIntosh, Metal Impact Sounds, thud2.wav
 https://opengameart.org/content/metal-impact-sounds
@@ -18,7 +19,7 @@ Explosion: Joth, Chunky Explosion
 https://opengameart.org/content/chunky-explosion
 https://opengameart.org/sites/default/files/Chunky%20Explosion.mp3
 
-All recordings: CC0 1.0 Universal
+Engine, collision and explosion recordings: CC0 1.0 Universal
 https://creativecommons.org/publicdomain/zero/1.0/
 Edits: mono 22.05 kHz PCM WAV loops with short seam fades;
 explosion trimmed to 2.2 seconds, faded out and converted to mono MP3.

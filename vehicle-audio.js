@@ -1,4 +1,4 @@
-export const VEHICLE_SOUNDS={engine:'./assets/vehicle-engine-v146.wav',rotor:'./assets/vehicle-rotor-v147.wav',impact:'./assets/vehicle-impact-v147.wav',explosion:'./assets/vehicle-explosion-v146.mp3'};
+export const VEHICLE_SOUNDS={engine:'./assets/vehicle-engine-v146.wav',rotor:'./assets/vehicle-rotor-v149.mp3',impact:'./assets/vehicle-impact-v147.wav',explosion:'./assets/vehicle-explosion-v146.mp3'};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 // A loop is one decoded recording and one live source, regardless of frame rate.

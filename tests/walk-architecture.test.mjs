@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import vm from 'node:vm';
+import {createAssetCache} from '../asset-loader.js';
 import * as THREE from '../vendor/three.module.min.js';
 
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
@@ -23,7 +24,7 @@ for(const slug of ['citadel','arcade-district','honkhub']){
  const room=slug==='honkhub'?prepareAntiqueRoom(scene,{balloonDoor:true}):null;
  fixtures.set(slug,{scene,room,manifest,collision:createArchitectureCollision(scene,slug)});
 }
-const context=vm.createContext({THREE,fetch:async()=>({ok:true,json:async()=>({})})});
+const context=vm.createContext({THREE,createAssetCache,fetchAssetJSON:async()=>({}),fetch:async()=>({ok:true,json:async()=>({})})});
 vm.runInContext(readFileSync(new URL('../viewer.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace('export class IslandViewer','globalThis.IslandViewer=class IslandViewer'),context);
 
 test('real castle walls, wings, towers and server partitions block a body from both sides',()=>{
