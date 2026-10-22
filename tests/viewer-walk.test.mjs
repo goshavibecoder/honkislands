@@ -56,6 +56,11 @@ test('finger ownership, look easing and blur cleanup work together',()=>{
  window.emit('blur');assert.equal(v.drag,null);assert.equal(v.stick.y,0);assert.equal(v.motion.vz,0);assert.equal(canvas.hasPointerCapture(1),false);
  const yaw=v.yaw,z=v.camera.position.z;v.tick(1048);assert.equal(v.yaw,yaw);assert.equal(v.camera.position.z,z);
 });
+test('a deliberate balloon tap stops a held movement finger and opens the map immediately',()=>{
+ const {v}=setup();let opened=0;v.gameAt=()=>({action:'balloon-map'});v.balloonTravel={active:false,openMap(){opened++;assert.equal(v.keys.size,0);assert.equal(v.stick.y,0);assert.equal(v.motion.vz,0)}};
+ v.keys.add('KeyW');v.stick.y=-1;v.motion.vz=-2;v.launchGame(75,75);assert.equal(opened,1);
+ v.gameAt=()=>({action:'wardrobe-open'});v.wardrobeAmbush={active:false,begin(){throw Error('ordinary movement must still suppress accidental interactions')}};v.keys.add('KeyW');v.launchGame(75,75);
+});
 test('desktop scene clicks cannot also start a drag or trigger a touch tap, while touch still works with a mouse attached',()=>{
  const {v,canvas}=setup({realTaps:true}),launches=[];v.arcadeTargets={};v.launchGame=(x,y)=>launches.push([x,y]);v.desktopControls={handlesMouse:true,locked:false,menuOpen:false};
  canvas.emit('pointerdown',{pointerType:'mouse',button:0,pointerId:1,clientX:40,clientY:50});assert.equal(v.drag,null);canvas.emit('pointermove',{pointerType:'mouse',pointerId:1,clientX:60,clientY:80});canvas.emit('pointerup',{pointerType:'mouse',pointerId:1,clientX:40,clientY:50});assert.equal(v.motion.targetYaw,0);assert.equal(launches.length,0);

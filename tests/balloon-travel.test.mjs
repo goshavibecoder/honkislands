@@ -41,11 +41,37 @@ test('every map offers the other five islands and boarding, arrival and cancella
  for(const island of BALLOON_ISLANDS){const host=environment(),world=prepareBalloonWorld(new THREE.Group(),island.slug),camera=new THREE.PerspectiveCamera();camera.rotation.order='YXZ';camera.position.copy(world.exit).add(new THREE.Vector3(0,1.65,0));let chosen=null;
   const viewer={slug:island.slug,active:true,mode:'walk',camera,foot:world.exit.y,yaw:0,pitch:0,motion:new WalkMotion(),config:{eye:1.65},clearWalkInput(){},onBalloonTravel:slug=>chosen=slug},controller=mountBalloonTravel(viewer,world);
   assert.ok(controller.openMap());const dialog=host.children.find(o=>o.className==='balloon-map-overlay'),buttons=dialog.querySelector('.balloon-destinations').children;assert.equal(buttons.length,6);assert.equal(buttons.filter(b=>b.disabled).length,1);buttons.find(b=>!b.disabled).click();assert.ok(chosen&&chosen!==island.slug);assert.equal(controller.mapOpen,false);
-  let fades=0;const saved=camera.position.clone(),departure=controller.depart(()=>{fades++;assert.equal(controller.model.phase,'ascending');assert.equal(controller.model.active,true)});advance(controller,.9);assert.equal(fades,0);advance(controller,.2);assert.equal(fades,1);advance(controller,2.7);assert.equal(fades,1);assert.equal(await departure,true);assert.equal(controller.active,true);assert.ok(camera.position.y>world.home.y+6);const height=camera.position.y;advance(controller,1);assert.ok(camera.position.y>height+1.9,'balloon must keep ascending while the fade finishes');
+  let fades=0;const saved=camera.position.clone(),departure=controller.depart(()=>{fades++;assert.equal(controller.model.phase,'ascending');assert.equal(controller.model.active,true)});advance(controller,.9);assert.equal(fades,0);advance(controller,.2);assert.equal(fades,1);advance(controller,2.7);assert.equal(fades,1);assert.equal(await departure,true);assert.equal(controller.active,true);assert.equal(controller.openMap(),false,'departure must keep the map locked until the island changes');assert.ok(camera.position.y>world.home.y+6);const height=camera.position.y;advance(controller,1);assert.ok(camera.position.y>height+1.9,'balloon must keep ascending while the fade finishes');
   controller.cancel();assert.ok(camera.position.distanceTo(saved)<1e-8);assert.equal(controller.active,false);
   const landing=controller.arrive();advance(controller,3.8);assert.equal(await landing,true);assert.equal(controller.active,false);assert.equal(viewer.foot,world.exit.y);assert.ok(camera.position.distanceTo(world.exit.clone().add(new THREE.Vector3(0,1.65,0)))<1e-8);
   const cancelled=controller.depart();advance(controller,.2);controller.cancel();assert.equal(await cancelled,false);controller.dispose();world.dispose();assert.ok(dialog.removed);
  }
+});
+
+test('all boarding decks accept the basket and map from both sides, including repeated visits',async()=>{
+ for(const island of BALLOON_ISLANDS){
+  const host=environment(),world=prepareBalloonWorld(new THREE.Group(),island.slug),camera=new THREE.PerspectiveCamera(66,1,.035,100);camera.rotation.order='YXZ';
+  const p=new THREE.Vector3(-2,0,.4).applyAxisAngle(new THREE.Vector3(0,1,0),world.yaw).add(world.home);
+  assert.ok(Math.hypot(p.x-world.mapPosition.x,p.z-world.mapPosition.z)>3.4,'regression must use the formerly rejected side of the basket');
+  camera.position.copy(p).add(new THREE.Vector3(0,1.65,0));camera.lookAt(world.home.clone().add(new THREE.Vector3(0,.7,0)));
+  const v={slug:island.slug,active:true,mode:'walk',camera,foot:world.home.y,yaw:0,pitch:0,motion:new WalkMotion(),config:{eye:1.65},clearWalkInput(){}},c=mountBalloonTravel(v,world);
+  assert.ok(world.canBoard(camera.position,v.foot));assert.ok(world.pick(camera,new THREE.Vector2(),v.foot),'basket should be tappable from the other side');
+  for(let n=0;n<3;n++){assert.ok(c.openMap());assert.ok(c.mapOpen);c.cancel();assert.equal(c.mapOpen,false)}
+  camera.position.copy(world.mapPosition).addScaledVector(world.outward,-3.8).add(new THREE.Vector3(0,1.65,0));camera.lookAt(world.mapPosition.clone().add(new THREE.Vector3(0,1.5,0)));
+  assert.ok(world.pick(camera,new THREE.Vector2(),v.foot),'a selectable map must also be close enough to use');assert.ok(c.openMap());c.cancel();
+  const landing=c.arrive();advance(c,3.8);assert.equal(await landing,true);assert.ok(c.openMap(),'map must reopen after a completed landing');c.cancel();
+  camera.position.copy(world.home).add(new THREE.Vector3(0,1.65,15));assert.equal(c.openMap(),false);camera.position.copy(p).add(new THREE.Vector3(0,5,0));v.foot=world.home.y+3.35;assert.equal(c.openMap(),false);assert.equal(world.pick(camera,new THREE.Vector2(),v.foot),false);
+  assert.ok(host.children.length===2);c.dispose();world.dispose();
+ }
+});
+
+test('cinematics cannot capture a balloon menu and finishing them restores boarding',()=>{
+ environment();const world=prepareBalloonWorld(new THREE.Group(),'honkhub'),camera=new THREE.PerspectiveCamera();camera.position.copy(world.exit).add(new THREE.Vector3(0,1.65,0));
+ const v={slug:'honkhub',active:true,mode:'walk',camera,foot:world.exit.y,yaw:0,pitch:0,motion:new WalkMotion(),config:{eye:1.65},clearWalkInput(){}},c=mountBalloonTravel(v,world);
+ for(const name of ['castleGreeting','wardrobeAmbush','knockoutRecovery','mafiaFight','mountainSki','islandTransport','helicopterFlight','galleryLift']){
+  v[name]={active:true};assert.equal(c.openMap(),false,name);c.update(.2);v[name].active=false;assert.ok(c.openMap(),'boarding stays blocked after '+name);c.cancel();
+ }
+ assert.ok(c.openMap());v.castleGreeting.active=true;c.update(.2);assert.equal(c.mapOpen,false);v.castleGreeting.active=false;assert.ok(c.openMap());v.active=false;c.update(.2);assert.equal(c.mapOpen,false);v.active=true;assert.ok(c.openMap());c.dispose();world.dispose();
 });
 
 test('all six real islands have supported, unobstructed approaches to their balloon maps',async()=>{

@@ -68,9 +68,14 @@ export function prepareBalloonWorld(root,slug,{mapImages=[]}={}){
  group.updateWorldMatrix(true,true);extraBoxes.push(new THREE.Box3().setFromObject(stand));const hitMaterial=new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),hitMesh=new THREE.Mesh(board.geometry.clone().applyMatrix4(board.matrixWorld),hitMaterial);hitMesh.updateMatrixWorld();
  const mapPosition=stand.getWorldPosition(new THREE.Vector3()),exit=local(0,.013,-1.95),bounds=new THREE.Box3().setFromObject(group),ray=new THREE.Raycaster();
  const basketBounds=new THREE.Box3().setFromCenterAndSize(home.clone().add(new THREE.Vector3(0,.65,0)),new THREE.Vector3(1.9,1.3,1.9));extraBoxes.push(basketBounds);
- return {group,vehicle,home,outward,yaw,exit,mapPosition,bounds,navPositions,extraBoxes,
+ const basketHit=new THREE.Mesh(new THREE.BoxGeometry(1.9,1.4,1.9),hitMaterial);basketHit.position.copy(home).add(new THREE.Vector3(0,.7,0));basketHit.rotation.y=yaw;basketHit.updateMatrixWorld();
+ const world={group,vehicle,home,outward,yaw,exit,mapPosition,bounds,navPositions,extraBoxes,
+  // The entire boarding deck is usable, including the side opposite the map.
+  // Picking, the nearby button and opening the menu share this same boundary.
+  canBoard(position,foot=position.y-1.65){return Math.abs(foot-home.y)<.75&&[home,...(world.mapPositions||[mapPosition])].some(p=>Math.hypot(position.x-p.x,position.z-p.z)<4)},
   setPose(p,burning=false){vehicle.position.set(p.x,p.y,p.z);flame.visible=burning},
-  pick(camera,point){camera.updateMatrixWorld();ray.setFromCamera(point,camera);ray.far=5;return !!ray.intersectObject(hitMesh,false).length},
-  dispose(){hitMesh.geometry.dispose();hitMaterial.dispose()}
+  pick(camera,point,foot){if(!world.canBoard(camera.position,foot))return false;camera.updateMatrixWorld();ray.setFromCamera(point,camera);ray.far=5;return !!ray.intersectObjects([hitMesh,basketHit],false).length},
+  dispose(){hitMesh.geometry.dispose();basketHit.geometry.dispose();hitMaterial.dispose()}
  };
+ return world;
 }

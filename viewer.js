@@ -7,8 +7,8 @@ import {createArchitectureCollision} from './walk-architecture.js?v=77';
 import {prepareArenaAudience} from './arena-crowd.js?v=88';
 import {prepareGroypAir} from './groyp-air.js?v=120';
 import {prepareVisualQuality} from './visual-quality.js?v=72';
-import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=95';
-import {mountBalloonTravel} from './balloon-travel.js?v=90';
+import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=156';
+import {mountBalloonTravel} from './balloon-travel.js?v=156';
 import {MobileRenderQuality} from './mobile-render-quality.js?v=59';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
@@ -160,17 +160,20 @@ export class IslandViewer {
   if(!this.active||this.mafiaFight?.active||this.mafiaFight?.loading||this.castleGreeting?.active||this.knockoutRecovery?.active||this.wardrobeAmbush?.active)return null;
   const r=this.renderer.domElement.getBoundingClientRect();const point=new THREE.Vector2((clientX-r.left)/r.width*2-1,-(clientY-r.top)/r.height*2+1);
   if(this.mode==='walk'&&this.antiqueRoom?.wardrobe?.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean)))return {action:'wardrobe-open',title:'Open wardrobe'};
-  if(this.groypAir?.pick(this.camera,point))return {action:'balloon-map',title:'GROYP AIR flight desk'};
-  if(this.balloonWorld?.pick(this.camera,point))return {action:'balloon-map',title:'Flight map'};
+  if(this.mode==='walk'&&this.balloonWorld?.canBoard(this.camera.position,this.foot)&&this.groypAir?.pick(this.camera,point))return {action:'balloon-map',title:'GROYP AIR flight desk'};
+  if(this.mode==='walk'&&this.balloonWorld?.pick(this.camera,point,this.foot))return {action:'balloon-map',title:'Flight map'};
   return this.arcadeTargets?.pick(this.camera,point,[this.staticGroup,this.root].filter(Boolean),this.mode==='walk'&&this.slug!=='goat-mountain'?12:Infinity);
  }
  launchGame(clientX,clientY){
   if(this.mafiaFight?.active)return this.mafiaFight.shoot();
-  if(this.castleGreeting?.active||this.knockoutRecovery?.active||this.wardrobeAmbush?.active||this.mountainSki?.active||this.balloonTravel?.active||this.galleryLift?.active||this.helicopterFlight?.active||this.islandTransport?.active||Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size||Math.hypot(this.motion.vx,this.motion.vz)>.12)return;
+  if(this.castleGreeting?.active||this.knockoutRecovery?.active||this.wardrobeAmbush?.active||this.mountainSki?.active||this.balloonTravel?.active||this.galleryLift?.active||this.helicopterFlight?.active||this.islandTransport?.active)return;
   const game=this.gameAt(clientX,clientY);if(!game)return;
+  // An intentional tap on the flight map/basket stops the walker first. A
+  // held movement finger or residual velocity must not swallow this action.
+  if(game.action==='balloon-map'){this.clearWalkInput();return this.balloonTravel?.openMap()}
+  if(Math.hypot(this.stick.x,this.stick.y)>.05||this.keys.size||Math.hypot(this.motion.vx,this.motion.vz)>.12)return;
   this.clearWalkInput();
   if(game.action==='wardrobe-open')return this.wardrobeAmbush?.begin();
-  if(game.action==='balloon-map')return this.balloonTravel?.openMap();
   if(game.action==='honk'){
    const circus=this.arenaCircus;return circus?.honk(game.nose).then(ok=>{if(!ok&&this.active&&this.arenaCircus===circus&&circus.soundError){const hint=document.getElementById('hint');hint.textContent='Tap the nose again to enable the horn';hint.classList.remove('fade')}return ok});
   }
