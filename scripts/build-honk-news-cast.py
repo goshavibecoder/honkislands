@@ -1,0 +1,67 @@
+"""Reuse the colosseum cast's original colours, UVs and faces for HONK NEWS."""
+import base64
+import gzip
+import json
+import math
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+
+def packed(name):
+    manifest = json.loads((root / 'models' / name).read_text())
+    content = ''.join(json.loads((root / 'models' / part).read_text()) for part in manifest['parts'])
+    return json.loads(gzip.decompress(base64.b64decode(content)))
+
+data = packed('arena-crowd-v84.json')
+data['honk'] = packed('arena-honk-seated-v88.json')
+result = {'source': 'Original colosseum audience / goshavibecoder/Teledog', 'texture': data['texture'], 'characters': {}}
+for name in ['honk', 'fast', 'teledog', 'groyper', 'zoich']:
+    source = data[name]['low']
+    if 'normals' not in source:
+        points = source['positions']
+        normals = [0.0] * len(points)
+        for i in range(0, len(source['indices']), 3):
+            ids = source['indices'][i:i+3]
+            a, b, c = [points[v*3:v*3+3] for v in ids]
+            u, v = [b[k]-a[k] for k in range(3)], [c[k]-a[k] for k in range(3)]
+            n = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]]
+            for vertex in ids:
+                for k in range(3):
+                    normals[vertex*3+k] += n[k]
+        for i in range(0, len(normals), 3):
+            length = math.sqrt(sum(x*x for x in normals[i:i+3])) or 1
+            normals[i:i+3] = [x/length for x in normals[i:i+3]]
+        source['normals'] = normals
+    channels = {'positions': 3, 'colors': 3}
+    if 'normals' in source:
+        channels['normals'] = 3
+    if 'uv' in source:
+        channels['uv'] = 2
+    out = {key: [] for key in channels}
+    out['indices'] = []
+    # Replace the seated lower body with animated walking legs; keep the face,
+    # rainbow wig, FAST spikes, dog hood and source Groyper UVs intact.
+    cut = .055
+    for i in range(0, len(source['indices']), 3):
+        polygon = [{key: source[key][v * n:v * n + n] for key, n in channels.items()}
+                   for v in source['indices'][i:i+3]]
+        clipped = []
+        for a, b in zip(polygon, polygon[1:] + polygon[:1]):
+            inside_a, inside_b = a['positions'][1] >= cut, b['positions'][1] >= cut
+            if inside_a:
+                clipped.append(a)
+            if inside_a != inside_b:
+                t = (cut - a['positions'][1]) / (b['positions'][1] - a['positions'][1])
+                clipped.append({key: [x + (y-x)*t for x, y in zip(a[key], b[key])] for key in channels})
+        for j in range(1, len(clipped)-1):
+            for vertex in [clipped[0], clipped[j], clipped[j+1]]:
+                out['indices'].append(len(out['positions']) // 3)
+                for key in channels:
+                    values = vertex[key][:]
+                    if key == 'positions':
+                        values[1] -= cut
+                    out[key].extend(round(v, 5) for v in values)
+    result['characters'][name] = out
+target = root / 'models/honk-news-cast-v157.bin'
+target.write_bytes(gzip.compress(json.dumps(result, separators=(',', ':')).encode(), mtime=0))
+print(target.name, target.stat().st_size)

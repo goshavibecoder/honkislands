@@ -45,7 +45,7 @@ export function mountDesktopControls(viewer,{document=globalThis.document,window
   if(viewer.helicopterFlight?.active)return buttonAction('.heli-land');
   if(viewer.galleryLift?.active)return null;
   const rect=canvas.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2,game=viewer.gameAt(x,y);
-  if(game)return {label:game.title||'Interact',run(){if(!['wardrobe-open','honk'].includes(game.action))release();viewer.clearWalkInput();viewer.launchGame(x,y)}};
+  if(game)return {label:game.title||'Interact',run(){if(!['wardrobe-open','honk','honk-news'].includes(game.action))release();viewer.clearWalkInput();viewer.launchGame(x,y)}};
   // Only buttons already offered by the nearby transport can be activated.
   for(const selector of ['.ski-start','.heli-board','.ride-board','.ride-board-fast','.lift-toggle','.balloon-open']){const next=buttonAction(selector,{freeCursor:['.lift-toggle','.balloon-open'].includes(selector)});if(next)return next}
   return null;

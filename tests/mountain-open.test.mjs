@@ -28,6 +28,7 @@ for(const slug of ['goat-mountain','arcade-district','citadel','carnival','arena
  v.camera.rotation.order='YXZ';v.scene.add(new THREE.HemisphereLight(),new THREE.DirectionalLight());v.setActive=value=>{v.active=value};v.resize=()=>{};
  try{await v.open(slug,(p,label)=>{if(p>=.78)console.log('ISLAND_STAGE',slug,p,label)});
  if(slug==='honkhub'){
+  assert.ok(v.honkNews,'HONK NEWS must load with the actual room');assert.ok(v.honkNews.screen.parent,'screen survives static batching');assert.ok(!v.canStand(-.43,2.85,.028),'TV cabinet is solid');v.camera.position.copy(v.honkNews.screenPosition).add(new THREE.Vector3(.10,.28,1.4));v.camera.lookAt(v.honkNews.screenPosition);v.camera.updateMatrixWorld(true);v.active=true;assert.equal(v.gameAt(75,75)?.action,'honk-news','TV is reachable through the actual viewer picker');
   assert.ok(await v.castleGreeting.ready);assert.ok(v.castleGreeting.actor);v.active=true;v.camera.position.set(1.65,1.715,15);v.foot=.065;v.castleGreeting.arm();
   for(let z=14.975;z>5.76;z-=.025){assert.ok(v.stepTo(1.65,z),'castle arrival path blocked at '+z);v.camera.position.y=v.foot+v.config.eye;v.castleGreeting.update(.0125);if(v.castleGreeting.active)break}
   assert.equal(v.castleGreeting.active,true,'walking from balloon into doorway should start the greeting');
