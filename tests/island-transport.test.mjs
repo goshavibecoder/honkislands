@@ -51,12 +51,18 @@ class Element{
  fire(t,e={}){for(const f of this.events[t]||[])f({preventDefault(){},...e})}click(){if(!this.disabled)this.fire('click')}append(c){this.child=c;this.children.push(c)}remove(){this.removed=true}setAttribute(){}setPointerCapture(id){this.captures.add(id)}hasPointerCapture(id){return this.captures.has(id)}releasePointerCapture(id){this.captures.delete(id);this.fire('lostpointercapture',{pointerId:id})}getBoundingClientRect(){return {left:0,top:0,width:150}}
  querySelector(s){if(!this.nodes.has(s))this.nodes.set(s,new Element());return this.nodes.get(s)}
 }
-function setup(kind='cable'){
+function setup(kind='cable',options={}){
  const host=new Element(),window=new Element(),doc=new Element();globalThis.window=window;doc.defaultView=window;doc.createElement=()=>new Element();doc.getElementById=()=>host;globalThis.document=doc;
  const root=new THREE.Group(),world=prepareIslandTransport(root,kind==='cable'?'goat-mountain':'arcade-district',{driverHead}),camera=new THREE.PerspectiveCamera();camera.rotation.order='YXZ';camera.position.set(kind==='cable'?CABLE_STATIONS[0].x-1.7:1.6,kind==='cable'?1.84:1.69,kind==='cable'?13.25:9.4);
  const viewer={active:true,mode:'walk',camera,foot:kind==='cable'?.19:.04,yaw:0,pitch:0,motion:new WalkMotion(),config:{eye:1.65},keys:new Set(),stick:{x:0,y:0},boxes:[],floorAt:()=>.04,canStand:(x,z)=>world.canStand(x,z),clearWalkInput(){this.keys.clear();this.stick.x=this.stick.y=0;this.motion.stop()}};
- const controller=mountIslandTransport(viewer,world);return {viewer,world,controller,panel:host.children.find(e=>e.className==='ride-controls'),window,host};
+ const controller=mountIslandTransport(viewer,world,options);return {viewer,world,controller,panel:host.children.find(e=>e.className==='ride-controls'),window,host};
 }
+test('kart and cable controllers unlock engine audio on boarding, report motion and stop on exit',()=>{
+ for(const kind of ['kart','cable']){
+  const calls=[],audio={unlock(){calls.push('unlock')},prepare(){calls.push('prepare');return Promise.resolve(true)},update(s){this.state=s},stop(){calls.push('stop')},dispose(){calls.push('dispose')}},e=setup(kind,{makeAudio:()=>audio});e.controller.update(0);assert.equal(audio.state.active,false);e.panel.querySelector('.ride-board').click();assert.ok(calls.includes('unlock')&&calls.includes('prepare'));e.viewer.keys.add('KeyW');advance(e.controller,1);assert.equal(audio.state.active,true);assert.ok(audio.state.speed>0);if(kind==='kart')assert.ok(audio.state.throttle>0);
+  e.controller.cancel();assert.equal(calls.at(-1),'stop');e.controller.update(0);assert.equal(audio.state.active,false);e.controller.dispose();assert.ok(calls.includes('dispose'));
+ }
+});
 test('cabin doors open on arrival and automatically restore walking without an Exit click',()=>{
  const {viewer,world,controller,panel,host}=setup();assert.equal(world.doorOpen,1);panel.querySelector('.ride-board').click();assert.equal(controller.active,true);assert.equal(panel.querySelector('.ride-exit').disabled,true);
  advance(controller,2);assert.equal(world.doorOpen,0);assert.ok(controller.model.moving);advance(controller,12);assert.equal(controller.model.station,1);assert.equal(controller.model.door,0);

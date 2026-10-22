@@ -60,6 +60,10 @@ function setup(options={}){
  const helicopter={home,scale:.93,group:{visible:true},setPose(position,yaw){this.position={...position};this.yaw=yaw},rotate(value){this.spin=value}};
  const controller=mountHelicopterFlight(viewer,helicopter,options),panel=world.child;controller.update(0);return {viewer,helicopter,controller,panel,window,world};
 }
+test('helicopter audio follows rotor spin, mutes in menus and plays exactly one explosion for a crash',()=>{
+ let collision=false;const calls=[],audio={unlock(){calls.push('unlock')},prepare(){calls.push('prepare');return Promise.resolve(true)},update(s){this.state=s},explode(){calls.push('explosion')},stop(){calls.push('stop')},dispose(){calls.push('dispose')}},e=setup({makeAudio:()=>audio,collision:{hit:()=>collision}});e.panel.querySelector('.heli-board').click();assert.ok(calls.includes('unlock')&&calls.includes('prepare'));advance(e.controller,.1);const slow=audio.state.rotor;advance(e.controller,1);assert.ok(audio.state.rotor>slow);e.viewer.desktopControls={menuOpen:true};e.controller.update(1/60);assert.equal(audio.state.paused,true);e.viewer.desktopControls.menuOpen=false;
+ advance(e.controller,6);collision=true;e.controller.update(1/60);assert.equal(audio.state.active,false);assert.equal(calls.filter(c=>c==='explosion').length,1);advance(e.controller,.8);assert.equal(calls.filter(c=>c==='explosion').length,1);advance(e.controller,1.5);assert.ok(calls.includes('stop'));e.controller.dispose();assert.equal(calls.at(-1),'dispose');
+});
 
 test('touch boarding, height hold, cabin camera and landing restore the original walk pose',()=>{
  const {viewer,helicopter,controller,panel,window,world}=setup(),saved=viewer.camera.position.clone();

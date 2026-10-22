@@ -1,0 +1,20 @@
+HONK vehicle recordings (v146)
+
+Engine loop: domasx2, racing car engine sound loops, loop_0.wav
+https://opengameart.org/content/racing-car-engine-sound-loops
+https://opengameart.org/sites/default/files/loop_0.wav
+
+Rotor loop: Mish7913, Propeller (Cartoon) Loop
+https://opengameart.org/content/propeller-cartoon-loop
+https://opengameart.org/sites/default/files/propeller_cartoon_loop_0.ogg
+
+Explosion: Joth, Chunky Explosion
+https://opengameart.org/content/chunky-explosion
+https://opengameart.org/sites/default/files/Chunky%20Explosion.mp3
+
+All three recordings: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Edits: mono 22.05 kHz PCM WAV loops with short seam fades;
+explosion trimmed to 2.2 seconds, faded out and converted to mono MP3.
+Loops are decoded once. Playback rate, filter and gain follow vehicle state.
+Recordings are bundled locally: no third-party requests while playing.

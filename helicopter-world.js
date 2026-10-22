@@ -55,16 +55,11 @@ export function createHelicopterExplosion(root){
  for(let i=0;i<6;i++)smoke.push(add(geometry,material(i%2?0x716c7c:0xaaa1b0,.65)));
  for(let i=0;i<16;i++)chips.push(add(chipGeometry,material([0xd52f4b,0x6e35ac,0xffdf99,0x263049][i%4])));
  const ringGeometry=new THREE.TorusGeometry(1,.035,6,48),ring=add(ringGeometry,material(0xffd36b));ring.rotation.x=Math.PI/2;
- const inverse=root.matrixWorld.clone().invert(),matrix=new THREE.Matrix4(),position=new THREE.Vector3(),rotation=new THREE.Quaternion(),unit=new THREE.Vector3(1,1,1);let audio=null;const sources=new Set();
- function stopSound(){for(const source of sources){try{source.stop()}catch{}}sources.clear()}
+ const inverse=root.matrixWorld.clone().invert(),matrix=new THREE.Matrix4(),position=new THREE.Vector3(),rotation=new THREE.Quaternion(),unit=new THREE.Vector3(1,1,1);
  return {group,
-  armSound(){try{const Context=globalThis.AudioContext||globalThis.webkitAudioContext;if(Context){audio??=new Context();audio.resume()?.catch(()=>{})}}catch{}},
   burst(p){
    position.set(p.x,p.y+.85,p.z);matrix.compose(position,rotation,unit).premultiply(inverse);matrix.decompose(group.position,group.quaternion,group.scale);group.visible=true;
-   if(audio?.state==='running')try{
-    stopSound();const noise=audio.createBuffer(1,Math.floor(audio.sampleRate*.5),audio.sampleRate),data=noise.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*(1-i/data.length);
-    const source=audio.createBufferSource(),filter=audio.createBiquadFilter(),gain=audio.createGain(),now=audio.currentTime;source.buffer=noise;filter.type='lowpass';filter.frequency.setValueAtTime(1300,now);filter.frequency.exponentialRampToValueAtTime(120,now+.45);gain.gain.setValueAtTime(.32,now);gain.gain.exponentialRampToValueAtTime(.001,now+.5);source.connect(filter);filter.connect(gain);gain.connect(audio.destination);sources.add(source);source.onended=()=>{sources.delete(source);source.disconnect();filter.disconnect();gain.disconnect()};source.start();
-   }catch{}
+
   },
   update(t){
    for(let i=0;i<flames.length;i++){const m=flames[i],a=i*Math.PI*2/7,r=i?.7:0;m.position.set(Math.cos(a)*r*t,.22*t+Math.sin(a)*r*t,Math.sin(a)*r*t);m.scale.setScalar(Math.max(.001,(i?.55:.9)*(1+2*t)*Math.max(0,1-t/1.1)));m.material.opacity=Math.max(0,1-t/.95)}
@@ -72,7 +67,7 @@ export function createHelicopterExplosion(root){
    for(let i=0;i<chips.length;i++){const m=chips[i],a=i*Math.PI*2/16,speed=1.5+i%4*.35;m.position.set(Math.cos(a)*speed*t,t*(1.5+i%3*.6)-2*t*t,Math.sin(a)*speed*t);m.rotation.set(t*(i%3+1),t*(i%4+1),t*2);m.material.opacity=Math.max(0,1-t/2.2)}
    ring.scale.setScalar(.25+t*3);ring.material.opacity=Math.max(0,1-t/.6);
   },
-  clear(){group.visible=false;stopSound()},
-  dispose(){this.clear();group.removeFromParent();geometry.dispose();chipGeometry.dispose();ringGeometry.dispose();materials.forEach(m=>m.dispose());audio?.close()?.catch(()=>{});audio=null}
+  clear(){group.visible=false},
+  dispose(){this.clear();group.removeFromParent();geometry.dispose();chipGeometry.dispose();ringGeometry.dispose();materials.forEach(m=>m.dispose());}
  };
 }

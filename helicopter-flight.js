@@ -1,4 +1,5 @@
 import {mountTransportPanel} from './transport-panel.js?v=72';
+import {createVehicleAudio} from './vehicle-audio.js?v=146';
 const mix=(a,b,t)=>a+(b-a)*t,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),ease=t=>t*t*t*(10+t*(-15+6*t)),angle=v=>Math.atan2(Math.sin(v),Math.cos(v));
 
 // Free flight reaches the castle. Only the outer play area is clamped; solid
@@ -70,21 +71,22 @@ export class HelicopterFlight {
  }
 }
 
-export function mountHelicopterFlight(viewer,helicopter,{collision=null,effects=null}={}){
+export function mountHelicopterFlight(viewer,helicopter,{collision=null,effects=null,makeAudio=createVehicleAudio}={}){
  const flight=new HelicopterFlight(helicopter.home,{collides:(p,yaw)=>collision?.hit(p,yaw)||false}),panel=document.createElement('aside');panel.className='heli-controls';panel.hidden=true;panel.setAttribute('aria-label','HONK AIR helicopter');
  panel.innerHTML='<button class="heli-board glass" type="button"><b aria-hidden="true">✦</b> Board helicopter</button><div class="heli-dashboard glass" hidden><div class="heli-heading"><strong>HONK AIR</strong><output class="heli-altitude" aria-live="off"></output></div><p class="heli-status" role="status" aria-live="polite"></p><p class="heli-warning" role="status" aria-live="polite" hidden></p><div class="heli-height"><button type="button" data-rise="1" aria-label="Fly higher">↑ Up</button><button type="button" data-rise="-1" aria-label="Fly lower">↓ Down</button></div><button class="heli-camera" type="button">Cockpit view</button><button class="heli-land" type="button">Land and exit</button></div><p class="heli-respawn-note glass" role="status" hidden></p>';
  const warning=panel.querySelector('.heli-warning'),note=panel.querySelector('.heli-respawn-note'),board=panel.querySelector('.heli-board'),dashboard=panel.querySelector('.heli-dashboard'),status=panel.querySelector('.heli-status'),altitude=panel.querySelector('.heli-altitude'),land=panel.querySelector('.heli-land'),camera=panel.querySelector('.heli-camera'),heightButtons=[...panel.querySelectorAll('[data-rise]')],world=document.getElementById('world');world.append(panel);const compactPanel=mountTransportPanel(panel,'HONK AIR');
- let saved=null,rise=0,cabin=false,oldPhase='',spin=0,rotorSpeed=0,boarding=0,toastTime=0,uiTime=0;
+ let saved=null,rise=0,cabin=false,oldPhase='',spin=0,rotorSpeed=0,boarding=0,toastTime=0,uiTime=0;const audio=makeAudio({kind:'helicopter'});
  const pressed=new Map(),labels={spinup:'Starting the rotors…',takeoff:'Taking off…',depart:'Circling the castle…',cruise:'Joystick to fly · Swipe to turn',return:'Returning to the helipad…',approach:'Approaching the helipad…',land:'Landing…',exit:'Leaving the helicopter…',climb:'Climbing above the castle…',overflight:'Returning to the helipad…',descend:'Descending to land…',crashed:'Collision! Respawning at the helipad…',respawn:'Respawning: 10 seconds at the flight boundary…'};
  function release(){pressed.clear();rise=0;for(const b of heightButtons)b.classList.remove('pressed')}
  function restore(reason=null){
+  audio.stop();
   compactPanel.close();release();helicopter.group.visible=true;helicopter.setPose(helicopter.home,Math.PI/2);helicopter.rotate(0);rotorSpeed=0;spin=0;cabin=false;camera.textContent='Cockpit view';world.classList.remove('flying','heli-cabin','heli-impact','heli-respawning');effects?.clear();
   if(reason==='collision'||reason==='boundary'){toastTime=3.5;note.textContent=reason==='collision'?'Helicopter restored at the helipad':'Respawned after 10 seconds at the flight boundary';const spawn=viewer.config?.spawn;if(saved&&spawn){const foot=viewer.floorAt?.(spawn[0],spawn[2],helicopter.home.y+.5,2)??helicopter.deck.max.y;saved={position:saved.position.clone().set(spawn[0],foot+viewer.config.eye,spawn[2]),foot,yaw:0,pitch:0}}}
   if(saved){viewer.camera.position.copy(saved.position);viewer.foot=saved.foot;viewer.yaw=saved.yaw;viewer.pitch=saved.pitch;viewer.motion.reset(saved.yaw,saved.pitch);viewer.camera.rotation.set(saved.pitch,saved.yaw,0,'YXZ');saved=null}viewer.clearWalkInput();
  }
  board.addEventListener('click',()=>{
   if(!viewer.active||viewer.mode!=='walk'||!nearby()||!flight.board())return;
-  compactPanel.close();toastTime=0;effects?.armSound();saved={position:viewer.camera.position.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};viewer.clearWalkInput();viewer.motion.reset(0,.12);boarding=0;world.classList.add('flying');sync();
+  compactPanel.close();toastTime=0;audio.unlock();void audio.prepare();saved={position:viewer.camera.position.clone(),foot:viewer.foot,yaw:viewer.yaw,pitch:viewer.pitch};viewer.clearWalkInput();viewer.motion.reset(0,.12);boarding=0;world.classList.add('flying');sync();
  });
  land.addEventListener('click',()=>{if(flight.land()){compactPanel.close();release();viewer.clearWalkInput()}sync()});
  camera.addEventListener('click',()=>{compactPanel.close();cabin=!cabin;if(cabin)viewer.motion.reset(flight.yaw-Math.PI,0);helicopter.group.visible=!cabin;world.classList.toggle('heli-cabin',cabin);camera.textContent=cabin?'Outside view':'Cockpit view'});
@@ -111,12 +113,12 @@ export function mountHelicopterFlight(viewer,helicopter,{collision=null,effects=
     flight.update(dt,{x,z,up,yaw:viewer.yaw});
     if(!flight.active)restore(flight.outcome);
     else if(flight.phase==='crashed'){
-     if(oldPhase!=='crashed'){release();viewer.clearWalkInput();helicopter.group.visible=false;world.classList.remove('heli-cabin');world.classList.add('heli-impact');effects?.burst(flight.position)}
+     if(oldPhase!=='crashed'){release();viewer.clearWalkInput();helicopter.group.visible=false;world.classList.remove('heli-cabin');world.classList.add('heli-impact');audio.update({active:false,paused:viewer.desktopControls?.menuOpen||!viewer.active});audio.explode();effects?.burst(flight.position)}
      effects?.update(flight.elapsed);const p=flight.position,k=1-Math.exp(-8*dt),yaw=viewer.yaw,c=viewer.camera.position;c.set(mix(c.x,p.x+Math.sin(yaw)*5.4,k),mix(c.y,p.y+2.8,k),mix(c.z,p.z+Math.cos(yaw)*5.4,k));viewer.camera.lookAt(p.x,p.y+.85,p.z);
     }else if(flight.phase==='respawn'){
      if(oldPhase!=='respawn'){release();viewer.clearWalkInput();world.classList.add('heli-respawning')}
     }else{
-     helicopter.setPose(flight.position,flight.yaw);rotorSpeed+=(19-rotorSpeed)*(1-Math.exp(-3*dt));spin+=rotorSpeed*dt;helicopter.rotate(spin);boarding=Math.min(1,boarding+dt/.85);
+     helicopter.setPose(flight.position,flight.yaw);rotorSpeed+=((flight.phase==='exit'?0:19)-rotorSpeed)*(1-Math.exp(-3*dt));spin+=rotorSpeed*dt;helicopter.rotate(spin);boarding=Math.min(1,boarding+dt/.85);
      const p=flight.position,yaw=viewer.yaw,pitch=clamp(viewer.pitch,-.35,.6),position=viewer.camera.position;
      const exiting=flight.phase==='exit',target=exiting?saved.position:cabin?{x:p.x-Math.sin(yaw)*.45,y:p.y+1.02*helicopter.scale,z:p.z-Math.cos(yaw)*.45}:{x:p.x+Math.sin(yaw)*5.2,y:p.y+2.4+pitch*3,z:p.z+Math.cos(yaw)*5.2};
      const blend=boarding<1?ease(boarding):1-Math.exp(-8*dt),from=boarding<1?saved.position:position;position.set(mix(from.x,target.x,blend),mix(from.y,target.y,blend),mix(from.z,target.z,blend));
@@ -124,9 +126,10 @@ export function mountHelicopterFlight(viewer,helicopter,{collision=null,effects=
      else if(cabin)viewer.camera.rotation.set(pitch,yaw,0,'YXZ');else viewer.camera.lookAt(p.x-Math.sin(yaw)*1.4,p.y+1,p.z-Math.cos(yaw)*1.4);
     }
    }
+   audio.update({active:flight.active&&!['crashed','respawn'].includes(flight.phase)&&viewer.active,rotor:rotorSpeed/19,throttle:clamp(Math.abs(flight.vy)*.3+Math.hypot(flight.vx,flight.vz)*.08,0,1),cabin,paused:viewer.desktopControls?.menuOpen});
    uiTime-=dt;if(uiTime<=0||oldPhase!==flight.phase){uiTime=.10;sync()}
   },
-  cancel(){if(flight.active||saved){flight.cancel();restore()}sync()},
-  dispose(){this.cancel();window.removeEventListener('blur',blur);window.removeEventListener('keydown',key);panel.remove()}
+  cancel(){audio.stop();if(flight.active||saved){flight.cancel();restore()}sync()},
+  dispose(){this.cancel();audio.dispose();window.removeEventListener('blur',blur);window.removeEventListener('keydown',key);panel.remove()}
  };
 }

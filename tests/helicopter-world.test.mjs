@@ -62,7 +62,7 @@ test('automatic landing from inside the former exclusion zone clears the source 
 });
 
 test('reused explosion geometry animates finite fragments and fully cleans up',()=>{
- const root=new THREE.Group(),effect=createHelicopterExplosion(root),count=effect.group.children.length;assert.ok(count<40);effect.armSound();
+ const root=new THREE.Group(),effect=createHelicopterExplosion(root),count=effect.group.children.length;assert.ok(count<40);
  for(let k=0;k<5;k++){
   effect.burst({x:k,y:5,z:2});assert.equal(effect.group.visible,true);
   for(const t of [0,.1,.5,1.2,2.2]){effect.update(t);effect.group.traverse(o=>{if(!o.isMesh)return;assert.ok(o.position.toArray().every(Number.isFinite));assert.ok(o.scale.toArray().every(v=>Number.isFinite(v)&&v>0));assert.ok(o.material.opacity>=0&&o.material.opacity<=1)})}
