@@ -8,7 +8,7 @@ function mod(url){if(modules.has(url.href))return modules.get(url.href);const so
 const {prepareHonkNews,createHonkNewsProgram}=await import(mod(new URL('../honk-news.js',import.meta.url)));
 const {prepareAntiqueRoom}=await import(mod(new URL('../antique-room.js',import.meta.url)));
 const {GLTFLoader}=await import(mod(new URL('../vendor/GLTFLoader.js',import.meta.url)));
-const data=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-news-cast-v157.bin',import.meta.url))));
+const data=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-news-cast-v158.bin',import.meta.url))));
 class Surface{constructor(){this.events={}}addEventListener(k,f){(this.events[k]??=[]).push(f)}removeEventListener(k,f){this.events[k]=(this.events[k]||[]).filter(x=>x!==f)}emit(k){for(const f of this.events[k]||[])f()}}
 function dom(){globalThis.window=new Surface();globalThis.document={hidden:false,createElement(){const ops=[];return {width:1,height:1,ops,getContext(){return new Proxy({},{get:(_,key)=>(...args)=>ops.push([key,...args])})}}}}}
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:16,height:16,close(){this.closed=true}});
@@ -37,4 +37,16 @@ test('news render target restores the main canvas state and stops rendering offs
 test('TV sound requires a tap and stops immediately on blur, pause or leaving the island',async()=>{
  const {tv,viewer}=await create();let audio;window.AudioContext=class{constructor(){audio=this;this.state='running';this.currentTime=0;this.destination={};this.notes=[]}resume(){return Promise.resolve()}close(){this.closed=true;return Promise.resolve()}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}}createOscillator(){const o={frequency:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},start(){},stop(){this.stopped=true},disconnect(){this.disconnected=true}};this.notes.push(o);return o}};
  advance(tv,viewer,.2);assert.equal(audio,undefined);tv.interact('sound');assert.equal(tv.sound,true);assert.ok(audio.notes.length>=4);window.emit('blur');assert.ok(audio.notes.every(n=>n.disconnected));const count=audio.notes.length;advance(tv,viewer,1);assert.equal(audio.notes.length,count);window.emit('focus');advance(tv,viewer,.2);assert.ok(audio.notes.length>count);tv.setActive(false);assert.ok(audio.notes.every(n=>n.disconnected));const at=tv.time;advance(tv,viewer,1);assert.equal(tv.time,at);tv.dispose();assert.equal(audio.closed,true);
+});
+test('walking rigs keep two solid legs joined to hips, knees and shoes throughout each stride',()=>{
+ dom();const p=createHonkNewsProgram(data),matrix=new THREE.Matrix4(),point=new THREE.Vector3(),end=new THREE.Vector3();
+ const ends=(mesh,index)=>{mesh.getMatrixAt(index,matrix);return [-.5,.5].map(y=>new THREE.Vector3(0,y,0).applyMatrix4(matrix))};
+ for(let t=0;t<3;t+=.065){p.update(t);assert.equal(p.posed.length,15);for(let i=0;i<15;i++){const a=p.posed[i];for(let side=0;side<2;side++){const upper=ends(p.limbs,i*4+side),lower=ends(p.limbs,i*4+side+2);assert.ok(upper[0].distanceTo(new THREE.Vector3(...a.hips[side]))<1e-6);assert.ok(upper[1].distanceTo(lower[0])<1e-6,'knee has a gap');assert.ok(lower[1].distanceTo(new THREE.Vector3(...a.ankles[side]))<1e-6);assert.ok(a.feet[side][1]-.055>=-1e-8,'sole sinks through the road');assert.ok(Math.abs(a.feet[side][1]+.055-a.ankles[side][1])<.03,'shoe detaches from shin')}assert.ok(Math.min(...a.feet.map(f=>f[1]))<=.055001,'both feet float');p.pelvises.getMatrixAt(i,matrix);point.setFromMatrixPosition(matrix);for(const hip of a.hips)assert.ok(Math.abs(hip[1]-point.y)<.03,'leg attaches below pelvis')}
+ }
+ p.update(14);for(let i=0;i<15;i++){p.boards[i%3].getMatrixAt(Math.floor(i/3),matrix);point.setFromMatrixPosition(matrix);assert.ok(point.y-.22>p.posed[i].headBase+p.people[i].profile.height+.02,'placard covers its owner’s face')}
+ for(const name of p.bodies.keys()){const h=data.characters[name];assert.ok(Math.min(...h.positions.filter((_,i)=>i%3===1))>=0);assert.ok(h.height>0)}p.dispose();
+});
+test('presenter has an intact original HONK head and every gesturing hand stays attached',()=>{
+ dom();const p=createHonkNewsProgram(data),v=new THREE.Vector3();assert.ok(p.presenter.parent===p.anchor);assert.ok(p.presenter.position.y>1.3,'torso must be visible above desk');const box=new THREE.Box3().setFromObject(p.presenter);assert.ok(box.max.y<2.2&&box.min.y>=1.39,'head must clear the studio title and desk');
+ for(let t=0;t<8;t+=.1){p.update(t);p.studio.updateMatrixWorld(true);for(const arm of p.studioArms){v.set(0,.5,0).applyMatrix4(arm.forearm.matrixWorld);assert.ok(v.distanceTo(arm.hand.getWorldPosition(new THREE.Vector3()))<1e-6,'moving hand separates from sleeve');v.set(0,-.5,0).applyMatrix4(arm.forearm.matrixWorld);assert.ok(v.distanceTo(new THREE.Vector3(...arm.elbow))<1e-6,'forearm separates from elbow')}}p.dispose();
 });

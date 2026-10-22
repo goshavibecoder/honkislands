@@ -13,7 +13,16 @@ def packed(name):
     return json.loads(gzip.decompress(base64.b64decode(content)))
 
 data = packed('arena-crowd-v84.json')
-data['honk'] = packed('arena-honk-seated-v88.json')
+# Use the complete original HONK face, including the chin and rainbow wig.
+head = json.loads(gzip.decompress((root / 'assets/honk-kart-head-v57.bin').read_bytes()))
+honk = {'positions': [], 'normals': [], 'colors': [], 'indices': []}
+for part in head['meshes']:
+    start = len(honk['positions']) // 3
+    honk['positions'].extend(part['positions'])
+    honk['normals'].extend(part['normals'])
+    honk['colors'].extend(part['color'] * (len(part['positions']) // 3))
+    honk['indices'].extend(v + start for v in part['indices'])
+data['honk'] = {'low': honk}
 result = {'source': 'Original colosseum audience / goshavibecoder/Teledog', 'texture': data['texture'], 'characters': {}}
 for name in ['honk', 'fast', 'teledog', 'groyper', 'zoich']:
     source = data[name]['low']
@@ -39,9 +48,9 @@ for name in ['honk', 'fast', 'teledog', 'groyper', 'zoich']:
         channels['uv'] = 2
     out = {key: [] for key in channels}
     out['indices'] = []
-    # Replace the seated lower body with animated walking legs; keep the face,
-    # rainbow wig, FAST spikes, dog hood and source Groyper UVs intact.
-    cut = .055
+    # These are seated models with different hip heights. Only the recognisable
+    # heads belong in the walking rig; never retain seated thighs or duplicate arms.
+    cut = {'honk': -1, 'fast': .175, 'teledog': .17, 'groyper': .25, 'zoich': .28}[name]
     for i in range(0, len(source['indices']), 3):
         polygon = [{key: source[key][v * n:v * n + n] for key, n in channels.items()}
                    for v in source['indices'][i:i+3]]
@@ -61,7 +70,16 @@ for name in ['honk', 'fast', 'teledog', 'groyper', 'zoich']:
                     if key == 'positions':
                         values[1] -= cut
                     out[key].extend(round(v, 5) for v in values)
+    # A head-local origin makes every attachment independent of source posture.
+    bottom = min(out['positions'][1::3])
+    cx = (min(out['positions'][::3]) + max(out['positions'][::3])) / 2
+    cz = (min(out['positions'][2::3]) + max(out['positions'][2::3])) / 2
+    for i in range(0, len(out['positions']), 3):
+        out['positions'][i] = round(out['positions'][i] - cx, 5)
+        out['positions'][i+1] = round(out['positions'][i+1] - bottom, 5)
+        out['positions'][i+2] = round(out['positions'][i+2] - cz, 5)
+    out['height'] = max(out['positions'][1::3])
     result['characters'][name] = out
-target = root / 'models/honk-news-cast-v157.bin'
+target = root / 'models/honk-news-cast-v158.bin'
 target.write_bytes(gzip.compress(json.dumps(result, separators=(',', ':')).encode(), mtime=0))
 print(target.name, target.stat().st_size)

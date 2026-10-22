@@ -1,4 +1,4 @@
-import {prepareHonkNews} from './honk-news.js?v=157';
+import {prepareHonkNews} from './honk-news.js?v=158';
 import {mountMafiaEncounter} from './mafia-encounter.js?v=145';
 import {mountDesktopControls} from './desktop-controls.js?v=157';
 import {mountCastleGreeting} from './castle-greeting.js?v=123';
