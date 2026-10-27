@@ -6,7 +6,7 @@ import {mountCastleGreeting} from './castle-greeting.js?v=123';
 import {createAssetCache,fetchAssetBytes,fetchAssetJSON,fetchGzipJSON,loadCompressedScene} from './asset-loader.js?v=116';
 import * as THREE from 'three';
 import {createArchitectureCollision} from './walk-architecture.js?v=77';
-import {prepareArenaAudience} from './arena-crowd.js?v=170';
+import {prepareArenaAudience} from './arena-crowd.js?v=173';
 import {prepareGroypAir} from './groyp-air.js?v=120';
 import {prepareVisualQuality} from './visual-quality.js?v=171';
 import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=156';
@@ -76,7 +76,7 @@ export class IslandViewer {
   this.helicopter=slug==='citadel'?addClownHelicopter(this.root):null;
   this.balloonWorld=prepareBalloonWorld(this.root,slug,{mapImages:await loadBalloonMapImages()});this.mountainSnow=slug==='goat-mountain'?prepareMountainSnow(this.root,{balloonExit:this.balloonWorld.exit}):null;
   if(slug==='arcade-district')this.groypAir=prepareGroypAir(this.root,this.balloonWorld,await this.loadGroypActor());
-  this.arenaCrowd=slug==='arena'?await prepareArenaAudience(this.root):null;
+  this.arenaCrowd=slug==='arena'?await prepareArenaAudience(this.root,{honkModel:this.arenaCircus.originalHonk}):null;
   this.helicopterCollision=this.helicopter?createHelicopterCollision(this.root,this.helicopter.scale):null;
   this.walkCollision=slug==='carnival'?createGalleryCollision(this.root):slug==='goat-mountain'?createMountainCollision(this.root):null;
   this.architectureCollision=createArchitectureCollision(this.root,slug);
@@ -157,7 +157,7 @@ export class IslandViewer {
    }
    if(this.physics){this.foot=this.physics.fall(this.camera.position.x,this.camera.position.z,this.foot,dt);if(this.foot<this.bounds.min.y-8)this.reset()}
    this.camera.position.y=this.physics&&!this.physics.grounded?this.foot+this.config.eye:THREE.MathUtils.damp(this.camera.position.y,this.foot+this.config.eye,17,dt);this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
-  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!greeting&&!recovering&&!ambushed&&!flying&&!transporting&&!ballooning&&!skiing)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCrowd?.update(dt,this.camera.position);this.groypAir?.update(dt,this.mode==='walk'&&!ballooning?this.camera.position:null);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.mountainStorm?.update(dt,this.mode==='walk'?this.camera.position:null);this.antiqueRoom?.updateLighting?.(this.camera.position,this.mode);this.desktopControls?.update(dt);this.honkNews?.update(dt,this);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
+  }else if(this.mode==='walk'&&riding){this.motion.update(dt,0,0,0);this.yaw=this.motion.yaw;this.pitch=this.motion.pitch;this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ')}else if(!greeting&&!recovering&&!ambushed&&!flying&&!transporting&&!ballooning&&!skiing)this.controls.update();for(const mixer of this.mixers||[])mixer.update(dt);this.arenaCrowd?.update(dt,this.camera);this.groypAir?.update(dt,this.mode==='walk'&&!ballooning?this.camera.position:null);this.arenaCircus?.update(dt,this.mode==='walk'?this.camera.position:null);this.mountainStorm?.update(dt,this.mode==='walk'?this.camera.position:null);this.antiqueRoom?.updateLighting?.(this.camera.position,this.mode);this.desktopControls?.update(dt);this.honkNews?.update(dt,this);this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(t=>this.tick(t));
  }
  gameAt(clientX,clientY){
   if(!this.active||this.mafiaFight?.active||this.mafiaFight?.loading||this.castleGreeting?.active||this.knockoutRecovery?.active||this.wardrobeAmbush?.active)return null;

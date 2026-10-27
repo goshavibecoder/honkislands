@@ -9,6 +9,7 @@ function moduleURL(url){if(modules.has(url.href))return modules.get(url.href);co
 const {GLTFLoader}=await import(moduleURL(new URL('../vendor/GLTFLoader.js',import.meta.url)));
 const {prepareArenaCircus}=await import(moduleURL(new URL('../arena-circus.js',import.meta.url)));
 const {loadArenaOriginalHonk}=await import(moduleURL(new URL('../arena-original-honk.js?v=172',import.meta.url)));
+const {prepareArenaAudience}=await import(moduleURL(new URL('../arena-crowd.js?v=173',import.meta.url)));
 const {prepareVisualQuality}=await import(moduleURL(new URL('../visual-quality.js',import.meta.url)));
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 globalThis.self=globalThis;globalThis.createImageBitmap=async blob=>({width:2048,height:2048,sourceHash:hash(new Uint8Array(await blob.arrayBuffer())),closed:false,close(){this.closed=true}});
@@ -56,4 +57,26 @@ test('returning to the arena reuses the downloaded bytes but opens fresh geometr
   const second=await loadArenaOriginalHonk(),fresh=second.scene.children[0];assert.equal(downloads,25,'returning must not download another copy');assert.notEqual(first.scene,second.scene);assert.notEqual(mesh.geometry,fresh.geometry);
   for(const key of ['map','normalMap','roughnessMap']){assert.notEqual(mesh.material[key].image,fresh.material[key].image);assert.equal(fresh.material[key].image.closed,false);assert.equal(fresh.material[key].image.sourceHash,mesh.material[key].image.sourceHash)}assert.equal(fresh.geometry.index.count/3,378840);
  }finally{globalThis.fetch=originalFetch}
+});
+
+test('HONK spectators use all original triangles and PBR maps, without old legs or bodies on the statue balcony',async()=>{
+ const originalFetch=globalThis.fetch;globalThis.fetch=async url=>{if(/^(?:blob:|data:)/.test(String(url)))return originalFetch(url);return new Response(readFileSync(new URL('../'+String(url).replace(/^\.\//,''),import.meta.url)))};
+ let crowd;try{
+  crowd=await prepareArenaAudience(arena.scene,{honkModel:circus.originalHonk,onError:error=>{throw error}});assert.ok(crowd);const source=crowd.sources.honk,posed=source.geometry;
+  assert.equal(posed.index.count,geometry.index.count);assert.deepEqual(posed.index.array,geometry.index.array);assert.deepEqual(posed.attributes.uv.array,geometry.attributes.uv.array);
+  for(const key of ['map','normalMap','roughnessMap','metalnessMap'])assert.equal(source.material[key],material[key]);assert.equal(crowd.legs.meshes.length,0,'old HONK legs must not survive');
+  assert.ok(crowd.coveredSeats.length>0);console.log('COVERED_ARENA_SEATS',crowd.coveredSeats);assert.ok(crowd.placements.filter(p=>p.name==='honk').length>=25);assert.ok(crowd.coveredSeats.every(name=>!crowd.placements.some(p=>p.seat===name)));
+  assert.ok(posed.attributes.position.array.every(Number.isFinite));assert.ok(posed.attributes.normal.array.every(Number.isFinite));
+  const sourceBox=geometry.boundingBox||(()=>{geometry.computeBoundingBox();return geometry.boundingBox})(),span=sourceBox.max.y-sourceBox.min.y;
+  for(let i=0;i<geometry.attributes.position.count;i++){if((geometry.attributes.position.getY(i)-sourceBox.min.y)/span<.34)continue;for(const axis of ['X','Y','Z'])assert.equal(posed.attributes.normal['get'+axis](i),geometry.attributes.normal['get'+axis](i),'upper body normals changed')}
+  const ray=new THREE.Raycaster(),point=new THREE.Vector3();
+  for(const p of crowd.placements.filter(p=>p.name==='honk')){
+   const suffix=p.seat.slice('Individual_seat_red_cushion'.length);
+   for(const prefix of ['Individual_seat_red_cushion','Individual_seat_solid_stone_support','Individual_seat_low_carved_back']){
+    const chair=arena.scene.getObjectByName(prefix+suffix);chair.geometry.computeBoundingBox();const box=chair.geometry.boundingBox.clone().expandByScalar(-.003),local=chair.matrixWorld.clone().invert().multiply(p.matrix),vertices=posed.attributes.position;
+    for(let i=0;i<vertices.count;i++){point.fromBufferAttribute(vertices,i).applyMatrix4(local);assert.equal(box.containsPoint(point),false,'new HONK intersects '+chair.name)}
+   }
+  }
+  const camera=new THREE.PerspectiveCamera(55,1,.1,100);camera.position.set(0,2,2.5);camera.lookAt(-8,5,0);camera.updateMatrixWorld(true);crowd.update(1,camera);const visible=crowd.meshes.filter(m=>/^Arena_spectators_honk_/.test(m.name)).reduce((n,m)=>n+m.count,0);assert.ok(visible>0);assert.ok(visible<crowd.placements.filter(p=>p.name==='honk').length,'out-of-view original meshes should not consume the full draw budget');
+ }finally{crowd?.dispose();globalThis.fetch=originalFetch}
 });
