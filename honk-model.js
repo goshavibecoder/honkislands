@@ -22,7 +22,25 @@ export function currentHonkGeometry(source,{height=1,head=false,part=null,seated
    }
    positions.push(x*height,y*height,z*height);normals.push(...source.normals.slice(j*3,j*3+3));uv.push(...source.uv.slice(j*2,j*2+2));colors.push(...source.colors.slice(j*3,j*3+3));}indices.push(k)}
  }
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setIndex(indices);if(seated)g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setIndex(indices);if(seated)smoothPosedNormals(g);g.computeBoundingBox();g.computeBoundingSphere();return g;
+}
+// UV charts need separate vertices, but their shared surface needs one normal.
+// Accumulate triangle areas before normalizing so tiny atlas slivers cannot
+// dominate the lighting. Keep the UVs and indices untouched.
+function smoothPosedNormals(geometry){
+ const p=geometry.attributes.position,n=geometry.attributes.normal,index=geometry.index,groups=new Map(),shared=[],sums=[];
+ for(let i=0;i<p.count;i++){
+  const key=[p.getX(i),p.getY(i),p.getZ(i)].join(',');let group=groups.get(key);
+  if(group===undefined){group=sums.length;groups.set(key,group);sums.push(new THREE.Vector3())}shared.push(group);
+ }
+ const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),cross=new THREE.Vector3();
+ for(let i=0;i<index.count;i+=3){
+  const ids=[index.getX(i),index.getX(i+1),index.getX(i+2)];a.fromBufferAttribute(p,ids[0]);b.fromBufferAttribute(p,ids[1]);c.fromBufferAttribute(p,ids[2]);cross.subVectors(b,a).cross(c.sub(a));
+  for(const id of ids)sums[shared[id]].add(cross);
+ }
+ for(let i=0;i<p.count;i++){const sum=sums[shared[i]];if(sum.lengthSq()===0)sum.fromBufferAttribute(n,i)}
+ for(const sum of sums){if(sum.lengthSq()===0)sum.set(0,1,0);sum.normalize();}
+ for(let i=0;i<p.count;i++){const sum=sums[shared[i]];n.setXYZ(i,sum.x,sum.y,sum.z)}n.needsUpdate=true;
 }
 // Ground by the actual posed bounds, then uniformly scale to the old height.
 export function fitCurrentHonkGeometry(source,{height=1,seated=false}={}){

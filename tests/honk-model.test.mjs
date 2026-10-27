@@ -59,3 +59,18 @@ test('the simplified nose has no UV seam holes from any actor level of detail',(
   for(const x of [-.018,0,.018])for(const y of [.775,.795,.815]){const ray=new THREE.Raycaster(new THREE.Vector3(x,y,1),new THREE.Vector3(0,0,-1)),hit=ray.intersectObject(mesh)[0];assert.ok(hit&&hit.point.z>.20,`${lod} has a seam hole at ${x}, ${y}`)}geometry.dispose();
  }material.dispose();
 });
+
+test('seated lighting stays smooth across UV charts without changing their texture coordinates',()=>{
+ for(const lod of ['high','medium','low']){
+  const standing=currentHonkGeometry(data[lod]),seated=currentHonkGeometry(data[lod],{seated:true}),p=seated.attributes.position,n=seated.attributes.normal,shared=new Map();let seams=0,rotated=0;
+  assert.deepEqual(seated.attributes.uv.array,standing.attributes.uv.array);assert.deepEqual(seated.index.array,standing.index.array);
+  for(let i=0;i<p.count;i++){
+   const key=[p.getX(i),p.getY(i),p.getZ(i)].join(','),normal=new THREE.Vector3().fromBufferAttribute(n,i);
+   assert.ok(Math.abs(normal.length()-1)<1e-5,'posed surface must have a unit normal');
+   if(shared.has(key)){assert.ok(normal.distanceTo(shared.get(key))<1e-6,`${lod} has a lighting seam`);seams++}else shared.set(key,normal);
+   const original=new THREE.Vector3().fromBufferAttribute(standing.attributes.position,i);
+   if(original.y>.20&&original.y<.24){const expected=new THREE.Vector3().fromBufferAttribute(standing.attributes.normal,i).applyAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2);if(expected.lengthSq()===0)continue;assert.ok(normal.dot(expected)>.98,'thigh lighting must follow its rotation');rotated++}
+  }
+  assert.ok(seams>1000);assert.ok(rotated>20);standing.dispose();seated.dispose();
+ }
+});
