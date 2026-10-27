@@ -5,7 +5,7 @@ import * as THREE from 'three';
 export function prepareVisualQuality(root,{maxAnisotropy=8}={}){
  const materials=new Set(),textures=new Set(),stats={materials:0,textures:0,glass:0,shadows:0};
  root.traverse(o=>{
-  if(!o.isMesh)return;
+  if(!o.isMesh||o.userData.arenaOriginalHonk)return;
   for(const m of Array.isArray(o.material)?o.material:[o.material]){
    if(!m)continue;
    if(!materials.has(m)){
@@ -28,7 +28,7 @@ export function prepareVisualQuality(root,{maxAnisotropy=8}={}){
  root.updateMatrixWorld(true);
  for(const target of targets){
   const inverse=target.matrixWorld.clone().invert(),bounds=new THREE.Box3();
-  target.traverse(o=>{if(!o.isMesh)return;o.geometry.computeBoundingBox();bounds.union(o.geometry.boundingBox.clone().applyMatrix4(inverse.clone().multiply(o.matrixWorld)))});
+  target.traverse(o=>{if(!o.isMesh||o.userData.arenaOriginalHonk)return;o.geometry.computeBoundingBox();bounds.union(o.geometry.boundingBox.clone().applyMatrix4(inverse.clone().multiply(o.matrixWorld)))});
   if(bounds.isEmpty())continue;const size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3()),shadow=new THREE.Mesh(geometry,material);
   shadow.name='Furniture_soft_contact';shadow.position.set(center.x,.008,center.z);shadow.scale.set(size.x+.55,1,size.z+.55);target.add(shadow);stats.shadows++;
  }

@@ -1,3 +1,4 @@
+import {loadArenaOriginalHonk} from './arena-original-honk.js?v=171';
 import {prepareHonkNews} from './honk-news.js?v=170';
 import {mountMafiaEncounter} from './mafia-encounter.js?v=145';
 import {mountDesktopControls} from './desktop-controls.js?v=157';
@@ -7,7 +8,7 @@ import * as THREE from 'three';
 import {createArchitectureCollision} from './walk-architecture.js?v=77';
 import {prepareArenaAudience} from './arena-crowd.js?v=170';
 import {prepareGroypAir} from './groyp-air.js?v=120';
-import {prepareVisualQuality} from './visual-quality.js?v=72';
+import {prepareVisualQuality} from './visual-quality.js?v=171';
 import {prepareBalloonWorld,loadBalloonMapImages} from './balloon-world.js?v=156';
 import {mountBalloonTravel} from './balloon-travel.js?v=156';
 import {MobileRenderQuality} from './mobile-render-quality.js?v=59';
@@ -27,7 +28,7 @@ import {mountHelicopterFlight} from './helicopter-flight.js?v=149';
 import {createHelicopterCollision,createHelicopterExplosion} from './helicopter-world.js?v=147';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=96';
 import {createWorldTargets} from './world-links.js?v=99';
-import {prepareArenaCircus} from './arena-circus.js?v=170';
+import {prepareArenaCircus} from './arena-circus.js?v=171';
 import {attachTapGesture} from './tap-gesture.js?v=145';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
@@ -67,7 +68,7 @@ export class IslandViewer {
  async open(slug,progress){
   this.setActive(false);this.clear();this.slug=slug;this.camera.near=slug==='arena'?.10:.035;this.camera.far=slug==='arena'?180:1100;this.camera.updateProjectionMatrix();this.config=(await loadWorldConfig())[slug];if(!this.config)throw Error('Unknown island');this.renderQuality.configure(this.config.pixelRatio||1.6);
   this.manifest=await fetchAssetJSON(`./models/${slug}.json?v=9`);const buffer=await loadCompressedScene(this.manifest,(part,onChunk,cache)=>this.fetchBinary(`./models/${part}?v=9`,onChunk,{cache}),progress);progress(.78,'Opening the 3D world…');
-  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures(),balloonDoor:true,wardrobeActor:await this.loadGroypActor()}):null;if(slug==='carnival')await Promise.all([prepareGalleryMemes(this.root),prepareGalleryGraffiti(this.root)]);this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
+  const gltf=await new GLTFLoader().parseAsync(buffer,'');this.root=gltf.scene;this.root.updateMatrixWorld(true);this.antiqueRoom=slug==='honkhub'?prepareAntiqueRoom(this.root,{familyTextures:await loadHonkFamilyPictures(),balloonDoor:true,wardrobeActor:await this.loadGroypActor()}):null;if(slug==='carnival')await Promise.all([prepareGalleryMemes(this.root),prepareGalleryGraffiti(this.root)]);this.gallery=slug==='carnival'?prepareGalleryInterior(this.root):null;this.arenaCircus=slug==='arena'?prepareArenaCircus(this.root,this.environment,{statue:await loadArenaOriginalHonk()}):null;this.arcadeTargets=slug==='arcade-district'?createArcadeTargets(this.root):slug==='arena'?this.arenaCircus.picker:createWorldTargets(this.root,slug);
   this.honkNews=slug==='honkhub'?await prepareHonkNews(this.root).catch(error=>{console.warn('HONK NEWS unavailable',error);return null}):null;
   let mountainShell=null;if(slug==='goat-mountain'){mountainShell=await fetchGzipJSON('./models/goat-mountain-shell-v22.bin?v=22')}
   this.stairNav=slug==='goat-mountain'?rebuildMountainStairs(this.root,mountainShell):null;this.padNav=slug==='citadel'?repairLandingPad(this.root):null;this.mountainSnow=null;
@@ -86,7 +87,7 @@ export class IslandViewer {
   // to their original hierarchy, so original animation tracks still work.
   const animated=new Set();for(const clip of gltf.animations)for(const track of clip.tracks){try{const name=THREE.PropertyBinding.parseTrackName(track.name).nodeName;const node=this.root.getObjectByName(name);node?.traverse(o=>animated.add(o.uuid))}catch{}}
   const buckets=new Map(),remove=[];this.root.traverse(o=>{
-   if(o.isLight){remove.push(o);return}if(!o.isMesh)return;
+   if(o.isLight){remove.push(o);return}if(!o.isMesh||o.userData.arenaOriginalHonk)return;
    // Keep the existing open-roof presentation while restoring the missing wall.
    if(slug==='carnival'&&/^(Upper_landing_black_balustrade|Upper_end_landing_luminous_handrail)/.test(o.name)){remove.push(o);return}
    if(this.config.openRoof&&o.name.startsWith('Suspended_acoustic_ceiling_tile')){remove.push(o);return}

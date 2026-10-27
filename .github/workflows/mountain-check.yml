@@ -21,6 +21,8 @@ jobs:
           node-version: '22'
       - name: Load full mountain and test transport
         run: node --experimental-default-type=module --test --test-force-exit tests/mountain-open.test.mjs
+      - name: Original arena upload fidelity
+        run: node --experimental-default-type=module --test tests/arena-original-honk.test.mjs
       - name: Interrupted asset recovery checks
         run: node --experimental-default-type=module --test tests/asset-loader.test.mjs
       - name: Castle greeting and camera ownership

@@ -1,3 +1,4 @@
+import {installArenaOriginalHonk} from './arena-original-honk.js?v=171';
 import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
 import {decorateCircusArena} from './circus-decor.js?v=46';
@@ -15,7 +16,7 @@ const COLORS={
  'Arena neon cyan':'#ffd46b','Arena neon magenta':'#ed3346','Castle neon cyan':'#ffd46b','Castle neon pink':'#ed3346','Castle neon violet':'#ff9b3e'
 };
 
-export function prepareArenaCircus(root,environment){
+export function prepareArenaCircus(root,environment,{statue=null}={}){
  root.updateMatrixWorld(true);const palette=new Map();
  // Exterior foliage, cloud puffs and tiny flowers were each high-resolution
  // unit spheres. Reuse lighter smooth spheres; the interior keeps its detail.
@@ -41,12 +42,13 @@ export function prepareArenaCircus(root,environment){
   mesh.material=material;
  });
  const facade=finishArenaFacade(root);
+ const arrival=createArenaClownArrival(root),originalHonk=statue?installArenaOriginalHonk(root,statue):null;
  // Preserve the polished gold trophy and its existing Telegram destination.
  const picker=prepareTrophy(root,environment),hitMaterial=picker.targets[0].material,horn=createClownHorn(),noses=[],extraBoxes=[];
  const red=new THREE.MeshPhysicalMaterial({name:'Circus glossy red noses',color:0xf51d30,roughness:.19,metalness:.05,clearcoat:.85,clearcoatRoughness:.1,envMapIntensity:1.1});
  const existing=[];root.traverse(mesh=>{if(mesh.isMesh&&/(RedClownNose|red_clown_nose)/i.test(mesh.name))existing.push(mesh)});
  const register=(mesh,squeeze=false)=>{
-  mesh.userData.honkNose=true;mesh.material=red;mesh.updateWorldMatrix(true,false);
+  mesh.userData.honkNose=true;if(!mesh.userData.arenaOriginalHonkHit)mesh.material=red;mesh.updateWorldMatrix(true,false);
   const hit=new THREE.Mesh(mesh.geometry.clone().applyMatrix4(mesh.matrixWorld),hitMaterial),index=noses.length;
   hit.userData={title:'Clown horn — HONK!',action:'honk',nose:index};hit.updateMatrixWorld();picker.targets.push(hit);noses.push({mesh,scale:mesh.scale.clone(),time:0,squeeze});
  };
@@ -66,10 +68,10 @@ export function prepareArenaCircus(root,environment){
   const ball=attach(sphere,red,base.clone().addScaledVector(inward,.17),null,`Circus_red_nose_button_${i}`);register(ball,true);extraBoxes.push(new THREE.Box3().setFromObject(ball));
  }
  const decor=decorateCircusArena(root);for(const nose of decor.noses)register(nose);extraBoxes.push(...decor.extraBoxes);
- const surfaces=prepareArenaSurfaces(root),arrival=createArenaClownArrival(root);
+ const surfaces=prepareArenaSurfaces(root);
  root.updateMatrixWorld(true);
  return {
-  picker,extraBoxes,noses,decor,facade,arrival,surfaces,
+  picker,extraBoxes,noses,decor,facade,arrival,surfaces,originalHonk,
   canStand:(x,z,floor,eye)=>surfaces.canStand(x,z,floor,eye),
   get soundError(){return horn.lastError},
   honk(index){const nose=noses[index];if(!nose)return Promise.resolve(false);nose.time=.24;return horn.play()},
