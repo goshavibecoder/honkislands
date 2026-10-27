@@ -14,10 +14,25 @@ p=read(0,3).astype(float);uv=read(1,2).astype(float);f=read(3,1).reshape(-1,3)
 center=(p.min(0)+p.max(0))/2;center[1]=p[:,1].min();p=(p-center)/np.ptp(p,axis=0)[1]
 v=g['bufferViews'][g['images'][0]['bufferView']];image=Image.open(io.BytesIO(buf[v['byteOffset']:v['byteOffset']+v['byteLength']])).convert('RGB');out=io.BytesIO();image.save(out,format='WEBP',quality=92);texture=base64.b64encode(out.getvalue()).decode()
 def bake(res):
- keys=np.column_stack([np.round(p*res),np.floor(uv*8)]).astype(int);_,inv=np.unique(keys,axis=0,return_inverse=True);counts=np.bincount(inv);q=np.column_stack([np.bincount(inv,weights=p[:,i])/counts for i in range(3)]);t=np.column_stack([np.bincount(inv,weights=uv[:,i])/counts for i in range(2)]);faces=inv[f];faces=faces[(faces[:,0]!=faces[:,1])&(faces[:,1]!=faces[:,2])&(faces[:,0]!=faces[:,2])];_,idx=np.unique(np.sort(faces,axis=1),axis=0,return_index=True);faces=faces[np.sort(idx)];norm=np.zeros_like(q);cross=np.cross(q[faces[:,1]]-q[faces[:,0]],q[faces[:,2]]-q[faces[:,0]])
- for j in range(3):np.add.at(norm,faces[:,j],cross)
- norm/=np.maximum(np.linalg.norm(norm,axis=1,keepdims=True),1e-12)
- pixels=np.array(image);rgb=pixels[np.clip((t[:,1]*image.height).astype(int),0,image.height-1),np.clip((t[:,0]*image.width).astype(int),0,image.width-1)]/255;rgb=np.where(rgb<=.04045,rgb/12.92,((rgb+.055)/1.055)**2.4)
+ # A UV seam may require several texture coordinates at the same position.
+ # Share the spatial centroid across those copies, or the seam becomes a crack.
+ spatial=np.round(p*res).astype(int)
+ _,spatial_inv=np.unique(spatial,axis=0,return_inverse=True)
+ spatial_count=np.bincount(spatial_inv)
+ centroids=np.column_stack([np.bincount(spatial_inv,weights=p[:,i])/spatial_count for i in range(3)])
+ keys=np.column_stack([spatial,np.floor(uv*8)]).astype(int)
+ _,first,inv=np.unique(keys,axis=0,return_index=True,return_inverse=True)
+ shared=spatial_inv[first];q=centroids[shared];counts=np.bincount(inv)
+ t=np.column_stack([np.bincount(inv,weights=uv[:,i])/counts for i in range(2)])
+ faces=inv[f];corners=shared[faces]
+ faces=faces[(corners[:,0]!=corners[:,1])&(corners[:,1]!=corners[:,2])&(corners[:,0]!=corners[:,2])]
+ _,idx=np.unique(np.sort(faces,axis=1),axis=0,return_index=True);faces=faces[np.sort(idx)]
+ cross=np.cross(q[faces[:,1]]-q[faces[:,0]],q[faces[:,2]]-q[faces[:,0]])
+ smooth=np.zeros_like(centroids)
+ for j in range(3):np.add.at(smooth,shared[faces[:,j]],cross)
+ smooth/=np.maximum(np.linalg.norm(smooth,axis=1,keepdims=True),1e-12);norm=smooth[shared]
+ pixels=np.array(image);rgb=pixels[np.clip((t[:,1]*image.height).astype(int),0,image.height-1),np.clip((t[:,0]*image.width).astype(int),0,image.width-1)]/255
+ rgb=np.where(rgb<=.04045,rgb/12.92,((rgb+.055)/1.055)**2.4)
  return {'positions':np.round(q,6).reshape(-1).tolist(),'normals':np.round(norm,6).reshape(-1).tolist(),'uv':np.round(t,6).reshape(-1).tolist(),'colors':np.round(rgb,6).reshape(-1).tolist(),'indices':faces.reshape(-1).tolist()}
 data={'source':Path(sys.argv[1]).name,'texture':texture,'high':bake(100),'medium':bake(40),'low':bake(24)}
-path=root/'models/honk-current-v165.bin';path.write_bytes(gzip.compress(json.dumps(data,separators=(',',':')).encode(),mtime=0));print(path.name,path.stat().st_size,[(k,len(data[k]['indices'])//3) for k in ['high','medium','low']])
+path=root/'models/honk-current-v166.bin';path.write_bytes(gzip.compress(json.dumps(data,separators=(',',':')).encode(),mtime=0));print(path.name,path.stat().st_size,[(k,len(data[k]['indices'])//3) for k in ['high','medium','low']])

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {createHonkKartDriver} from './kart-driver.js?v=165';
+import {createHonkKartDriver} from './kart-driver.js?v=166';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
 export function createSkiHonk(parent,headData){

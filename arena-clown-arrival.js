@@ -1,4 +1,4 @@
-import {currentHonkGeometry} from './honk-model.js?v=165';
+import {currentHonkGeometry} from './honk-model.js?v=166';
 import * as THREE from 'three';
 import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 
