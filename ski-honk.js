@@ -1,6 +1,6 @@
-import {createOriginalHonkActor} from './original-honk-actors.js?v=174';
+import {createOriginalHonkActor} from './original-honk-actors.js?v=176';
 import * as THREE from 'three';
-import {createHonkKartDriver} from './kart-driver.js?v=174';
+import {createHonkKartDriver} from './kart-driver.js?v=176';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
 function createLegacySkiHonk(parent,headData){
@@ -57,7 +57,7 @@ export function createSkiHonk(parent,headData){
  const oldPose=board.pose;
  function pose(position,yaw,speed,turn,slope=0,state={}){
   oldPose(position,yaw,speed,turn,slope,state);actor.reset();const crouch=Math.min(1,(state.airborne?.65:Math.min(1,speed/10)*.38)+(state.landing||0)*.7),lean=turn*Math.min(1,speed/5)*.14;actor.group.position.set(lean,.141,0);actor.bones.root.position.y-=crouch*.07;
-  for(const sign of [-1,1]){const target=new THREE.Vector3(sign*.31,.141+.045*actor.height,-.035).sub(new THREE.Vector3(0,actor.group.position.y,0)).divideScalar(actor.height);actor.leg(sign,target);actor.arm(sign,new THREE.Vector3(sign*(state.airborne?.40:.34),.53-crouch*.04,.06))}
+  for(const sign of [-1,1]){const target=new THREE.Vector3(sign*.31,.141+.045*actor.height,-.035).sub(new THREE.Vector3(0,actor.group.position.y,0)).divideScalar(actor.height);actor.leg(sign,target);const shoulder=actor.bones['shoulder'+sign],spread=.12+Math.min(1,speed/12)*.055+(state.airborne?.055:0)+sign*turn*.025;shoulder.rotation.set(-.08-crouch*.035,0,sign*spread)}
   actor.mesh.updateMatrixWorld(true);
  }
  pose(new THREE.Vector3(),0,0,0);return {...board,actor,head:actor.head,body:actor.group,pose,dispose(){board.dispose();actor.dispose()}};

@@ -13,8 +13,10 @@ function rigGeometry(template){
  for(let i=0;i<p.count;i++){
   const x=p.getX(i),y=p.getY(i),side=x<0?-1:1,arm=1-THREE.MathUtils.smoothstep(y,.54,.60),lateral=THREE.MathUtils.smoothstep(Math.abs(x),.175,.235);
   if(y>=.56)blend('spine','head',THREE.MathUtils.smoothstep(y,.55,.61));
+  // Fingers extend below the hips. Classify the outside arms first so they
+  // cannot inherit knee/ankle motion when crouching or spreading the legs.
+  else if(y>.20&&arm*lateral>.01){const bone=y<.37?'hand':y<.46?'elbow':'shoulder';blend('spine',bone+side,arm*lateral)}
   else if(y<.29){if(y<.105)blend('ankle'+side,'knee'+side,THREE.MathUtils.smoothstep(y,.045,.105));else blend('knee'+side,'hip'+side,THREE.MathUtils.smoothstep(y,.13,.27))}
-  else if(y<.60&&arm*lateral>.01){const bone=y<.37?'hand':y<.46?'elbow':'shoulder';blend('spine',bone+side,arm*lateral)}
   else blend('root','spine',THREE.MathUtils.smoothstep(y,.29,.44));
  }
  geometry.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(indices,4));geometry.setAttribute('skinWeight',new THREE.Float32BufferAttribute(weights,4));geometry.computeBoundingBox();geometry.computeBoundingSphere();

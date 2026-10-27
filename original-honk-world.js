@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {createOriginalHonkSpectator} from './arena-honk-spectators.js?v=173';
 
 export function replaceWorldOriginalHonks(root,slug,template){
- if(!template||slug==='arena')return [];
+ if(!template||slug==='arena'||slug==='goat-mountain')return [];
  root.updateMatrixWorld(true);const groups=new Map(),replacements=[],source=template.scene.children.find(o=>o.isMesh);
  root.traverse(o=>{if(!o.isMesh||o.userData.arenaOriginalHonk)return;const match=/^(Museum_HONK_|Small_HONK_toy_|Rider_Museum_HONK_|Flag_HONK_(?:\d+_)?Museum_HONK_|Museum_miniature_HONK_\d+_Museum_HONK_)/.exec(o.name);if(match){if(!groups.has(match[1]))groups.set(match[1],[]);groups.get(match[1]).push(o)}});
  const instances=[];
