@@ -1,8 +1,9 @@
+import {createOriginalHonkActor} from './original-honk-actors.js?v=174';
 import * as THREE from 'three';
-import {createHonkKartDriver} from './kart-driver.js?v=170';
+import {createHonkKartDriver} from './kart-driver.js?v=174';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
-export function createSkiHonk(parent,headData){
+function createLegacySkiHonk(parent,headData){
  const group=new THREE.Group();group.name='Honk_player_on_snowboard';group.visible=false;parent.add(group);
  const original=createHonkKartDriver(new THREE.Group(),headData),head=original.head;head.removeFromParent();group.add(head);
  const mat=c=>new THREE.MeshStandardMaterial({color:c,roughness:.64}),m={blue:mat(0x164bdf),green:mat(0x659b3e),red:mat(0xec3349),gold:mat(0xd7b568),dark:mat(0x25243d),white:mat(0xf0f5ff),bow:mat(0xa9d7fa)};
@@ -47,4 +48,17 @@ export function createSkiHonk(parent,headData){
   if(powder.visible){for(let i=0;i<10;i++){const phase=((state.clock||0)*3+i*.103)%1;puff.position.set(-Math.sign(turn||1)*(.12+phase*.28),.10+Math.sin(phase*Math.PI)*.20,-.5-phase*.6);puff.scale.setScalar((.02+phase*.045)*(1-phase));puff.updateMatrix();powder.setMatrixAt(i,puff.matrix)}powder.instanceMatrix.needsUpdate=true}
  }
  pose(new THREE.Vector3(),0,0,0);return {group,head,body,board,bindings,arms,legs,powder,pose,dispose(){powder.dispose()}};
+}
+
+export function createSkiHonk(parent,headData){
+ if(!headData?.original)return createLegacySkiHonk(parent,headData);
+ const board=createLegacySkiHonk(parent,null),actor=createOriginalHonkActor(headData.original,{height:1.55,name:'Original_uploaded_HONK_snowboarder'}),deck=board.board.parent;
+ board.head.removeFromParent();board.body.removeFromParent();for(const leg of board.legs)for(const key of ['upper','lower','hipJoint','kneeJoint'])leg[key].removeFromParent();for(const arm of board.arms)for(const key of ['elbow','hand','joint','upper','forearm'])arm[key].removeFromParent();for(const binding of board.bindings)binding.boot.removeFromParent();deck.add(actor.group);actor.group.rotation.y=Math.PI/2;
+ const oldPose=board.pose;
+ function pose(position,yaw,speed,turn,slope=0,state={}){
+  oldPose(position,yaw,speed,turn,slope,state);actor.reset();const crouch=Math.min(1,(state.airborne?.65:Math.min(1,speed/10)*.38)+(state.landing||0)*.7),lean=turn*Math.min(1,speed/5)*.14;actor.group.position.set(lean,.141,0);actor.bones.root.position.y-=crouch*.07;
+  for(const sign of [-1,1]){const target=new THREE.Vector3(sign*.31,.141+.045*actor.height,-.035).sub(new THREE.Vector3(0,actor.group.position.y,0)).divideScalar(actor.height);actor.leg(sign,target);actor.arm(sign,new THREE.Vector3(sign*(state.airborne?.40:.34),.53-crouch*.04,.06))}
+  actor.mesh.updateMatrixWorld(true);
+ }
+ pose(new THREE.Vector3(),0,0,0);return {...board,actor,head:actor.head,body:actor.group,pose,dispose(){board.dispose();actor.dispose()}};
 }

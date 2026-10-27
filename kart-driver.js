@@ -1,9 +1,11 @@
+import {createOriginalKartDriver} from './original-honk-actors.js?v=174';
+import {loadArenaOriginalHonk} from './arena-original-honk.js?v=172';
 import * as THREE from 'three';
 import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 
-import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';
-export const loadHonkKartHead=createAssetCache(()=>fetchGzipJSON('./assets/honk-kart-head-v57.bin'));
+export async function loadHonkKartHead(){return {original:await loadArenaOriginalHonk()}}
 export function createHonkKartDriver(vehicle,headData){
+ if(headData?.original)return createOriginalKartDriver(vehicle,headData.original);
  const driver=new THREE.Group();driver.name='Honk_player_driver';driver.visible=false;vehicle.add(driver);
  const torso=new THREE.Group();torso.name='Honk_driver_torso';driver.add(torso);
  const head=new THREE.Group();head.name='Honk_driver_original_head';head.position.set(0,1.18,-.23);driver.add(head);

@@ -28,13 +28,13 @@ test('lossless transport reconstructs the exact uploaded GLB, including every so
  assert.equal(material.normalMap.image.sourceHash,'f1aba44faf236c532ba3720bd27b3215128b388275e1d7d2d7f167c9a0bf8498');
  assert.equal(material.metalnessMap,material.roughnessMap);assert.equal(material.metalness,1);assert.equal(material.roughness,1);
 });
-test('only the main statue is replaced, with uniform scale, original proportions and grounded soles',()=>{
+test('the statue retains uniform scale, original proportions and grounded soles',()=>{
  const result=circus.originalHonk,after=new THREE.Box3().setFromObject(result.group),worldScale=sourceMesh.getWorldScale(new THREE.Vector3());
  assert.equal(result.source,uploaded.scene);assert.equal(sourceMesh.geometry,geometry);assert.equal(sourceMesh.material,material);
  assert.ok(Math.abs(worldScale.x-worldScale.y)<1e-6&&Math.abs(worldScale.z-worldScale.y)<1e-6);
  assert.ok(Math.abs(after.min.y-before.min.y-result.groundLift)<1e-5);assert.ok(Math.abs(after.max.y-before.max.y-result.groundLift)<1e-5);
  let old=0;arena.scene.traverse(o=>{if(o.isMesh&&/^Museum_HONK_/.test(o.name))old++});assert.equal(old,0);
- assert.equal(circus.arrival.state.clowns.length,10);assert.ok(!circus.arrival.group.getObjectByProperty('material',material),'arrival must retain its old models');
+ assert.equal(circus.arrival.state.clowns.length,10);assert.equal(circus.arrival.uploadedActors.length,10);for(const actor of circus.arrival.uploadedActors){assert.equal(actor.mesh.geometry.index.count/3,378840);assert.equal(actor.mesh.material.map,material.map)}
 });
 test('quality preparation preserves the complete uploaded material and original nose remains clickable',()=>{
  const maps=[material.map,material.normalMap,material.roughnessMap],settings=maps.map(t=>({anisotropy:t.anisotropy,colorSpace:t.colorSpace,flipY:t.flipY,minFilter:t.minFilter,magFilter:t.magFilter}));

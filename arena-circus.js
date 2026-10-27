@@ -2,7 +2,7 @@ import {installArenaOriginalHonk} from './arena-original-honk.js?v=172';
 import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
 import {decorateCircusArena} from './circus-decor.js?v=46';
-import {createArenaClownArrival} from './arena-clown-arrival.js?v=170';
+import {createArenaClownArrival} from './arena-clown-arrival.js?v=174';
 import {createClownHorn} from './clown-horn.js?v=31';
 import {prepareArenaSurfaces} from './arena-surfaces.js?v=46';
 import {finishArenaFacade} from './arena-facade.js?v=37';
@@ -42,7 +42,7 @@ export function prepareArenaCircus(root,environment,{statue=null}={}){
   mesh.material=material;
  });
  const facade=finishArenaFacade(root);
- const arrival=createArenaClownArrival(root),originalHonk=statue?installArenaOriginalHonk(root,statue):null;
+ const arrival=createArenaClownArrival(root,{original:statue}),originalHonk=statue?installArenaOriginalHonk(root,statue):null;
  // Preserve the polished gold trophy and its existing Telegram destination.
  const picker=prepareTrophy(root,environment),hitMaterial=picker.targets[0].material,horn=createClownHorn(),noses=[],extraBoxes=[];
  const red=new THREE.MeshPhysicalMaterial({name:'Circus glossy red noses',color:0xf51d30,roughness:.19,metalness:.05,clearcoat:.85,clearcoatRoughness:.1,envMapIntensity:1.1});

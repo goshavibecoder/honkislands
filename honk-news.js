@@ -1,3 +1,4 @@
+import {createOriginalHonkActor} from './original-honk-actors.js?v=174';
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';
@@ -18,7 +19,7 @@ function tools(){
 }
 function sourceGeometry(data,resources){const g=new THREE.BufferGeometry();for(const [key,size] of [['positions',3],['colors',3],['normals',3],['uv',2]])if(data[key])g.setAttribute({positions:'position',colors:'color',normals:'normal',uv:'uv'}[key]||key,new THREE.Float32BufferAttribute(data[key],size));g.setIndex(data.indices);if(!g.attributes.normal)g.computeVertexNormals();resources.geometries.add(g);return g}
 
-export function createHonkNewsProgram(data,{groyperMap=null}={}){
+export function createHonkNewsProgram(data,{groyperMap=null,original=null}={}){
  if(!data.completeMuseumModels||CAST.some(name=>!data.characters[name]?.complete))throw Error('HONK NEWS requires complete museum models');
  const r=tools(),{material:mat,mesh,box,ball,rod,text}=r,studio=new THREE.Scene(),street=new THREE.Scene();studio.background=new THREE.Color(0x112946);street.background=new THREE.Color(0xb8d6df);
  for(const scene of [studio,street]){scene.add(new THREE.HemisphereLight(0xf4fbff,0x8c8780,2.3));const sun=new THREE.DirectionalLight(0xfff0d9,2.2);sun.position.set(-5,8,6);scene.add(sun)}
@@ -61,6 +62,8 @@ export function createHonkNewsProgram(data,{groyperMap=null}={}){
  const placards=['HONK HONK!','ON VEUT HONK','LIBERTÉ / HONK'];const boards=placards.map((s,i)=>inst(new THREE.PlaneGeometry(.93,.44),text(s,768,320,['#fff1c9','#e6f0ff','#ffe2dc'][i],'#a21f3c',82),5,'Moving_protest_placard_'+i));boards.forEach(o=>r.geometries.add(o.geometry));
  const object=new THREE.Object3D(),from=new THREE.Vector3(),to=new THREE.Vector3(),delta=new THREE.Vector3();
  function segment(instance,index,a,b,radius){from.set(...a);to.set(...b);delta.subVectors(to,from);object.position.copy(from).add(to).multiplyScalar(.5);object.quaternion.setFromUnitVectors(UP,delta.clone().normalize());object.scale.set(radius,delta.length(),radius);object.updateMatrix();instance.setMatrixAt(index,object.matrix)}
+ const originalPresenter=original?createOriginalHonkActor(original,{height:1.85,name:'Original_HONK_NEWS_presenter'}):null,originalProtesters=original?Array.from({length:3},(_,i)=>createOriginalHonkActor(original,{height:1.55,name:'Original_HONK_NEWS_protester_'+i})):[];
+ if(originalPresenter){anchor.visible=false;originalPresenter.group.position.set(0,.20,-.10);studio.add(originalPresenter.group);bodies.get('honk').visible=false;for(const actor of originalProtesters)street.add(actor.group);for(const actor of [originalPresenter,...originalProtesters]){r.geometries.add(actor.mesh.geometry);r.materials.add(actor.mesh.material)}}
  const posed=[];function setStudioArm(o,a,b){from.set(...a);to.set(...b);delta.subVectors(to,from);o.position.copy(from).add(to).multiplyScalar(.5);o.scale.y=delta.length();o.quaternion.setFromUnitVectors(UP,delta.normalize())}
  function animateOriginal(rig,time,phase){const {source,geometry,positions,normals}=rig,p=geometry.attributes.position.array,n=geometry.attributes.normal.array;let floor=Infinity;rig.armAngles={1:Math.sin(time*1.7+.3)*.035,'-1':Math.sin(time*2.8+phase)*.075};
   // Gentle skinning of the original connected legs; no cuts, added knees or shoes.
@@ -74,23 +77,24 @@ export function createHonkNewsProgram(data,{groyperMap=null}={}){
  for(const o of [top,lower,ticker]){o.material.depthTest=false;o.material.depthWrite=false}
  let mode='studio';
  function update(time){mode=time%26<8||time%26>=22?'studio':'street';presenter.rotation.y=Math.sin(time*.8)*.045;presenter.rotation.z=Math.sin(time*1.4)*.012;for(const arm of studioArms){arm.hand.position.set(arm.sign*.43,1.075+(arm.sign>0?Math.max(0,Math.sin(time*2.1))*.065:0),.45);setStudioArm(arm.forearm,arm.elbow,arm.hand.position.toArray())}
+  if(originalPresenter){originalPresenter.reset();originalPresenter.head.rotation.y=Math.sin(time*.8)*.045;for(const side of [-1,1])originalPresenter.arm(side,new THREE.Vector3(side*.43,1.075+(side>0?Math.max(0,Math.sin(time*2.1))*.065:0),.45).sub(originalPresenter.group.position).divideScalar(originalPresenter.height))}
   let phase=0;for(const rig of rigs.values())animateOriginal(rig,time,phase++*.93);
-  posed.length=0;const counts=Object.fromEntries(CAST.map(n=>[n,0]));for(let i=0;i<people.length;i++){const a=people[i],rig=rigs.get(a.name),x=a.x+Math.sin(time*.55+a.phase)*.025,z=a.z+Math.sin(time*.34)*.12,yaw=Math.sin(time*.6+a.phase)*.025,base=-rig.floor*a.scale;
-   object.position.set(x,base,z);object.rotation.set(0,yaw,0,'YXZ');object.scale.setScalar(a.scale);object.updateMatrix();bodies.get(a.name).setMatrixAt(counts[a.name]++,object.matrix);const grip=rig.handGrip.clone().applyMatrix4(object.matrix),top=rig.source.height*a.scale+base,boardY=Math.max(1.94,top+.38),sway=Math.sin(time*1.7+a.phase)*.035,boardCenter=new THREE.Vector3(grip.x+sway,boardY,grip.z),axis=boardCenter.clone().sub(grip).normalize(),poleBottom=grip.clone().addScaledVector(axis,-.09),poleTop=boardCenter.clone().addScaledVector(axis,.12),poleRadius=rig.source.gripRadius*a.scale*.66;segment(poles,i,poleBottom.toArray(),poleTop.toArray(),poleRadius);
+  let honkIndex=0;posed.length=0;const counts=Object.fromEntries(CAST.map(n=>[n,0]));for(let i=0;i<people.length;i++){const a=people[i],rig=rigs.get(a.name),x=a.x+Math.sin(time*.55+a.phase)*.025,z=a.z+Math.sin(time*.34)*.12,yaw=Math.sin(time*.6+a.phase)*.025,base=-rig.floor*a.scale;
+   object.position.set(x,base,z);object.rotation.set(0,yaw,0,'YXZ');object.scale.setScalar(a.scale);object.updateMatrix();bodies.get(a.name).setMatrixAt(counts[a.name]++,object.matrix);let grip=rig.handGrip.clone().applyMatrix4(object.matrix),top=rig.source.height*a.scale+base;if(a.name==='honk'&&originalProtesters.length){const actor=originalProtesters[honkIndex++];actor.group.position.set(x,.012,z);actor.group.rotation.y=yaw;actor.walk(time*.4,a.phase);actor.arm(1,new THREE.Vector3(.27,.56,.13));actor.group.updateMatrixWorld(true);grip=actor.hand(1);top=actor.height+.012}const boardY=Math.max(1.94,top+.38),sway=Math.sin(time*1.7+a.phase)*.035,boardCenter=new THREE.Vector3(grip.x+sway,boardY,grip.z),axis=boardCenter.clone().sub(grip).normalize(),poleBottom=grip.clone().addScaledVector(axis,-.09),poleTop=boardCenter.clone().addScaledVector(axis,.12),poleRadius=rig.source.gripRadius*a.scale*.66;segment(poles,i,poleBottom.toArray(),poleTop.toArray(),poleRadius);
    object.position.copy(boardCenter);object.rotation.set(0,yaw,-Math.atan2(axis.x,axis.y));object.scale.set(1,1,1);object.updateMatrix();boards[i%3].setMatrixAt(Math.floor(i/3),object.matrix);posed.push({base,grip:grip.toArray(),top,boardY,poleBottom:poleBottom.toArray(),poleTop:poleTop.toArray(),poleRadius});
   }
   for(const o of [...bodies.values(),poles,...boards])o.instanceMatrix.needsUpdate=true;lower.material=mode==='street'?streetLower:studioLower;ticker.material.map.offset.x=time*.022;
  }
  update(0);
- return {studio,street,studioCamera,streetCamera,hud,hudCamera,anchor,presenter,studioArms,people,bodies,boards,poles,rigs,posed,get mode(){return mode},get scene(){return mode==='street'?street:studio},get camera(){return mode==='street'?streetCamera:studioCamera},update,
+ return {studio,street,studioCamera,streetCamera,hud,hudCamera,anchor,presenter:originalPresenter?.mesh||presenter,originalPresenter,originalProtesters,studioArms,people,bodies,boards,poles,rigs,posed,get mode(){return mode},get scene(){return mode==='street'?street:studio},get camera(){return mode==='street'?streetCamera:studioCamera},update,
   async prepare(renderer){await renderer.compileAsync?.(studio,studioCamera);await renderer.compileAsync?.(street,streetCamera);await renderer.compileAsync?.(hud,hudCamera)},
-  dispose(){for(const o of [...bodies.values(),poles,...boards])o.dispose();for(const scene of [studio,street])scene.traverse(o=>{if(o.geometry&&!r.geometries.has(o.geometry))o.geometry.dispose()});r.dispose()}
+  dispose(){for(const actor of [originalPresenter,...originalProtesters])actor?.dispose();for(const o of [...bodies.values(),poles,...boards])o.dispose();for(const scene of [studio,street])scene.traverse(o=>{if(o.geometry&&!r.geometries.has(o.geometry))o.geometry.dispose()});r.dispose()}
  };
 }
 
-export async function prepareHonkNews(root,{load=loadCast}={}){
+export async function prepareHonkNews(root,{load=loadCast,original=null}={}){
  const raw=await load(),image=await createImageBitmap(new Blob([Uint8Array.from(atob(raw.texture),c=>c.charCodeAt(0))],{type:'image/webp'})),map=new THREE.Texture(image);map.flipY=false;map.colorSpace=THREE.SRGBColorSpace;map.needsUpdate=true;
- const program=createHonkNewsProgram(raw,{groyperMap:map}),r=tools(),{material:mat,mesh,box,ball,rod,text}=r,group=new THREE.Group();group.name='Antique_HONK_NEWS_television';root.updateMatrixWorld(true);root.add(group);root.matrixWorld.clone().invert().multiply(new THREE.Matrix4().makeTranslation(-.43,.028,2.85)).decompose(group.position,group.quaternion,group.scale);
+ const program=createHonkNewsProgram(raw,{groyperMap:map,original}),r=tools(),{material:mat,mesh,box,ball,rod,text}=r,group=new THREE.Group();group.name='Antique_HONK_NEWS_television';root.updateMatrixWorld(true);root.add(group);root.matrixWorld.clone().invert().multiply(new THREE.Matrix4().makeTranslation(-.43,.028,2.85)).decompose(group.position,group.quaternion,group.scale);
  let source;root.traverse(o=>{if(o.isMesh&&o.material?.name==='Walnut'&&!source)source=o.material});const wood=source?source.clone():mat(0x785239);r.materials.add(wood);wood.vertexColors=false;const dark=mat(0x342a2b),gold=mat(0xc9a25e),black=mat(0x1c2027),cream=mat(0xd6c5a0),metal=mat(0x8e9298);
  // A low timber cabinet, closed doors, splayed feet and a deep wood CRT case.
  box(group,wood,1.58,.48,.60,0,.43,0);box(group,dark,1.65,.06,.66,0,.70,0);for(const x of [-.66,.66])for(const z of [-.21,.21])rod(group,wood,[x,.02,z],[x*.91,.21,z*.90],.045);

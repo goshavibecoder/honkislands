@@ -1,3 +1,4 @@
+import {createOriginalHonkActor} from './original-honk-actors.js?v=174';
 import * as THREE from 'three';
 import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 
@@ -20,7 +21,7 @@ function reduceGeometry(source,resolution){
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
 }
 
-export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
+export function createArenaClownArrival(root,{center={x:0,z:2.5},original=null}={}){
  root.updateMatrixWorld(true);const group=new THREE.Group();group.name='Circus_clown_car_arrival';root.add(group);
  const inverse=root.matrixWorld.clone().invert();group.matrix.copy(inverse);group.matrix.decompose(group.position,group.quaternion,group.scale);
  const floors=[],reference=[],bounds=new THREE.Box3();root.traverse(o=>{if(!o.isMesh)return;if(/^(Arena_complete_sand_floor|Entrance_continuous_walkable_floor|Gateway_solid_grounded_floor|Passage_real_stone_paving_tile)/.test(o.name))floors.push(o);if(/^Museum_HONK_/.test(o.name)){reference.push(o);bounds.expandByObject(o)}});
@@ -30,7 +31,7 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
  const normalization=new THREE.Matrix4().makeScale(scale,scale,scale).multiply(new THREE.Matrix4().makeTranslation(-origin.x,-origin.y,-origin.z));
  const buckets=new Map(),cloth=new THREE.MeshStandardMaterial({name:'Arrival HONK coloured suits',color:0xffffff,roughness:.66});
  const pivots={body:new THREE.Vector3(),leftLeg:new THREE.Vector3(-.10,.34,0),rightLeg:new THREE.Vector3(.10,.34,0),leftArm:new THREE.Vector3(-.21,.65,0),rightArm:new THREE.Vector3(.21,.65,0)};
- for(const o of reference){
+ if(!original)for(const o of reference){
   const name=o.name.slice('Museum_HONK_'.length);if(/Cap\d|Finger|Thumb|Fold|Crease|Catchlight|LowerLid|BowDot/.test(name))continue;
   const bone=/^Left(PantLeg|AnkleCuff|Shoe|Sole)/.test(name)?'leftLeg':/^Right(PantLeg|AnkleCuff|Shoe|Sole)/.test(name)?'rightLeg':/^Left(Sleeve|Cuff|Palm)/.test(name)?'leftArm':/^Right(Sleeve|Cuff|Palm)/.test(name)?'rightArm':'body';
   const coloured=/SuitTorso|PantLeg|Sleeve$/.test(name),material=coloured?cloth:o.material,key=bone+material.uuid;
@@ -43,6 +44,7 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
   const geometry=mergeGeometries(bucket.geometries,false);bucket.geometries.forEach(g=>g.dispose());const mesh=new THREE.InstancedMesh(geometry,bucket.material,COUNT);mesh.name=`Arrival_HONK_${bucket.bone}`;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;group.add(mesh);actorTriangles+=(geometry.index?.count||geometry.attributes.position.count)/3;
   if(bucket.coloured)for(let i=0;i<COUNT;i++)mesh.setColorAt(i,new THREE.Color(SUITS[i]));actors.push({bone:bucket.bone,mesh});
  }
+ const uploadedActors=original?Array.from({length:COUNT},(_,i)=>{const actor=createOriginalHonkActor(original,{height:1.05,name:'Arrival_uploaded_HONK_'+i});group.add(actor.group);return actor}):[];if(original)actorTriangles=uploadedActors[0].mesh.geometry.index.count/3;
  buckets.clear();
 
  const paint=(color,roughness=.35,metalness=.1)=>new THREE.MeshStandardMaterial({color,roughness,metalness}),m={red:paint(0xd72c4b),cream:paint(0xffefce),gold:paint(0xeebd50,.28,.65),blue:paint(0x3876c5),glass:paint(0x23445c,.18,.4),dark:paint(0x252737,.72),white:paint(0xfff9df)};
@@ -125,13 +127,14 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
   }
   const visibleCount=state.clowns.filter(a=>a.visible).length;
   for(const bucket of actors){bucket.mesh.count=visibleCount;for(let i=0;i<COUNT;i++)bucket.mesh.setMatrixAt(i,poses[bucket.bone][i]);bucket.mesh.instanceMatrix.needsUpdate=true}
+  for(let i=0;i<uploadedActors.length;i++){const actor=uploadedActors[i],a=state.clowns[i];actor.group.visible=a.visible;if(!a.visible)continue;actor.group.position.set(a.x,a.y,a.z);actor.group.rotation.y=a.yaw;if(a.walking)actor.walk(a.age,i*.7);else actor.reset()}
   state.phase=time<4.6?'arriving':state.clowns.some(a=>!a.visible||a.walking)?'unloading':'at-walls';
  }
  group.traverse(o=>{if(o.isMesh)o.userData.arenaArrival=true});render(null);
- return {group,car,state,actorTriangles,drawCalls:actors.length,
+ return {group,car,state,actorTriangles,drawCalls:actors.length+uploadedActors.length,uploadedActors,
   reset(nextCenter=center){time=0;state.center={...nextCenter};render(null)},
   update(dt,player){if(!player)return;const next=time+Math.min(Math.max(dt,0),.25),point=curve.getPointAt(ease((next-.65)/3.5));if(time<4.15&&Math.hypot(point.x-player.x,point.z-player.z)<.9)return;time=next;render(player)},
-  dispose(){group.traverse(o=>{if(o.isInstancedMesh)o.dispose()})},
+  dispose(){for(const actor of uploadedActors)actor.dispose();group.traverse(o=>{if(o.isInstancedMesh)o.dispose()})},
   get elapsed(){return time}
  };
 }
