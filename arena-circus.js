@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
 import {decorateCircusArena} from './circus-decor.js?v=46';
-import {createArenaClownArrival} from './arena-clown-arrival.js?v=46';
+import {createArenaClownArrival} from './arena-clown-arrival.js?v=165';
 import {createClownHorn} from './clown-horn.js?v=31';
 import {prepareArenaSurfaces} from './arena-surfaces.js?v=46';
 import {finishArenaFacade} from './arena-facade.js?v=37';
@@ -46,7 +46,7 @@ export function prepareArenaCircus(root,environment){
  const red=new THREE.MeshPhysicalMaterial({name:'Circus glossy red noses',color:0xf51d30,roughness:.19,metalness:.05,clearcoat:.85,clearcoatRoughness:.1,envMapIntensity:1.1});
  const existing=[];root.traverse(mesh=>{if(mesh.isMesh&&/(RedClownNose|red_clown_nose)/i.test(mesh.name))existing.push(mesh)});
  const register=(mesh,squeeze=false)=>{
-  mesh.userData.honkNose=true;mesh.material=red;mesh.updateWorldMatrix(true,false);
+  mesh.userData.honkNose=true;if(!mesh.userData.currentHonkHit)mesh.material=red;mesh.updateWorldMatrix(true,false);
   const hit=new THREE.Mesh(mesh.geometry.clone().applyMatrix4(mesh.matrixWorld),hitMaterial),index=noses.length;
   hit.userData={title:'Clown horn — HONK!',action:'honk',nose:index};hit.updateMatrixWorld();picker.targets.push(hit);noses.push({mesh,scale:mesh.scale.clone(),time:0,squeeze});
  };

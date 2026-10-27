@@ -1,3 +1,4 @@
+import {currentHonkGeometry} from './honk-model.js?v=165';
 import * as THREE from 'three';
 import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 
@@ -23,13 +24,16 @@ function reduceGeometry(source,resolution){
 export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
  root.updateMatrixWorld(true);const group=new THREE.Group();group.name='Circus_clown_car_arrival';root.add(group);
  const inverse=root.matrixWorld.clone().invert();group.matrix.copy(inverse);group.matrix.decompose(group.position,group.quaternion,group.scale);
- const floors=[],reference=[],bounds=new THREE.Box3();root.traverse(o=>{if(!o.isMesh)return;if(/^(Arena_complete_sand_floor|Entrance_continuous_walkable_floor|Gateway_solid_grounded_floor|Passage_real_stone_paving_tile)/.test(o.name))floors.push(o);if(/^Museum_HONK_/.test(o.name)){reference.push(o);bounds.expandByObject(o)}});
+ const floors=[],reference=[],bounds=new THREE.Box3();root.traverse(o=>{if(!o.isMesh)return;if(/^(Arena_complete_sand_floor|Entrance_continuous_walkable_floor|Gateway_solid_grounded_floor|Passage_real_stone_paving_tile)/.test(o.name))floors.push(o);if(/^Museum_HONK_/.test(o.name)&&!o.userData.currentHonkHit){reference.push(o);bounds.expandByObject(o)}});
  if(!reference.length)throw Error('HONK reference character unavailable');
  const ray=new THREE.Raycaster();function floorAt(x,z){ray.set(new THREE.Vector3(x,1.6,z),new THREE.Vector3(0,-1,0));ray.far=2;return ray.intersectObjects(floors,false)[0]?.point.y??.755}
  const scale=1.05/(bounds.max.y-bounds.min.y),origin=bounds.getCenter(new THREE.Vector3());origin.y=bounds.min.y;
  const normalization=new THREE.Matrix4().makeScale(scale,scale,scale).multiply(new THREE.Matrix4().makeTranslation(-origin.x,-origin.y,-origin.z));
  const buckets=new Map(),cloth=new THREE.MeshStandardMaterial({name:'Arrival HONK coloured suits',color:0xffffff,roughness:.66});
  const pivots={body:new THREE.Vector3(),leftLeg:new THREE.Vector3(-.10,.34,0),rightLeg:new THREE.Vector3(.10,.34,0),leftArm:new THREE.Vector3(-.21,.65,0),rightArm:new THREE.Vector3(.21,.65,0)};
+ const current=reference.find(o=>o.userData.currentHonkData);
+ if(current){for(const bone of Object.keys(pivots)){const pivot=pivots[bone],geometry=currentHonkGeometry(current.userData.currentHonkData.low,{height:1.05,part:bone});geometry.deleteAttribute('color');geometry.translate(-pivot.x,-pivot.y,-pivot.z);buckets.set(bone,{bone,material:current.material,coloured:false,geometries:[geometry]})}}
+ else {
  for(const o of reference){
   const name=o.name.slice('Museum_HONK_'.length);if(/Cap\d|Finger|Thumb|Fold|Crease|Catchlight|LowerLid|BowDot/.test(name))continue;
   const bone=/^Left(PantLeg|AnkleCuff|Shoe|Sole)/.test(name)?'leftLeg':/^Right(PantLeg|AnkleCuff|Shoe|Sole)/.test(name)?'rightLeg':/^Left(Sleeve|Cuff|Palm)/.test(name)?'leftArm':/^Right(Sleeve|Cuff|Palm)/.test(name)?'rightArm':'body';
@@ -37,6 +41,7 @@ export function createArenaClownArrival(root,{center={x:0,z:2.5}}={}){
   let bucket=buckets.get(key);if(!bucket){bucket={bone,material,coloured,geometries:[]};buckets.set(key,bucket)}
   const resolution=/^(Head|SuitTorso)$/.test(name)?8:/EyeWhite|Pupil|RedClownNose/.test(name)?6:/Hair/.test(name)?3:4;
   const preserve=/^(Head|SuitTorso|LowerLip|UpperLip|Smile)$/.test(name),geometry=preserve?o.geometry.clone():reduceGeometry(o.geometry,resolution);for(const attribute of Object.keys(geometry.attributes))if(!['position','normal'].includes(attribute))geometry.deleteAttribute(attribute);geometry.applyMatrix4(normalization.clone().multiply(o.matrixWorld));const pivot=pivots[bone];geometry.translate(-pivot.x,-pivot.y,-pivot.z);bucket.geometries.push(geometry);
+ }
  }
  const actors=[];let actorTriangles=0;
  for(const bucket of buckets.values()){

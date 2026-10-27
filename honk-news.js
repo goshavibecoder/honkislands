@@ -1,8 +1,13 @@
+import {loadCurrentHonk,currentHonkMaterial,currentHonkGeometry} from './honk-model.js?v=165';
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';
 
-const loadCast=createAssetCache(()=>fetchGzipJSON('./models/honk-news-museum-v164.bin'));
+const loadCast=createAssetCache(async()=>{
+ const data=await fetchGzipJSON('./models/honk-news-museum-v164.bin'),current=await loadCurrentHonk(),g=currentHonkGeometry(current.medium,{height:1.2}),p=g.attributes.position.array,n=g.attributes.normal.array,source={...data.characters.honk,positions:Array.from(p),normals:Array.from(n),uv:Array.from(g.attributes.uv.array),colors:Array.from(g.attributes.color.array),indices:Array.from(g.index.array),height:1.2,width:.65,grip:[.29,.37,.04],legSide:[],armSide:[],armWeight:[],pivots:{'-1':[-.10,.37,0],'1':[.10,.37,0]},armPivots:{'-1':[-.23,.67,0],'1':[.23,.67,0]}};
+ for(let i=0;i<p.length;i+=3){source.legSide.push(p[i+1]<.37?Math.sign(p[i]):0);source.armSide.push(0);source.armWeight.push(0)}
+ data.characters.honk=source;g.dispose();const head=currentHonkGeometry(current.medium,{height:1.2,head:true});data.presenter={positions:Array.from(head.attributes.position.array),normals:Array.from(head.attributes.normal.array),uv:Array.from(head.attributes.uv.array),colors:Array.from(head.attributes.color.array),indices:Array.from(head.index.array),height:.528};head.dispose();data.currentHonk=current;return data;
+});
 const UP=new THREE.Vector3(0,1,0),CAST=['honk','fast','teledog','groyper','zoich'];
 function canvasMap(w,h,draw){const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;draw(canvas.getContext('2d'),w,h);const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;return map}
 function tools(){
@@ -18,15 +23,15 @@ function tools(){
 }
 function sourceGeometry(data,resources){const g=new THREE.BufferGeometry();for(const [key,size] of [['positions',3],['colors',3],['normals',3],['uv',2]])if(data[key])g.setAttribute({positions:'position',colors:'color',normals:'normal',uv:'uv'}[key]||key,new THREE.Float32BufferAttribute(data[key],size));g.setIndex(data.indices);if(!g.attributes.normal)g.computeVertexNormals();resources.geometries.add(g);return g}
 
-export function createHonkNewsProgram(data,{groyperMap=null}={}){
+export function createHonkNewsProgram(data,{groyperMap=null,honkMap=null}={}){
  if(!data.completeMuseumModels||CAST.some(name=>!data.characters[name]?.complete))throw Error('HONK NEWS requires complete museum models');
  const r=tools(),{material:mat,mesh,box,ball,rod,text}=r,studio=new THREE.Scene(),street=new THREE.Scene();studio.background=new THREE.Color(0x112946);street.background=new THREE.Color(0xb8d6df);
  for(const scene of [studio,street]){scene.add(new THREE.HemisphereLight(0xf4fbff,0x8c8780,2.3));const sun=new THREE.DirectionalLight(0xfff0d9,2.2);sun.position.set(-5,8,6);scene.add(sun)}
  const studioCamera=new THREE.PerspectiveCamera(36,4/3,.1,60);studioCamera.position.set(0,1.30,4.8);studioCamera.lookAt(0,1.2,0);
  const streetCamera=new THREE.PerspectiveCamera(44,4/3,.1,80);streetCamera.position.set(0,2.05,6.3);streetCamera.lookAt(0,1.20,-2.4);
  const m={red:mat(0xbb2945),navy:mat(0x173c65),cream:mat(0xf2d8a6),white:mat(0xfbf5df),gold:mat(0xd4b26c),grey:mat(0x656976),black:mat(0x242738),green:mat(0x729d44),blue:mat(0x2059d0),road:mat(0x606477),wood:mat(0x93623f)};
- const sources={},castMaterials={};for(const name of CAST){sources[name]=sourceGeometry(data.characters[name],r);const material=new THREE.MeshStandardMaterial({vertexColors:name!=='groyper',map:name==='groyper'?groyperMap:null,side:THREE.DoubleSide,roughness:.82});r.materials.add(material);castMaterials[name]=material}
- if(groyperMap)r.textures.add(groyperMap);
+ const sources={},castMaterials={};for(const name of CAST){sources[name]=sourceGeometry(data.characters[name],r);const material=new THREE.MeshStandardMaterial({vertexColors:name==='honk'?!honkMap:name!=='groyper',map:name==='honk'?honkMap:name==='groyper'?groyperMap:null,side:THREE.DoubleSide,roughness:.82});r.materials.add(material);castMaterials[name]=material}
+ if(groyperMap)r.textures.add(groyperMap);if(honkMap)r.textures.add(honkMap);
  // Studio: the original colosseum HONK presents from behind a news desk.
  box(studio,m.navy,7,4,.18,0,1.5,-1.3);for(const x of [-2.6,-1.9,1.9,2.6])box(studio,m.red,.10,3.1,.04,x,1.5,-1.18);
  const backdrop=mesh(new THREE.PlaneGeometry(2.7,.70),text('HONK NEWS',1024,256,'#153858','#fff5db',136),studio,0,2.14,-1.17);backdrop.name='HONK NEWS studio logo';
@@ -90,7 +95,7 @@ export function createHonkNewsProgram(data,{groyperMap=null}={}){
 
 export async function prepareHonkNews(root,{load=loadCast}={}){
  const raw=await load(),image=await createImageBitmap(new Blob([Uint8Array.from(atob(raw.texture),c=>c.charCodeAt(0))],{type:'image/webp'})),map=new THREE.Texture(image);map.flipY=false;map.colorSpace=THREE.SRGBColorSpace;map.needsUpdate=true;
- const program=createHonkNewsProgram(raw,{groyperMap:map}),r=tools(),{material:mat,mesh,box,ball,rod,text}=r,group=new THREE.Group();group.name='Antique_HONK_NEWS_television';root.updateMatrixWorld(true);root.add(group);root.matrixWorld.clone().invert().multiply(new THREE.Matrix4().makeTranslation(-.43,.028,2.85)).decompose(group.position,group.quaternion,group.scale);
+ const honkMaterial=raw.currentHonk?await currentHonkMaterial(raw.currentHonk):null;const program=createHonkNewsProgram(raw,{groyperMap:map,honkMap:honkMaterial?.map});honkMaterial?.dispose();const r=tools(),{material:mat,mesh,box,ball,rod,text}=r,group=new THREE.Group();group.name='Antique_HONK_NEWS_television';root.updateMatrixWorld(true);root.add(group);root.matrixWorld.clone().invert().multiply(new THREE.Matrix4().makeTranslation(-.43,.028,2.85)).decompose(group.position,group.quaternion,group.scale);
  let source;root.traverse(o=>{if(o.isMesh&&o.material?.name==='Walnut'&&!source)source=o.material});const wood=source?source.clone():mat(0x785239);r.materials.add(wood);wood.vertexColors=false;const dark=mat(0x342a2b),gold=mat(0xc9a25e),black=mat(0x1c2027),cream=mat(0xd6c5a0),metal=mat(0x8e9298);
  // A low timber cabinet, closed doors, splayed feet and a deep wood CRT case.
  box(group,wood,1.58,.48,.60,0,.43,0);box(group,dark,1.65,.06,.66,0,.70,0);for(const x of [-.66,.66])for(const z of [-.21,.21])rod(group,wood,[x,.02,z],[x*.91,.21,z*.90],.045);
