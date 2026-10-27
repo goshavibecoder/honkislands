@@ -286,12 +286,3 @@ test('lower cable bridge leaves the staircase mouth open while retaining its out
   assert.ok(ray.intersectObject(world.group,true).length>0,'remaining bridge edge lost its handrail');
  }
 });
-
-test('both karts use the actual uploaded head and preserve its facing direction, neck fit and wheel grip',()=>{
- const current=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-current-v168.bin',import.meta.url)))),map=new THREE.Texture(),world=prepareIslandTransport(new THREE.Group(),'arcade-district',{driverHead:{current,material:new THREE.MeshStandardMaterial({map})}});
- for(let i=0;i<world.cars.length;i++){world.selectCar(i);const driver=world.driver;driver.setSeated(true);const mesh=driver.head.children[0];assert.equal(mesh.material.map,map);assert.ok(mesh.geometry.attributes.uv.count>1000);
-  for(const steer of [-1,0,1]){world.setPose({x:2,y:.06,z:8},.7,1.4,steer,2);world.group.updateMatrixWorld(true);const face=new THREE.Vector3(0,0,1).transformDirection(driver.head.matrixWorld),forward=new THREE.Vector3(0,0,1).transformDirection(world.vehicle.matrixWorld);assert.ok(face.dot(forward)>.999);const headBox=new THREE.Box3().setFromObject(driver.head),neck=driver.torso.children.find(o=>o!==driver.suit&&o.isMesh);assert.ok(headBox.intersectsBox(new THREE.Box3().setFromObject(neck)),'uploaded head misses neck');
-   for(const arm of driver.arms){const wrist=new THREE.Vector3(0,.5,0).applyMatrix4(arm.forearm.matrixWorld),hand=arm.hand.getWorldPosition(new THREE.Vector3()),rim=world.vehicle.getObjectByName('Kart_steering_wheel').localToWorld(new THREE.Vector3(arm.sign*.14,0,0));assert.ok(wrist.distanceTo(hand)<1e-6);assert.ok(hand.distanceTo(rim)<1e-6)}
-  }driver.setSeated(true,true);assert.equal(driver.head.visible,false);driver.setSeated(true,false);assert.equal(driver.head.visible,true);
- }
-});

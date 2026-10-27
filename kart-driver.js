@@ -1,14 +1,13 @@
-import {loadCurrentHonk,currentHonkMaterial,currentHonkGeometry} from './honk-model.js?v=168';
 import * as THREE from 'three';
 import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 
-export async function loadHonkKartHead(){const current=await loadCurrentHonk();return {current,material:await currentHonkMaterial(current)}}
+import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';
+export const loadHonkKartHead=createAssetCache(()=>fetchGzipJSON('./assets/honk-kart-head-v57.bin'));
 export function createHonkKartDriver(vehicle,headData){
  const driver=new THREE.Group();driver.name='Honk_player_driver';driver.visible=false;vehicle.add(driver);
  const torso=new THREE.Group();torso.name='Honk_driver_torso';driver.add(torso);
  const head=new THREE.Group();head.name='Honk_driver_original_head';head.position.set(0,1.18,-.23);driver.add(head);
  // Reuse the exact HONK face and rainbow wig from the existing workshop toy.
- if(headData?.current){const mesh=new THREE.Mesh(currentHonkGeometry(headData.current.medium,{height:1.15,head:true}),headData.material);mesh.geometry.translate(0,-.167,0);mesh.name='Honk_driver_Meshy_face_and_wig';head.add(mesh)}
  const buckets=new Map();for(const part of headData?.meshes||[]){const key=part.color.join(','),g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(part.positions,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(part.normals,3));g.setIndex(part.indices);if(!buckets.has(key))buckets.set(key,{color:part.color,geometries:[]});buckets.get(key).geometries.push(g)}
  for(const bucket of buckets.values()){const geometry=mergeGeometries(bucket.geometries,false),material=new THREE.MeshStandardMaterial({color:new THREE.Color().setRGB(...bucket.color),roughness:.58}),mesh=new THREE.Mesh(geometry,material);mesh.name='Honk_driver_face_and_wig';head.add(mesh);bucket.geometries.forEach(g=>g.dispose())}
  const material=(color,roughness=.6)=>new THREE.MeshStandardMaterial({color,roughness}),m={blue:material(0x174cdd),green:material(0x659b3e),white:material(0xf3f1e3),bow:material(0xa9d7fa),black:material(0x151729),red:material(0xe6232c)};

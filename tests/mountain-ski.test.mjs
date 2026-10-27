@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {gunzipSync} from 'node:zlib';
 import * as THREE from '../vendor/three.module.min.js';
 import {WalkMotion} from '../walk-motion.js';
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
@@ -52,22 +51,4 @@ test('touch and Space trigger one jump, and stepping off in midair returns to su
 });
 test('opening desktop controls pauses a jump and cannot leave a queued launch after closing',()=>{
  const {viewer,controller,panel}=setup();panel.querySelector('.ski-start').emit('click');viewer.keys.add('Space');controller.update(.08);assert.equal(controller.model.airborne,true);viewer.desktopControls={menuOpen:true};const position={...controller.model.position};controller.update(.08);assert.deepEqual(controller.model.position,position);viewer.keys.clear();viewer.desktopControls.menuOpen=false;controller.update(.08);assert.ok(controller.model.position.y!==position.y);controller.dispose();
-});
-
-const {createSkiHonk}=await import(moduleURL(new URL('../ski-honk.js',import.meta.url)));
-const uploadedHonk=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-current-v168.bin',import.meta.url))));
-test('the uploaded HONK head faces the snowboarder chest through turns, crouches and jumps',()=>{
- const material=new THREE.MeshStandardMaterial({map:new THREE.Texture()}),skier=createSkiHonk(new THREE.Group(),{current:uploadedHonk,material});
- for(const yaw of [0,.7,-1.3,Math.PI])for(const turn of [-1,0,1])for(const airborne of [false,true]){
-  skier.pose(new THREE.Vector3(3,4,-2),yaw,10,turn,.25,{airborne,verticalSpeed:3,landing:.6});skier.group.updateMatrixWorld(true);
-  const face=new THREE.Vector3(0,0,1).transformDirection(skier.head.matrixWorld),chest=new THREE.Vector3(1,0,0).transformDirection(skier.body.matrixWorld);assert.ok(face.dot(chest)>.99,'uploaded head faces sideways relative to the chest');
- }skier.dispose();
-});
-test('the actual uploaded head stays on the neck and boots stay on their bindings in each snowboard pose',()=>{
- const skier=createSkiHonk(new THREE.Group(),{current:uploadedHonk,material:new THREE.MeshStandardMaterial()});
- for(const speed of [0,6,12])for(const turn of [-1,0,1])for(const airborne of [false,true]){
-  skier.pose(new THREE.Vector3(2,5,-3),.9,speed,turn,.35,{airborne,landing:.8});skier.group.updateMatrixWorld(true);
-  const neck=skier.body.children.find(o=>o.isMesh&&o.material.color?.getHex()===0x659b3e),headBounds=new THREE.Box3().setFromObject(skier.head),neckBounds=new THREE.Box3().setFromObject(neck);assert.ok(headBounds.intersectsBox(neckBounds),'head detached from neck');
-  for(const b of skier.bindings){b.binding.geometry.computeBoundingBox();b.sole.geometry.computeBoundingBox();const soleBottom=skier.board.parent.worldToLocal(b.sole.localToWorld(new THREE.Vector3(0,b.sole.geometry.boundingBox.min.y,0))),bindingTop=skier.board.parent.worldToLocal(b.binding.localToWorld(new THREE.Vector3(0,b.binding.geometry.boundingBox.max.y,0)));assert.ok(Math.abs(soleBottom.y-bindingTop.y)<1e-6,'boot detaches from its binding')}
- }assert.ok(skier.head.children[0].geometry.attributes.uv);skier.dispose();
 });

@@ -1,10 +1,9 @@
-import {loadCurrentHonk,currentHonkMaterial,currentHonkGeometry} from './honk-model.js?v=168';
 import * as THREE from 'three';
 import {createSeatedHonkLegs} from './arena-seated-legs.js?v=88';
 
 export async function loadArenaCrowd(){
  const read=async url=>{const r=await fetch(url);if(!r.ok)throw Error(`Crowd asset ${r.status}: ${url}`);return r.json()},packed=async url=>{const manifest=await read(url),parts=await Promise.all(manifest.parts.map(name=>read('./models/'+name))),raw=atob(parts.join('')),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).json()};
- const [data,honk]=await Promise.all([packed('./models/arena-crowd-v84.json'),packed('./models/arena-honk-seated-v88.json')]);data.honk=honk;const current=await loadCurrentHonk(),material=await currentHonkMaterial(current);honk.map=material.map;material.dispose();for(const lod of ['high','low']){const g=currentHonkGeometry(current[lod==='high'?'medium':'low'],{height:1.2,minY:.30}),p=g.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,p.getY(i)-.36);honk[lod]={positions:Array.from(p.array),normals:Array.from(g.attributes.normal.array),uv:Array.from(g.attributes.uv.array),colors:Array.from(g.attributes.color.array),indices:Array.from(g.index.array)};g.dispose()}
+ const [data,honk]=await Promise.all([packed('./models/arena-crowd-v84.json'),packed('./models/arena-honk-seated-v88.json')]);data.honk=honk;
  const pixels=Uint8Array.from(atob(data.texture),c=>c.charCodeAt(0)),image=await createImageBitmap(new Blob([pixels],{type:'image/webp'}));
  data.groyper.map=new THREE.Texture(image);data.groyper.map.flipY=false;data.groyper.map.colorSpace=THREE.SRGBColorSpace;data.groyper.map.needsUpdate=true;return data;
 }
@@ -44,7 +43,7 @@ export function createArenaCrowd(root,characters){
   const data=sources[name];if(!data)throw Error('Missing crowd character: '+name);const count=placements.filter(p=>p.variant===name).length;
   // Double-sided source surfaces remain closed from both sides. Full texture
   // and detailed geometry are retained for the spectators beside the player.
-  const material=new THREE.MeshStandardMaterial({name:'Teledog cast / '+name,vertexColors:!data.map,map:data.map||null,side:THREE.DoubleSide,roughness:.82,metalness:0});materials.push(material);const pair={};
+  const material=new THREE.MeshStandardMaterial({name:'Teledog cast / '+name,vertexColors:name!=='groyper',map:data.map||null,side:THREE.DoubleSide,roughness:.82,metalness:0});materials.push(material);const pair={};
   for(const lod of ['high','low']){
    const source=data[lod],geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(source.positions,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(source.colors,3));if(source.uv)geometry.setAttribute('uv',new THREE.Float32BufferAttribute(source.uv,2));geometry.setIndex(source.indices);if(source.normals)geometry.setAttribute('normal',new THREE.Float32BufferAttribute(source.normals,3));else geometry.computeVertexNormals();
    const mesh=new THREE.InstancedMesh(geometry,material,count);mesh.name=`Arena_spectators_${name}_${lod}`;mesh.userData.arenaCrowd=true;mesh.count=0;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;group.add(mesh);meshes.push(mesh);pair[lod]=mesh;
@@ -59,5 +58,5 @@ export function createArenaCrowd(root,characters){
   for(const mesh of meshes){mesh.instanceMatrix.needsUpdate=true;triangles+=mesh.count*mesh.geometry.index.count/3}
  }
  update(1,new THREE.Vector3(0,2.4,2.5));
- return {group,meshes,placements,sources,legs,extraBoxes,count:seats.length,get triangles(){return triangles},get nearCount(){return nearCount},update,dispose(){legs.dispose();for(const mesh of meshes){mesh.dispose();mesh.geometry.dispose()}for(const m of materials)m.dispose();for(const data of Object.values(sources)){data.map?.dispose();data.map?.image?.close?.()}group.removeFromParent()}};
+ return {group,meshes,placements,sources,legs,extraBoxes,count:seats.length,get triangles(){return triangles},get nearCount(){return nearCount},update,dispose(){legs.dispose();for(const mesh of meshes){mesh.dispose();mesh.geometry.dispose()}for(const m of materials)m.dispose();characters.groyper.map?.dispose();characters.groyper.map?.image?.close?.();group.removeFromParent()}};
 }

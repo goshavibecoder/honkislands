@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {createHonkKartDriver} from './kart-driver.js?v=168';
+import {createHonkKartDriver} from './kart-driver.js?v=170';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
 export function createSkiHonk(parent,headData){
@@ -40,7 +40,7 @@ export function createSkiHonk(parent,headData){
   const air=!!state.airborne,crouch=Math.min(1,(air?.65:Math.min(1,speed/10)*.38)+(state.landing||0)*.7),lean=turn*Math.min(1,speed/5)*.14;
   group.position.copy(position);group.rotation.set(air?Math.atan(slope)*.35+THREE.MathUtils.clamp((state.verticalSpeed||0)*.025,-.14,.14):Math.atan(slope),yaw,0,'YXZ');deck.rotation.z=-lean;
   const hipY=.76-crouch*.12,shoulderY=1.08-crouch*.15;
-  torso.position.set(lean,.95-crouch*.14,0);torso.rotation.z=-lean;pelvis.position.set(lean*.5,hipY,0);neck.position.set(lean,1.18-crouch*.15,0);head.position.set(lean,1.30-crouch*.15,.015);head.rotation.set(0,Math.PI/2,-lean*.35,'YXZ');bow.position.set(lean,1.12-crouch*.15,0);
+  torso.position.set(lean,.95-crouch*.14,0);torso.rotation.z=-lean;pelvis.position.set(lean*.5,hipY,0);neck.position.set(lean,1.18-crouch*.15,0);head.position.set(lean,1.30-crouch*.15,.015);head.rotation.set(0,0,-lean*.35);bow.position.set(lean,1.12-crouch*.15,0);
   for(const leg of legs){leg.hip.set(lean*.5-.03,hipY,leg.sign*.125);leg.knee.set(.17+crouch*.07,.51-crouch*.04,leg.sign*.23);leg.hipJoint.position.copy(leg.hip);leg.kneeJoint.position.copy(leg.knee);connect(leg.upper,leg.hip,leg.knee);connect(leg.lower,leg.knee,leg.ankle)}
   for(const arm of arms){arm.shoulder.set(lean,shoulderY,arm.sign*.19);arm.joint.position.copy(arm.shoulder);arm.elbow.position.set(.02+lean,.94-crouch*.10,arm.sign*.40);arm.hand.position.set(.10+lean,.96-crouch*.06+(air?.10:0),arm.sign*(air?.50:.59));connect(arm.upper,arm.shoulder,arm.elbow.position);connect(arm.forearm,arm.elbow.position,arm.hand.position)}
   powder.visible=!air&&(speed>2&&Math.abs(turn)>.15||(state.landing||0)>.15);
