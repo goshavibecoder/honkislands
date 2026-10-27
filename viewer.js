@@ -19,7 +19,7 @@ import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 import {createArcadeTargets} from './arcade-links.js?v=8';
 import {WalkPhysics,createGalleryCollision,createFloorIndex} from './walk-physics.js?v=150';
 import {prepareMountainSnow} from './mountain-snow.js?v=138';
-import {createSkiHonk} from './ski-honk.js?v=166';
+import {createSkiHonk} from './ski-honk.js?v=167';
 import {mountMountainSki} from './mountain-ski.js?v=140';
 import {rebuildMountainStairs} from './mountain-stairs.js?v=152';
 import {repairLandingPad} from './landing-pad.js?v=19';
