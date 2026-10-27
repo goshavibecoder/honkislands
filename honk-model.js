@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';
-export const loadCurrentHonk=createAssetCache(()=>fetchGzipJSON('./models/honk-current-v166.bin'));
+export const loadCurrentHonk=createAssetCache(()=>fetchGzipJSON('./models/honk-current-v168.bin'));
 export async function currentHonkMaterial(data){
- const bytes=Uint8Array.from(atob(data.texture),c=>c.charCodeAt(0)),image=await createImageBitmap(new Blob([bytes],{type:'image/webp'})),map=new THREE.Texture(image);map.flipY=false;map.colorSpace=THREE.SRGBColorSpace;map.needsUpdate=true;
+ const bytes=Uint8Array.from(atob(data.texture),c=>c.charCodeAt(0)),image=await createImageBitmap(new Blob([bytes],{type:'image/webp'})),map=new THREE.Texture(image);map.flipY=false;map.colorSpace=THREE.SRGBColorSpace;map.magFilter=THREE.LinearFilter;map.minFilter=THREE.LinearMipmapLinearFilter;map.anisotropy=4;map.needsUpdate=true;
  return new THREE.MeshStandardMaterial({name:'Meshy Rainbow Clown Frog',map,roughness:.78,metalness:0,side:THREE.DoubleSide});
 }
 export function currentHonkGeometry(source,{height=1,head=false,part=null,seated=false,minY=-Infinity,nose=false}={}){

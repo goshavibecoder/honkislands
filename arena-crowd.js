@@ -1,4 +1,4 @@
-import {loadCurrentHonk,currentHonkMaterial,currentHonkGeometry} from './honk-model.js?v=166';
+import {loadCurrentHonk,currentHonkMaterial,currentHonkGeometry} from './honk-model.js?v=168';
 import * as THREE from 'three';
 import {createSeatedHonkLegs} from './arena-seated-legs.js?v=88';
 

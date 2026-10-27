@@ -1,4 +1,4 @@
-import {loadCurrentHonk,currentHonkMaterial,currentHonkGeometry} from './honk-model.js?v=166';
+import {loadCurrentHonk,currentHonkMaterial,currentHonkGeometry} from './honk-model.js?v=168';
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';

@@ -34,6 +34,10 @@ test('the browser loader reassembles local chunks and releases crowd resources',
  const original=globalThis.fetch;globalThis.fetch=async path=>new Response(readFileSync(new URL('../'+path.slice(2),import.meta.url)));try{const loaded=await loadArenaCrowd();assert.ok(loaded.groyper.map.isTexture);assert.equal(loaded.groyper.map.flipY,false);assert.ok(loaded.groyper.high.uv.length>10000)}finally{globalThis.fetch=original}
  const copy=createArenaCrowd(gltf.scene,data);let disposed=0;copy.meshes.forEach(m=>m.geometry.addEventListener('dispose',()=>disposed++));copy.dispose();assert.equal(disposed,10);assert.equal(copy.group.parent,null);
 });
+test('production textured HONK faces stay within the complete audience triangle budget',async()=>{
+ const original=globalThis.fetch;globalThis.fetch=async path=>new Response(readFileSync(new URL('../'+path.slice(2),import.meta.url)));
+ let actual;try{actual=createArenaCrowd(gltf.scene,await loadArenaCrowd());assert.ok(actual.sources.honk.map?.isTexture);assert.ok(actual.sources.honk.high.indices.length>50000,'nearby HONK must keep the detailed face');for(const p of actual.placements){actual.update(1,p.position.clone().add(new THREE.Vector3(0,1,2)));assert.ok(actual.triangles<1400000,'textured audience exceeds the mobile budget')}}finally{actual?.dispose();globalThis.fetch=original}
+});
 
 test('both audience LODs clear the actual cushion, stone support and backrest on every seat',()=>{
  gltf.scene.updateMatrixWorld(true);

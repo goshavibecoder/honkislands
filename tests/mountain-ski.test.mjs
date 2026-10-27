@@ -55,7 +55,7 @@ test('opening desktop controls pauses a jump and cannot leave a queued launch af
 });
 
 const {createSkiHonk}=await import(moduleURL(new URL('../ski-honk.js',import.meta.url)));
-const uploadedHonk=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-current-v166.bin',import.meta.url))));
+const uploadedHonk=JSON.parse(gunzipSync(readFileSync(new URL('../models/honk-current-v168.bin',import.meta.url))));
 test('the uploaded HONK head faces the snowboarder chest through turns, crouches and jumps',()=>{
  const material=new THREE.MeshStandardMaterial({map:new THREE.Texture()}),skier=createSkiHonk(new THREE.Group(),{current:uploadedHonk,material});
  for(const yaw of [0,.7,-1.3,Math.PI])for(const turn of [-1,0,1])for(const airborne of [false,true]){

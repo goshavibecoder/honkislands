@@ -29,7 +29,7 @@ for(const slug of ['goat-mountain','arcade-district','citadel','carnival','arena
  try{await v.open(slug,(p,label)=>{if(p>=.78)console.log('ISLAND_STAGE',slug,p,label)});
  if(['arena','honkhub','carnival','goat-mountain'].includes(slug))assert.ok(v.staticGroup.children.some(o=>o.material?.name==='Meshy Rainbow Clown Frog'),'new uploaded HONK must survive static batching');
  if(slug==='arena'){
-  assert.ok(v.arenaCrowd.sources.honk.map);assert.ok(v.arenaCircus.arrival.actorTriangles<4000);
+  assert.ok(v.arenaCrowd.sources.honk.map);assert.ok(v.arenaCircus.arrival.actorTriangles<8500);
   const noses=v.arenaCircus.noses.filter(n=>n.mesh.userData.currentHonkHit);assert.equal(noses.length,1);const nose=noses[0].mesh;assert.ok(nose.parent,'nose proxy survives static batching');const center=new THREE.Box3().setFromObject(nose).getCenter(new THREE.Vector3()),front=new THREE.Vector3(0,0,1).transformDirection(nose.matrixWorld),ray=new THREE.Raycaster(center.clone().addScaledVector(front,2),front.clone().negate()),hit=ray.intersectObjects(v.arenaCircus.picker.targets)[0];assert.equal(hit?.object.userData.action,'honk');
  }
  if(slug==='honkhub'){

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
 import {decorateCircusArena} from './circus-decor.js?v=46';
-import {createArenaClownArrival} from './arena-clown-arrival.js?v=166';
+import {createArenaClownArrival} from './arena-clown-arrival.js?v=168';
 import {createClownHorn} from './clown-horn.js?v=31';
 import {prepareArenaSurfaces} from './arena-surfaces.js?v=46';
 import {finishArenaFacade} from './arena-facade.js?v=37';
