@@ -37,9 +37,21 @@ export function installArenaOriginalHonk(root,gltf){
  if(!positions.length)throw Error('Arena HONK nose not found');
  const hit=new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(positions,3)),new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
  hit.name='Arena_original_HONK_RedClownNose';hit.userData.arenaOriginalHonkHit=true;hit.userData.arenaOriginalHonk=true;
- group.add(source,hit);root.add(group);for(const mesh of old)mesh.removeFromParent();
+ group.add(source,hit);root.add(group);for(const mesh of old)mesh.removeFromParent();root.updateMatrixWorld(true);
+ // The old statue's sole was slightly inside the stone cornice. Ground the
+ // original upload by its actual feet, moving only the enclosing transform.
+ const supports=[],feet=[null,null],worldCenter=new THREE.Box3().setFromObject(source).getCenter(new THREE.Vector3()),right=new THREE.Vector3(1,0,0).transformDirection(group.matrixWorld),point=new THREE.Vector3(),offset=new THREE.Vector3();
+ root.traverse(o=>{if(o.isMesh&&!o.userData.arenaOriginalHonk)supports.push(o)});
+ source.traverse(o=>{if(!o.isMesh)return;const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++){point.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld);const side=offset.subVectors(point,worldCenter).dot(right)<0?0:1;if(!feet[side]||point.y<feet[side].y)feet[side]=point.clone()}});
+ const ray=new THREE.Raycaster(),normalMatrix=new THREE.Matrix3();let groundLift=0;
+ for(const foot of feet){
+  if(!foot)continue;ray.set(foot.clone().add(new THREE.Vector3(0,.1,0)),new THREE.Vector3(0,-1,0));ray.far=.35;
+  const support=ray.intersectObjects(supports,false).find(h=>h.face.normal.clone().applyNormalMatrix(normalMatrix.getNormalMatrix(h.object.matrixWorld)).y>.5);
+  if(support)groundLift=Math.max(groundLift,support.point.y-foot.y+.001);
+ }
+ if(groundLift>0){fit.premultiply(new THREE.Matrix4().makeTranslation(0,groundLift,0));group.matrix.copy(root.matrixWorld.clone().invert().multiply(fit));group.matrix.decompose(group.position,group.quaternion,group.scale)}
  const retainedGeometry=new Set(),retainedMaterial=new Set();root.traverse(o=>{if(o.geometry)retainedGeometry.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])if(m)retainedMaterial.add(m)});
  for(const geometry of new Set(old.map(o=>o.geometry)))if(!retainedGeometry.has(geometry))geometry.dispose();
  for(const material of new Set(old.flatMap(o=>Array.isArray(o.material)?o.material:[o.material])))if(!retainedMaterial.has(material))material.dispose();
- root.updateMatrixWorld(true);return {group,source,nose:hit,targetBounds:target};
+ root.updateMatrixWorld(true);return {group,source,nose:hit,targetBounds:target,groundLift};
 }

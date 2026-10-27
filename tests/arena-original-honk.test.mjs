@@ -8,9 +8,10 @@ const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.
 function moduleURL(url){if(modules.has(url.href))return modules.get(url.href);const source=readFileSync(url,'utf8').replace(/(^import\s[\s\S]*?\sfrom\s+)(['"])([^'"]+)\2/gm,(_,a,q,p)=>a+"'"+(p==='three'?threeURL:moduleURL(new URL(p,url)))+"'"),result='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(url.href,result);return result}
 const {GLTFLoader}=await import(moduleURL(new URL('../vendor/GLTFLoader.js',import.meta.url)));
 const {prepareArenaCircus}=await import(moduleURL(new URL('../arena-circus.js',import.meta.url)));
+const {loadArenaOriginalHonk}=await import(moduleURL(new URL('../arena-original-honk.js?v=172',import.meta.url)));
 const {prepareVisualQuality}=await import(moduleURL(new URL('../visual-quality.js',import.meta.url)));
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
-globalThis.self=globalThis;globalThis.createImageBitmap=async blob=>({width:2048,height:2048,sourceHash:hash(new Uint8Array(await blob.arrayBuffer())),close(){}});
+globalThis.self=globalThis;globalThis.createImageBitmap=async blob=>({width:2048,height:2048,sourceHash:hash(new Uint8Array(await blob.arrayBuffer())),closed:false,close(){this.closed=true}});
 const manifest=JSON.parse(readFileSync(new URL('../models/arena-original-honk-v171.json',import.meta.url))),packed=Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url)))),bytes=gunzipSync(packed),buffer=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
 const uploaded=await new GLTFLoader().parseAsync(buffer,''),sourceMesh=uploaded.scene.children[0],geometry=sourceMesh.geometry,material=sourceMesh.material;
 const raw=gunzipSync(readFileSync(new URL('../models/arena.0.bin',import.meta.url))),arena=await new GLTFLoader().parseAsync(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength),'');
@@ -30,7 +31,7 @@ test('only the main statue is replaced, with uniform scale, original proportions
  const result=circus.originalHonk,after=new THREE.Box3().setFromObject(result.group),worldScale=sourceMesh.getWorldScale(new THREE.Vector3());
  assert.equal(result.source,uploaded.scene);assert.equal(sourceMesh.geometry,geometry);assert.equal(sourceMesh.material,material);
  assert.ok(Math.abs(worldScale.x-worldScale.y)<1e-6&&Math.abs(worldScale.z-worldScale.y)<1e-6);
- assert.ok(Math.abs(after.min.y-before.min.y)<1e-5);assert.ok(Math.abs(after.max.y-before.max.y)<1e-5);
+ assert.ok(Math.abs(after.min.y-before.min.y-result.groundLift)<1e-5);assert.ok(Math.abs(after.max.y-before.max.y-result.groundLift)<1e-5);
  let old=0;arena.scene.traverse(o=>{if(o.isMesh&&/^Museum_HONK_/.test(o.name))old++});assert.equal(old,0);
  assert.equal(circus.arrival.state.clowns.length,10);assert.ok(!circus.arrival.group.getObjectByProperty('material',material),'arrival must retain its old models');
 });
@@ -39,4 +40,20 @@ test('quality preparation preserves the complete uploaded material and original 
  prepareVisualQuality(arena.scene);for(let i=0;i<maps.length;i++)for(const [key,value] of Object.entries(settings[i]))assert.equal(maps[i][key],value);
  const nose=circus.originalHonk.nose;assert.equal(nose.material.visible,false);assert.ok(circus.noses.some(n=>n.mesh===nose));
  const center=new THREE.Box3().setFromObject(nose).getCenter(new THREE.Vector3()),forward=new THREE.Vector3(0,0,1).transformDirection(nose.matrixWorld),ray=new THREE.Raycaster(center.clone().addScaledVector(forward,1),forward.clone().negate());assert.equal(ray.intersectObjects(circus.picker.targets)[0]?.object.userData.action,'honk');
+});
+
+test('both original soles clear the actual stone cornice and at least one touches it',()=>{
+ const floor=arena.scene.getObjectByName('HONK_balcony_circular_stone_cornice_2'),box=new THREE.Box3().setFromObject(sourceMesh),p=geometry.attributes.position,ray=new THREE.Raycaster(),point=new THREE.Vector3();let contact=Infinity,checked=0;
+ assert.ok(circus.originalHonk.groundLift>.01&&circus.originalHonk.groundLift<.02);
+ for(let i=0;i<p.count;i++){point.fromBufferAttribute(p,i).applyMatrix4(sourceMesh.matrixWorld);if(point.y>box.min.y+.025)continue;ray.set(point.clone().add(new THREE.Vector3(0,.1,0)),new THREE.Vector3(0,-1,0));ray.far=.3;const support=ray.intersectObject(floor)[0];assert.ok(support,'sole leaves its stone support');const gap=point.y-support.point.y;assert.ok(gap>=.0009,'sole enters stone');contact=Math.min(contact,gap);checked++}
+ assert.ok(checked>1000);assert.ok(contact<.0011);
+});
+test('returning to the arena reuses the downloaded bytes but opens fresh geometry and textures',async()=>{
+ const originalFetch=globalThis.fetch;let downloads=0;globalThis.fetch=async url=>{if(/^(?:blob:|data:)/.test(String(url)))return originalFetch(url);downloads++;return new Response(readFileSync(new URL('../'+String(url).replace(/^\.\//,''),import.meta.url)))};
+ try{
+  const first=await loadArenaOriginalHonk(),mesh=first.scene.children[0],maps=new Set([mesh.material.map,mesh.material.normalMap,mesh.material.roughnessMap]);assert.equal(downloads,25);
+  mesh.geometry.dispose();for(const map of maps){map.dispose();map.image.close()}mesh.material.dispose();
+  const second=await loadArenaOriginalHonk(),fresh=second.scene.children[0];assert.equal(downloads,25,'returning must not download another copy');assert.notEqual(first.scene,second.scene);assert.notEqual(mesh.geometry,fresh.geometry);
+  for(const key of ['map','normalMap','roughnessMap']){assert.notEqual(mesh.material[key].image,fresh.material[key].image);assert.equal(fresh.material[key].image.closed,false);assert.equal(fresh.material[key].image.sourceHash,mesh.material[key].image.sourceHash)}assert.equal(fresh.geometry.index.count/3,378840);
+ }finally{globalThis.fetch=originalFetch}
 });

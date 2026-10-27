@@ -1,4 +1,4 @@
-import {installArenaOriginalHonk} from './arena-original-honk.js?v=171';
+import {installArenaOriginalHonk} from './arena-original-honk.js?v=172';
 import * as THREE from 'three';
 import {prepareTrophy} from './trophy.js?v=8';
 import {decorateCircusArena} from './circus-decor.js?v=46';

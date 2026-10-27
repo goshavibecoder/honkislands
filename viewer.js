@@ -1,4 +1,4 @@
-import {loadArenaOriginalHonk} from './arena-original-honk.js?v=171';
+import {loadArenaOriginalHonk} from './arena-original-honk.js?v=172';
 import {prepareHonkNews} from './honk-news.js?v=170';
 import {mountMafiaEncounter} from './mafia-encounter.js?v=145';
 import {mountDesktopControls} from './desktop-controls.js?v=157';
@@ -28,7 +28,7 @@ import {mountHelicopterFlight} from './helicopter-flight.js?v=149';
 import {createHelicopterCollision,createHelicopterExplosion} from './helicopter-world.js?v=147';
 import {createMountainNavigation,createMountainCollision,MountainWalkPhysics} from './mountain-walk.js?v=96';
 import {createWorldTargets} from './world-links.js?v=99';
-import {prepareArenaCircus} from './arena-circus.js?v=171';
+import {prepareArenaCircus} from './arena-circus.js?v=172';
 import {attachTapGesture} from './tap-gesture.js?v=145';
 import { createTouchStick } from './touch-stick.js?v=6';
 import { WalkMotion } from './walk-motion.js?v=33';
