@@ -1,4 +1,4 @@
-import {createOriginalHonkActor} from './original-honk-actors.js?v=176';
+import {createOriginalHonkActor} from './original-honk-actors.js?v=177';
 import * as THREE from 'three';
 import {mergeGeometries} from './vendor/BufferGeometryUtils.js';
 

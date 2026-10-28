@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,KART_PROFILES,kartSteeringAngle} from './island-transport-motion.js?v=153';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {createHonkKartDriver} from './kart-driver.js?v=176';
+import {createHonkKartDriver} from './kart-driver.js?v=177';
 
 export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  if(!['goat-mountain','arcade-district'].includes(slug))return null;
@@ -118,11 +118,11 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
    function loft(name,slices,material){
     const positions=[],quad=(a,b,c,d)=>positions.push(...a,...c,...b,...a,...d,...c);
     const rings=slices.map(([z,w,bottom,top])=>[[-w,bottom,z],[w,bottom,z],[w,top-.055,z],[w*.72,top,z],[-w*.72,top,z],[-w,top-.055,z]]);
-    for(let i=1;i<rings.length;i++)for(let j=0;j<6;j++)quad(rings[i-1][j],rings[i][j],rings[i][(j+1)%6],rings[i-1][(j+1)%6]);
+    for(let i=1;i<rings.length;i++)for(let j=0;j<6;j++){if(driverHead?.original&&name==='Speed_sculpted_chassis'&&j===3&&slices[i-1][0]>=-.62&&slices[i][0]<=.34)continue;quad(rings[i-1][j],rings[i][j],rings[i][(j+1)%6],rings[i-1][(j+1)%6])};
     for(const [ring,reverse] of [[rings[0],true],[rings[rings.length-1],false]])for(let j=1;j<ring.length-1;j++){const tri=[ring[0],ring[j],ring[j+1]];if(reverse)tri.reverse();positions.push(...tri.flat())}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.computeVertexNormals();return mesh(g,material,vehicle,0,0,0,name);
    }
-   loft('Speed_sculpted_chassis',[[-.88,.42,.20,.48],[-.62,.50,.18,.52],[.25,.49,.18,.48],[.72,.48,.20,.43],[1.02,.39,.23,.33]],paint);
+   loft('Speed_sculpted_chassis',[[-.88,.42,.20,.48],[-.62,.50,.18,.52],[.25,.49,.18,.48],[.34,.488,.184,.4704],[.72,.48,.20,.43],[1.02,.39,.23,.33]],paint);
    loft('Speed_long_bonnet',[[.34,.33,.43,.57],[.68,.36,.39,.50],[.99,.29,.30,.39]],paint);
    // Raised side shoulders leave the driver's seat and arms clear.
    for(const side of [-1,1]){
@@ -155,11 +155,18 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
    for(const side of [-1,1])for(const y of [.41,.47,.53])box(.012,.015,.075,m.white,vehicle,side*.542,y,.10);
    for(const side of [-1,1])box(.012,.13,.014,m.white,vehicle,side*.542,.47,.138);
   }else{
-   rounded(1.0,.28,1.72,.13,m.blue,vehicle,0,.32,0);rounded(.89,.25,.62,.12,m.red,vehicle,0,.50,.58);
+   if(driverHead?.original){
+    // Retain the rounded outer body while leaving a real footwell between
+    // the side sills. The old solid slab passed straight through both legs.
+    const shape=new THREE.Shape();shape.moveTo(-.37,.18);shape.lineTo(.37,.18);shape.quadraticCurveTo(.50,.18,.50,.31);shape.lineTo(.50,.33);shape.quadraticCurveTo(.50,.46,.37,.46);shape.lineTo(.34,.46);shape.lineTo(.34,.29);shape.lineTo(-.34,.29);shape.lineTo(-.34,.46);shape.lineTo(-.37,.46);shape.quadraticCurveTo(-.50,.46,-.50,.33);shape.lineTo(-.50,.31);shape.quadraticCurveTo(-.50,.18,-.37,.18);shape.closePath();
+    const hull=new THREE.ExtrudeGeometry(shape,{depth:1.72,bevelEnabled:true,bevelSize:.035,bevelThickness:.035,bevelSegments:3,curveSegments:6});hull.translate(0,0,-.86);mesh(hull,m.blue,vehicle,0,0,0,'Classic_open_cockpit_hull');
+   }else rounded(1.0,.28,1.72,.13,m.blue,vehicle,0,.32,0);
+   rounded(.89,.25,.62,.12,m.red,vehicle,0,.50,.58);
   }
   for(const z of [-.85,.85])rod([-.5,.24,z],[.5,.24,z],.07,m.cream,vehicle);
-  rounded(.62,.15,.57,.06,m.dark,vehicle,0,.50,-.22);const seat=rounded(.63,.50,.14,.08,m.red,vehicle,0,.78,-.50);seat.rotation.x=-.15;
-  rod([0,.50,.35],[0,.83,.18],.025,m.gold,vehicle);const wheel=mesh(new THREE.TorusGeometry(.16,.022,8,24),m.dark,vehicle,0,.84,.17,'Kart_steering_wheel');wheel.rotation.x=-.5;steering.push(wheel);
+  if(driverHead?.original){box(.60,.11,.85,m.dark,vehicle,0,.335,-.10,'Kart_footwell_floor');box(.48,.13,.40,m.dark,vehicle,0,.3625,-.22,'Kart_seat_mount')}
+  const cushion=rounded(.62,.15,.57,.06,m.dark,vehicle,0,.50,-.22);cushion.name='Kart_seat_cushion';const seat=rounded(.63,.50,.14,.08,m.red,vehicle,0,.78,-.50);seat.rotation.x=-.15;seat.name='Kart_seat_back';
+  const wheelZ=driverHead?.original ? .25 : .17;rod([0,.50,.35],[0,.83,wheelZ+.01],.025,m.gold,vehicle);const wheel=mesh(new THREE.TorusGeometry(.16,.022,8,24),m.dark,vehicle,0,.84,wheelZ,'Kart_steering_wheel');wheel.rotation.x=-.5;steering.push(wheel);
   for(const x of [-.54,.54])for(const z of [-.57,.57]){const pivot=new THREE.Group();pivot.name=`Kart_${z>0?'front':'rear'}_${x<0?'right':'left'}_wheel`;pivot.position.set(x,.235,z);vehicle.add(pivot);const tire=mesh(new THREE.CylinderGeometry(.235,.235,.16,20),m.rubber,pivot);tire.rotation.z=Math.PI/2;const hub=mesh(new THREE.CylinderGeometry(.12,.12,.17,16),m.gold,pivot);hub.rotation.z=Math.PI/2;wheels.push({pivot,tire,hub,front:z>0})}
   if(!fast){for(const x of [-.27,.27]){sphere(x,.50,.91,.105,.08,.03,m.cream,vehicle);sphere(x,.52,.94,.04,.04,.012,m.dark,vehicle)}sphere(0,.43,1.00,.13,.13,.12,m.red,vehicle);
   for(let i=0;i<5;i++)sphere(-.36+i*.18,.66,.71,.066,.045,.04,[m.red,m.gold,m.green,m.blue,m.pink][i],vehicle);
