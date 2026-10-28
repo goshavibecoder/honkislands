@@ -1,5 +1,5 @@
-import {installDriverVolumeSkin} from './driver-volume-skin.js?v=179';
-import {loadDriverArmWeights} from './original-honk-driver-weights.js?v=179';
+import {installDriverVolumeSkin} from './driver-volume-skin.js?v=180';
+import {loadDriverArmWeights} from './original-honk-driver-weights.js?v=180';
 import * as THREE from 'three';
 
 const rigs=new WeakMap();
@@ -13,6 +13,9 @@ function rigGeometry(template,variant='default'){
  const variants=rigs.get(source.geometry)||new Map();rigs.set(source.geometry,variants);if(variants.has(variant))return variants.get(variant);
  const geometry=source.geometry.clone();geometry.computeBoundingBox();const box=geometry.boundingBox,center=box.getCenter(new THREE.Vector3()),span=box.max.y-box.min.y;
  geometry.translate(-center.x,-box.min.y,-center.z);geometry.scale(1/span,1/span,1/span);
+ // Curl the existing fingertips around the rim; keep the source palms,
+ // triangles and UVs and leave standing characters untouched.
+ if(driver){const position=geometry.attributes.position,normal=geometry.attributes.normal;for(let i=0;i<position.count;i++){const x=position.getX(i),y=position.getY(i);if(Math.abs(x)<.205||y>=.31)continue;const angle=(.31-y)/.028,c=Math.cos(angle),s=Math.sin(angle),z=position.getZ(i)+.01;position.setXYZ(i,x,.31-.028*s+z*s,-.01+.028*(1-c)+z*c);if(normal){const ny=normal.getY(i),nz=normal.getZ(i);normal.setXYZ(i,normal.getX(i),ny*c+nz*s,-ny*s+nz*c)}}}
  const p=geometry.attributes.position,indices=[],weights=[],ids=Object.fromEntries(definitions.map((d,i)=>[d[0],i]));
  // Follow the connected sleeve surface instead of assigning nearby belly
  // vertices to an arm; preserve the entire palm as a rigid hand.
@@ -54,7 +57,11 @@ export function createOriginalHonkActor(template,{height=1,name='Original_HONK_a
   const upperQ=upper.getWorldQuaternion(new THREE.Quaternion()).premultiply(meshQ.clone().invert());lower.quaternion.setFromUnitVectors(rest[c].clone().sub(rest[b]).normalize(),target.clone().sub(joint).normalize()).premultiply(upperQ.invert());end.position.copy(rest[c]).sub(rest[b]).multiplyScalar(stretch);mesh.updateMatrixWorld(true);end.quaternion.copy(lower.getWorldQuaternion(new THREE.Quaternion()).premultiply(meshQ.clone().invert()).invert());
  }
  function leg(side,target){reach('hip'+side,'knee'+side,'ankle'+side,target,new THREE.Vector3(0,0,1))}
- function arm(side,target,pole=new THREE.Vector3(side,0,.4)){reach('shoulder'+side,'elbow'+side,'hand'+side,target.clone().sub(rig.grips[side].offset),pole)}
+ function arm(side,target,pole=new THREE.Vector3(side,0,.4),orientation=null){
+  const offset=rig.grips[side].offset.clone();if(orientation)offset.applyQuaternion(orientation);
+  reach('shoulder'+side,'elbow'+side,'hand'+side,target.clone().sub(offset),pole);
+  if(orientation){bones['hand'+side].quaternion.multiply(orientation);mesh.updateMatrixWorld(true)}
+ }
  function hand(side){mesh.updateWorldMatrix(true,true);const point=mesh.getVertexPosition(rig.grips[side].index,new THREE.Vector3());return point.applyMatrix4(mesh.matrixWorld)}
  function walk(time,phase=0){reset();for(const side of [-1,1]){const t=time*7+phase+(side>0?Math.PI:0),lift=Math.max(0,Math.sin(t))*.045;leg(side,new THREE.Vector3(side*.10,.045+lift,.035+Math.cos(t)*.055));bones['shoulder'+side].rotation.x=-Math.cos(t)*.13}mesh.updateMatrixWorld(true)}
  return {group,mesh,bones,head:bones.head,height,rest,seatRestMin:rig.seatRestMin,reset,leg,arm,hand,walk,dispose(){mesh.skeleton.dispose()}};
@@ -76,7 +83,9 @@ export function createOriginalKartDriver(vehicle,template){
    // Protract the shoulders as the wheel turns so the short arms can
    // reach both grips at full lock without lengthening their bones.
    actor.bones['shoulder'+side].position.z+=.10+.065*Math.abs(value);
-   const grip=new THREE.Vector3(side*.14,0,0).applyEuler(wheel?wheel.rotation:new THREE.Euler(-.5,0,value*.65)).add(fit.steeringCenter).sub(actor.group.position).divideScalar(actor.height);actor.arm(side,grip,new THREE.Vector3(side*.9,-1,.1));
+   actor.bones['shoulder'+side].position.y-=.03*Math.abs(value);
+   const wheelRotation=wheel?wheel.rotation:new THREE.Euler(-.5,0,value*.65),orientation=new THREE.Quaternion().setFromEuler(wheelRotation).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),-side*Math.PI/2));
+   const grip=new THREE.Vector3(side*.14,0,0).applyEuler(wheelRotation).add(fit.steeringCenter).sub(actor.group.position).divideScalar(actor.height);actor.arm(side,grip,new THREE.Vector3(side*.9,-1,.1),orientation);
   }
   actor.head.scale.setScalar(insideView?.0001:1);volumeSkin.update();
  }

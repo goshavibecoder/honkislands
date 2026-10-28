@@ -1,6 +1,6 @@
-import {createOriginalHonkActor} from './original-honk-actors.js?v=179';
+import {createOriginalHonkActor} from './original-honk-actors.js?v=180';
 import * as THREE from 'three';
-import {createHonkKartDriver} from './kart-driver.js?v=179';
+import {createHonkKartDriver} from './kart-driver.js?v=180';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 
 function createLegacySkiHonk(parent,headData){

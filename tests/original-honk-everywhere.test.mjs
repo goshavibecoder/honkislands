@@ -6,7 +6,7 @@ import * as THREE from '../vendor/three.module.min.js';
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
 function moduleURL(url){if(modules.has(url.href))return modules.get(url.href);const source=readFileSync(url,'utf8').replace(/(^import\s[\s\S]*?\sfrom\s+)(['"])([^'"]+)\2/gm,(_,a,q,p)=>a+"'"+(p==='three'?threeURL:moduleURL(new URL(p,url)))+"'"),result='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(url.href,result);return result}
 const {GLTFLoader}=await import(moduleURL(new URL('../vendor/GLTFLoader.js',import.meta.url)));
-const {createOriginalHonkActor,createOriginalKartDriver}=await import(moduleURL(new URL('../original-honk-actors.js?v=179',import.meta.url)));
+const {createOriginalHonkActor,createOriginalKartDriver}=await import(moduleURL(new URL('../original-honk-actors.js?v=180',import.meta.url)));
 const {createSkiHonk}=await import(moduleURL(new URL('../ski-honk.js',import.meta.url)));
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:2048,height:2048,close(){}});
 const manifest=JSON.parse(readFileSync(new URL('../models/arena-original-honk-v171.json',import.meta.url))),bytes=gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url))))),template=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length),''),source=template.scene.children[0];
@@ -60,6 +60,7 @@ test('both production karts support the complete driver at the seat and floor th
    for(const side of [-1,1]){
     const grip=new THREE.Vector3(side*.14,0,0).applyEuler(wheel.rotation).add(driver.fit.steeringCenter);world.vehicle.localToWorld(grip);
     assert.ok(driver.hand(side).distanceTo(grip)<1e-5,'the actual palm surface must remain on the turning rim');
+    const expected=new THREE.Quaternion().setFromEuler(wheel.rotation).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),-side*Math.PI/2)),actual=driver.mesh.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(driver.bones['hand'+side].getWorldQuaternion(new THREE.Quaternion()));assert.ok(actual.angleTo(expected)<1e-6,'the fingers must face inward and turn with the rim');
     const shoulder=joint('shoulder'+side),elbow=joint('elbow'+side),wrist=joint('hand'+side),hip=joint('hip'+side),knee=joint('knee'+side),ankle=joint('ankle'+side);
     assert.ok(elbow.y<shoulder.y-.035,'elbows must bend down rather than point beside the face');
     assert.ok(knee.z>hip.z+.08&&ankle.y<knee.y-.06,'thighs must extend forward with calves dropping to the floor');
