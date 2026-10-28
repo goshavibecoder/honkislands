@@ -1,4 +1,5 @@
-import {loadDriverArmWeights} from './original-honk-driver-weights.js?v=178';
+import {installDriverVolumeSkin} from './driver-volume-skin.js?v=179';
+import {loadDriverArmWeights} from './original-honk-driver-weights.js?v=179';
 import * as THREE from 'three';
 
 const rigs=new WeakMap();
@@ -63,6 +64,7 @@ export function createOriginalKartDriver(vehicle,template){
  const actor=createOriginalHonkActor(template,{height:1.3,name:'Honk_player_driver',variant:'driver'}),cushion=vehicle.getObjectByName('Kart_seat_cushion'),floor=vehicle.getObjectByName('Kart_footwell_floor'),wheel=vehicle.getObjectByName('Kart_steering_wheel');
  const localBox=mesh=>{mesh.updateMatrix();mesh.geometry.computeBoundingBox();return mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix)},seatBounds=cushion?localBox(cushion):new THREE.Box3(new THREE.Vector3(-.31,.425,-.505),new THREE.Vector3(.31,.61,.065)),floorY=floor?localBox(floor).max.y:.39;
  actor.group.visible=false;actor.group.position.set(0,seatBounds.max.y+.006-actor.seatRestMin*actor.height,-.105);vehicle.add(actor.group);
+ const volumeSkin=installDriverVolumeSkin(actor.mesh);
  const fit={seatBounds,floorY,feet:[],steeringCenter:wheel?wheel.position.clone():new THREE.Vector3(0,.84,.17)};
  let insideView=false;
  function steer(value){
@@ -76,7 +78,7 @@ export function createOriginalKartDriver(vehicle,template){
    actor.bones['shoulder'+side].position.z+=.10+.065*Math.abs(value);
    const grip=new THREE.Vector3(side*.14,0,0).applyEuler(wheel?wheel.rotation:new THREE.Euler(-.5,0,value*.65)).add(fit.steeringCenter).sub(actor.group.position).divideScalar(actor.height);actor.arm(side,grip,new THREE.Vector3(side*.9,-1,.1));
   }
-  actor.head.scale.setScalar(insideView?.0001:1);
+  actor.head.scale.setScalar(insideView?.0001:1);volumeSkin.update();
  }
  steer(0);return {...actor,fit,torso:actor.bones.spine,suit:actor.mesh,arms:[],steer,setSeated(value,inside=false){actor.group.visible=value;insideView=inside;actor.head.visible=!inside;actor.head.scale.setScalar(inside?.0001:1)}};
 }

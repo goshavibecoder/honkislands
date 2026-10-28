@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,KART_PROFILES,kartSteeringAngle} from './island-transport-motion.js?v=153';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {createHonkKartDriver} from './kart-driver.js?v=178';
+import {createHonkKartDriver} from './kart-driver.js?v=179';
 
 export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  if(!['goat-mountain','arcade-district'].includes(slug))return null;

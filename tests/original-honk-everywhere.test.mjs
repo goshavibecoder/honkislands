@@ -6,7 +6,7 @@ import * as THREE from '../vendor/three.module.min.js';
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
 function moduleURL(url){if(modules.has(url.href))return modules.get(url.href);const source=readFileSync(url,'utf8').replace(/(^import\s[\s\S]*?\sfrom\s+)(['"])([^'"]+)\2/gm,(_,a,q,p)=>a+"'"+(p==='three'?threeURL:moduleURL(new URL(p,url)))+"'"),result='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(url.href,result);return result}
 const {GLTFLoader}=await import(moduleURL(new URL('../vendor/GLTFLoader.js',import.meta.url)));
-const {createOriginalHonkActor,createOriginalKartDriver}=await import(moduleURL(new URL('../original-honk-actors.js?v=178',import.meta.url)));
+const {createOriginalHonkActor,createOriginalKartDriver}=await import(moduleURL(new URL('../original-honk-actors.js?v=179',import.meta.url)));
 const {createSkiHonk}=await import(moduleURL(new URL('../ski-honk.js',import.meta.url)));
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:2048,height:2048,close(){}});
 const manifest=JSON.parse(readFileSync(new URL('../models/arena-original-honk-v171.json',import.meta.url))),bytes=gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url))))),template=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length),''),source=template.scene.children[0];
@@ -96,4 +96,13 @@ test('driver palms preserve their full shape and legs clear the cushion in both 
   }
   driver.dispose();
  }
+});
+
+test('driver sleeve cross sections retain volume when adjacent joints rotate in opposite directions',async()=>{
+ const {installDriverVolumeSkin}=await import(moduleURL(new URL('../driver-volume-skin.js',import.meta.url))),g=new THREE.BufferGeometry();
+ g.setAttribute('position',new THREE.Float32BufferAttribute([1,0,0,1,0,0],3));g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute([0,1,0,0,2,2,2,2],4));g.setAttribute('skinWeight',new THREE.Float32BufferAttribute([.5,.5,0,0,1,0,0,0],4));
+ const mesh=new THREE.SkinnedMesh(g,new THREE.MeshStandardMaterial()),bones=['shoulder','elbow','root'].map(name=>{const bone=new THREE.Bone();bone.name='Uploaded_HONK_'+name;mesh.add(bone);return bone});mesh.updateMatrixWorld(true);mesh.bind(new THREE.Skeleton(bones));
+ const volume=installDriverVolumeSkin(mesh);bones[0].rotation.z=1.2;bones[1].rotation.z=-1.2;volume.update();
+ const point=mesh.getVertexPosition(0,new THREE.Vector3());assert.ok(Math.abs(point.length()-1)<1e-6,'the sleeve collapses under joint blending');assert.ok(mesh.getVertexPosition(1,new THREE.Vector3()).distanceTo(new THREE.Vector3(1,0,0))<1e-6,'the torso must keep its ordinary skinning');
+ mesh.skeleton.dispose();g.dispose();mesh.material.dispose();
 });

@@ -1,4 +1,4 @@
-import {createOriginalHonkActor} from './original-honk-actors.js?v=178';
+import {createOriginalHonkActor} from './original-honk-actors.js?v=179';
 import * as THREE from 'three';
 import {batchRideMeshes} from './ride-performance.js?v=59';
 import {createAssetCache,fetchGzipJSON} from './asset-loader.js?v=116';
