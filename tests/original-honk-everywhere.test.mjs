@@ -6,7 +6,7 @@ import * as THREE from '../vendor/three.module.min.js';
 const modules=new Map(),threeURL=new URL('../vendor/three.module.min.js',import.meta.url).href;
 function moduleURL(url){if(modules.has(url.href))return modules.get(url.href);const source=readFileSync(url,'utf8').replace(/(^import\s[\s\S]*?\sfrom\s+)(['"])([^'"]+)\2/gm,(_,a,q,p)=>a+"'"+(p==='three'?threeURL:moduleURL(new URL(p,url)))+"'"),result='data:text/javascript;base64,'+Buffer.from(source).toString('base64');modules.set(url.href,result);return result}
 const {GLTFLoader}=await import(moduleURL(new URL('../vendor/GLTFLoader.js',import.meta.url)));
-const {createOriginalHonkActor,createOriginalKartDriver}=await import(moduleURL(new URL('../original-honk-actors.js?v=177',import.meta.url)));
+const {createOriginalHonkActor,createOriginalKartDriver}=await import(moduleURL(new URL('../original-honk-actors.js?v=178',import.meta.url)));
 const {createSkiHonk}=await import(moduleURL(new URL('../ski-honk.js',import.meta.url)));
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:2048,height:2048,close(){}});
 const manifest=JSON.parse(readFileSync(new URL('../models/arena-original-honk-v171.json',import.meta.url))),bytes=gunzipSync(Buffer.concat(manifest.parts.map(p=>readFileSync(new URL('../models/'+p,import.meta.url))))),template=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length),''),source=template.scene.children[0];
@@ -78,4 +78,22 @@ test('both production karts support the complete driver at the seat and floor th
   }
  }
  standing.dispose();for(const car of world.cars)car.driver.dispose();
+});
+
+test('driver palms preserve their full shape and legs clear the cushion in both karts',async()=>{
+ const {prepareIslandTransport}=await import(moduleURL(new URL('../island-transport-world.js',import.meta.url))),world=prepareIslandTransport(new THREE.Group(),'arcade-district',{driverHead:{original:template}}),a=new THREE.Vector3(),b=new THREE.Vector3(),pa=new THREE.Vector3(),pb=new THREE.Vector3();
+ for(const [carIndex,car] of world.cars.entries()){
+  world.selectCar(carIndex);const driver=world.driver,g=driver.mesh.geometry,p=g.attributes.position,ids=g.index,cushion=driver.fit.seatBounds.clone().expandByScalar(-.001),handEdges=[],legVertices=[];
+  for(let i=0;i<p.count;i++)if(p.getY(i)<.31&&Math.abs(p.getX(i))<.16)legVertices.push(i);
+  const palm=i=>p.getY(i)<.34&&p.getY(i)>.26&&Math.abs(p.getX(i))>.205;
+  for(let i=0;i<ids.count;i+=3){const x=ids.getX(i),y=ids.getX(i+1);if(palm(x)&&palm(y)){a.fromBufferAttribute(p,x);b.fromBufferAttribute(p,y);const length=a.distanceTo(b);if(length>1e-5)handEdges.push([x,y,length])}}
+  assert.ok(handEdges.length>1000&&legVertices.length>1000);
+  for(const turn of [-1,-.5,0,.5,1]){
+   driver.setSeated(true);world.setPose({x:3,y:2,z:-4},.8,0,turn,12);world.group.updateMatrixWorld(true);
+   const toCar=driver.mesh.matrixWorld.clone().premultiply(car.vehicle.matrixWorld.clone().invert());
+   for(const index of legVertices){driver.mesh.getVertexPosition(index,pa).applyMatrix4(toCar);assert.ok(!cushion.containsPoint(pa),`leg vertex ${index} enters the cushion at steering ${turn}`)}
+   for(const [x,y,length] of handEdges){driver.mesh.getVertexPosition(x,pa);driver.mesh.getVertexPosition(y,pb);assert.ok(Math.abs(pa.distanceTo(pb)/length-1)<.003,'a palm triangle stretches into a spike')}
+  }
+  driver.dispose();
+ }
 });

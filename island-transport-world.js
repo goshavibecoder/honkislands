@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {CABLE_STATIONS,cablePosition,KART_TRACK,KART_RAILS,KART_PROFILES,kartSteeringAngle} from './island-transport-motion.js?v=153';
 import {batchRideMeshes} from './ride-performance.js?v=59';
-import {createHonkKartDriver} from './kart-driver.js?v=177';
+import {createHonkKartDriver} from './kart-driver.js?v=178';
 
 export function prepareIslandTransport(root,slug,{driverHead=null}={}){
  if(!['goat-mountain','arcade-district'].includes(slug))return null;
@@ -165,8 +165,8 @@ export function prepareIslandTransport(root,slug,{driverHead=null}={}){
   }
   for(const z of [-.85,.85])rod([-.5,.24,z],[.5,.24,z],.07,m.cream,vehicle);
   if(driverHead?.original){box(.60,.11,.85,m.dark,vehicle,0,.335,-.10,'Kart_footwell_floor');box(.48,.13,.40,m.dark,vehicle,0,.3625,-.22,'Kart_seat_mount')}
-  const cushion=rounded(.62,.15,.57,.06,m.dark,vehicle,0,.50,-.22);cushion.name='Kart_seat_cushion';const seat=rounded(.63,.50,.14,.08,m.red,vehicle,0,.78,-.50);seat.rotation.x=-.15;seat.name='Kart_seat_back';
-  const wheelZ=driverHead?.original ? .25 : .17;rod([0,.50,.35],[0,.83,wheelZ+.01],.025,m.gold,vehicle);const wheel=mesh(new THREE.TorusGeometry(.16,.022,8,24),m.dark,vehicle,0,.84,wheelZ,'Kart_steering_wheel');wheel.rotation.x=-.5;steering.push(wheel);
+  const cushion=rounded(.62,.15,driverHead?.original ? .40 : .57,.06,m.dark,vehicle,0,.50,driverHead?.original ? -.305 : -.22);cushion.name='Kart_seat_cushion';const seat=rounded(.63,.50,.14,.08,m.red,vehicle,0,.78,-.50);seat.rotation.x=-.15;seat.name='Kart_seat_back';
+  const wheelZ=.17;rod([0,.50,.35],[0,.83,wheelZ+.01],.025,m.gold,vehicle);const wheel=mesh(new THREE.TorusGeometry(.16,.022,8,24),m.dark,vehicle,0,.84,wheelZ,'Kart_steering_wheel');wheel.rotation.x=-.5;steering.push(wheel);
   for(const x of [-.54,.54])for(const z of [-.57,.57]){const pivot=new THREE.Group();pivot.name=`Kart_${z>0?'front':'rear'}_${x<0?'right':'left'}_wheel`;pivot.position.set(x,.235,z);vehicle.add(pivot);const tire=mesh(new THREE.CylinderGeometry(.235,.235,.16,20),m.rubber,pivot);tire.rotation.z=Math.PI/2;const hub=mesh(new THREE.CylinderGeometry(.12,.12,.17,16),m.gold,pivot);hub.rotation.z=Math.PI/2;wheels.push({pivot,tire,hub,front:z>0})}
   if(!fast){for(const x of [-.27,.27]){sphere(x,.50,.91,.105,.08,.03,m.cream,vehicle);sphere(x,.52,.94,.04,.04,.012,m.dark,vehicle)}sphere(0,.43,1.00,.13,.13,.12,m.red,vehicle);
   for(let i=0;i<5;i++)sphere(-.36+i*.18,.66,.71,.066,.045,.04,[m.red,m.gold,m.green,m.blue,m.pink][i],vehicle);
